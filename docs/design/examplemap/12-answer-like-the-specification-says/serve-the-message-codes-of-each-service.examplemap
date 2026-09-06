@@ -1,0 +1,85 @@
+// Example map for the story "Serve the message codes of each service" (activity
+// "Answer like the specification says", step "Errors and response codes").
+// Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the message codes of each service" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Serve the message codes of each service" ~analysing @Conformance +bank-xs2a +"spec 14.11" {
+    as "TPP operator"
+    want "every refusal to carry the code the specification defines for that service"
+    so "my error handling is written once against the standard, not against this bank"
+    question "Should the sandbox offer a way to provoke each error code on demand, so a client can test its handling?" +"ask sandbox"
+  }
+
+  rule "A refusal carries a code from the catalogue of the service that refused it" +"spec 14.11" {
+    example "The account endpoints use the AIS codes" @Conformance +nominal {
+      given "the account, balance and transaction endpoints"
+      when "their refusals are collected"
+      then "every code is one of CONSENT_INVALID, CONSENT_EXPIRED, CONSENT_UNKNOWN, ACCESS_EXCEEDED, RESOURCE_UNKNOWN, PERIOD_INVALID or a general code"
+    }
+    example "The payment endpoints use the PIS codes" @Conformance +nominal {
+      given "the payment endpoints"
+      when "their refusals are collected"
+      then "every code is one of PRODUCT_UNKNOWN, PAYMENT_FAILED, CANCELLATION_INVALID, EXECUTION_DATE_INVALID, RESOURCE_UNKNOWN or a general code"
+    }
+    example "The general codes appear everywhere" @Conformance +nominal {
+      given "any endpoint"
+      when "the certificate, the token or the syntax is wrong"
+      then "the code is one of CERTIFICATE_INVALID, CERTIFICATE_EXPIRED, CERTIFICATE_REVOKED, CERTIFICATE_MISSING, CERTIFICATE_BLOCKED, ROLE_INVALID, TOKEN_INVALID, TOKEN_EXPIRED, FORMAT_ERROR, SERVICE_INVALID or SERVICE_BLOCKED"
+    }
+    example "A code from another service is never used" @Conformance +error {
+      given "an account endpoint refusing a call"
+      when "the code is read"
+      then "it is never PRODUCT_UNKNOWN or CANCELLATION_INVALID"
+    }
+    example "No bank-specific code is invented" @Conformance +nominal {
+      given "every refusal the sandbox can produce"
+      when "the codes are compared with the catalogue"
+      then "each one is in it"
+    }
+  }
+
+  rule "The error body has the shape the specification prescribes" +"spec 4.13" {
+    example "One message with category, code and text" @Conformance +nominal {
+      given "a refusal for an expired consent"
+      when "the body is read"
+      then "it is {tppMessages: [{category: ERROR, code: CONSENT_EXPIRED, text: …}]}"
+    }
+    example "A syntax error names the faulty field" @Conformance +nominal {
+      given "a body with a bad validUntil"
+      when "the refusal is read"
+      then "the message carries path 'validUntil'"
+    }
+    example "Several faults produce several messages" @Conformance +edge {
+      given "two faulty fields"
+      when "the refusal is read"
+      then "tppMessages holds two entries"
+    }
+    example "A warning does not turn a success into a failure" @Conformance +edge {
+      given "a call that succeeds with a remark"
+      when "the answer is read"
+      then "the status is 200 and tppMessages carries a WARNING entry"
+    }
+    example "The text is human-readable and carries no internals" @Conformance +nominal {
+      given "any error text"
+      when "it is read"
+      then "it explains the refusal without a stack trace, a table name or an internal id"
+    }
+  }
+
+  rule "The same fault always gets the same code, on every endpoint" {
+    example "An expired token on four endpoints" @Conformance +nominal {
+      given "an expired access token"
+      when "the account list, an account detail, the balances and a payment status are called"
+      then "each answers 401 TOKEN_EXPIRED"
+    }
+    example "A revoked certificate on an account and on a payment endpoint" @Conformance +nominal {
+      given "a revoked certificate"
+      when "both endpoints are called"
+      then "both answer 401 CERTIFICATE_REVOKED"
+    }
+  }
+}

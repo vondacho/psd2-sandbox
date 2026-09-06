@@ -1,0 +1,74 @@
+// Example map for the story "Serve one transaction's details" (activity "View
+// my accounts", step "See balances and transactions"). Increment 1.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve one transaction's details" {
+  product "berlin-psd2-sandbox"
+
+  delivery "AIS reads" release
+
+  story "Serve one transaction's details" ~ready @"AIS reads" +bank-xs2a +"spec 6.5.5" +"spec 14.26" {
+    as "PSU"
+    want "the details of a booking I picked, including the structured remittance"
+    so "I can tell what a line on my statement was"
+  }
+
+  rule "The endpoint returns one transaction with more detail than the list carries" +"spec 6.5.5" {
+    example "The Rent booking in full" @"AIS reads" +nominal {
+      given "consent 123cons456 grants transactions on Main Account and tx-3001 is the Rent booking"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/transactions/tx-3001"
+      then "the answer is 200 with transactionId tx-3001, bookingDate 2026-08-28, valueDate 2026-08-28, amount '-950.00' EUR, creditorName 'Landlord GmbH', creditorAccount DE12500105170648489890 and the structured remittance"
+    }
+    example "The entry details of a collective booking" @"AIS reads" +edge {
+      given "tx-3002 is a collective booking of three salary payments"
+      when "its details are read"
+      then "the answer carries entryDetails with the three underlying transactions"
+    }
+    example "A transaction with an exchange rate" @"AIS reads" +edge {
+      given "tx-3003 was booked in EUR from a USD amount"
+      when "its details are read"
+      then "the answer carries the report exchange rate used"
+    }
+    example "The detail view and the list agree" @"AIS reads" +nominal {
+      given "tx-3001 in the August report"
+      when "both are read"
+      then "amount, dates and counterpart are identical in the two answers"
+    }
+  }
+
+  rule "A transaction is served only through the account and consent it belongs to" +security {
+    example "A transaction of another account is refused" @"AIS reads" +error {
+      given "tx-4001 belongs to Savings"
+      when "it is read under the Main Account resourceId"
+      then "the answer is 404 RESOURCE_UNKNOWN"
+    }
+    example "An unknown transaction id is refused" @"AIS reads" +error {
+      given "no transaction tx-9999"
+      when "it is read"
+      then "the answer is 404 RESOURCE_UNKNOWN"
+    }
+    example "A consent without transactions is refused" @"AIS reads" +error {
+      given "consent 123cons456 grants accounts and balances only"
+      when "a transaction detail is read"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "The transaction id is opaque" @"AIS reads" +nominal {
+      given "any transaction id"
+      when "it is inspected"
+      then "it reveals no IBAN, no PAN and no core banking key"
+    }
+  }
+
+  rule "A detail read follows the same access rules as any other read" +"spec 6" {
+    example "A background read counts once" @"AIS reads" +nominal {
+      given "the counter for Main Account is 1 and no PSU-IP-Address"
+      when "the detail is read"
+      then "the counter is 2"
+    }
+    example "A booking older than ninety days needs the PSU" @"AIS reads" +error {
+      given "tx-2001 was booked 100 days ago and no PSU-IP-Address"
+      when "its details are read"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+  }
+}

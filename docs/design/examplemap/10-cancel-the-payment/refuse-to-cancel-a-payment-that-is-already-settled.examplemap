@@ -1,0 +1,65 @@
+// Example map for the story "Refuse to cancel a payment that is already
+// settled" (activity "Cancel the payment", step "Cancel without a new SCA").
+// Increment 5. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Refuse to cancel a payment that is already settled" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS cancellation" release
+
+  story "Refuse to cancel a payment that is already settled" ~ready @"PIS cancellation" +bank-xs2a +"spec 14.11" {
+    as "Bank security officer"
+    want "a cancellation of an executed payment refused with CANCELLATION_INVALID"
+    so "the ledger and the interface never disagree"
+  }
+
+  rule "A payment in a final status cannot be cancelled" +"spec 14.13" {
+    example "A settled payment" @"PIS cancellation" +error {
+      given "pay003 is ACSC"
+      when "the cancellation is called"
+      then "the answer is 405 CANCELLATION_INVALID and the status stays ACSC"
+    }
+    example "A rejected payment" @"PIS cancellation" +error {
+      given "pay001 is RJCT"
+      when "the cancellation is called"
+      then "the answer is 405 CANCELLATION_INVALID"
+    }
+    example "An already cancelled payment answers as cancelled, not as an error" @"PIS cancellation" +edge {
+      given "pay002 is CANC"
+      when "the cancellation is called"
+      then "the answer is 204"
+    }
+    example "The ledger is untouched by a refused cancellation" @"PIS cancellation" +nominal {
+      given "pay003 was booked with a debit of 12.50 EUR"
+      when "a cancellation is refused"
+      then "no reversal booking exists"
+    }
+  }
+
+  rule "The race between execution and cancellation resolves once, and the answer says which won" {
+    example "The cancellation arrives while the core is booking" @"PIS cancellation" +edge {
+      given "pay002 is ACTC and the execution job has taken it"
+      when "the cancellation arrives"
+      then "either the answer is 204 and the payment is CANC and never booked, or the answer is 405 and the payment is ACSC"
+      then "the payment is never both cancelled and booked"
+    }
+    example "Two cancellations at the same moment" @"PIS cancellation" +edge {
+      given "pay002 is ACTC"
+      when "two cancellations arrive within 50 ms"
+      then "the payment is cancelled once and both callers see a consistent answer"
+    }
+  }
+
+  rule "A refused cancellation explains itself and can be understood by the PSU" +"spec 4.13" {
+    example "The error body" @"PIS cancellation" +nominal {
+      given "the refusal for a settled payment"
+      when "the body is inspected"
+      then "it is {tppMessages: [{category: ERROR, code: CANCELLATION_INVALID, text: 'the payment was already executed'}]}"
+    }
+    example "The TPP can tell the PSU what to do next" @"PIS cancellation" +nominal {
+      given "the refusal"
+      when "the client renders it"
+      then "it says the payment already went through and offers to contact the payee or the Bank"
+    }
+  }
+}

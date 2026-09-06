@@ -69,4 +69,95 @@ context "Account information" {
       embeds    "Hyperlinks" one
     }
   }
+
+  // ---- transaction reporting (increment 1, sections 6.5.3 to 6.5.5) --------
+
+  enum "BookingStatus" {
+    "booked" "pending" "both"
+  }
+
+  value "ExchangeRate" {
+    attribute "sourceCurrency" : "CurrencyCode"
+    attribute "targetCurrency" : "CurrencyCode"
+    attribute "rate"           : "Decimal"
+    attribute "rateDate"       : "Date"
+  }
+
+  value "TransactionParty" {
+    attribute "name"     : "Max70Text"
+    attribute "iban"     : "IBAN"
+    attribute "currency" : "CurrencyCode"
+  }
+
+  aggregate "TransactionReport" {
+    intent "What the /transactions endpoints answer for one account under one
+            consent: the entries of a period or of a delta, in the shape the
+            XS2A interface defines, projected from the ledger and never the
+            ledger's own booking records."
+
+    invariant "A report is built only for an account the consent makes
+               accessible with the access type transactions."
+    invariant "A report reaches no further back than the history the access
+               rules allow without the PSU present."
+    invariant "An entry belongs to exactly one account resource."
+    invariant "A delta read continues from an entry reference of the same
+               account, or from the cursor of the same consent and account."
+    invariant "A report longer than one page carries a next link, and the pages
+               together hold every entry exactly once."
+
+    root entity "TransactionReport" {
+      id        "ReportId"
+      attribute "resourceId"     : "ResourceId"
+      attribute "consentId"      : "ConsentId"
+      attribute "dateFrom"       : "Date"
+      attribute "dateTo"         : "Date"
+      attribute "entryReferenceFrom" : "Max35Text"
+      attribute "deltaList"      : "Boolean"
+      attribute "builtAt"        : "Instant"
+      attribute "nextCursor"     : "Max140Text"
+      embeds    "BookingStatus" one
+      embeds    "Balance" many
+      contains  "TransactionEntry" many
+    }
+
+    entity "TransactionEntry" {
+      id        "TransactionId"
+      attribute "entryReference"  : "Max35Text"
+      attribute "bookingDate"     : "Date"
+      attribute "valueDate"       : "Date"
+      attribute "pending"         : "Boolean"
+      attribute "bankTransactionCode" : "Max35Text"
+      embeds    "Amount" one
+      embeds    "TransactionParty" optional
+      embeds    "ExchangeRate" optional
+      attribute "remittanceUnstructured" : "Max140Text"
+      contains  "EntryDetail" many
+    }
+
+    entity "EntryDetail" {
+      id        "EntryDetailId"
+      embeds    "Amount" one
+      embeds    "TransactionParty" optional
+      attribute "remittanceUnstructured" : "Max140Text"
+    }
+  }
+
+  // Where a delta read continues from, per consent and account.
+  aggregate "DeltaCursor" {
+    intent "The point a TPP's last delta read of one account reached, so the
+            next one returns what changed since."
+
+    invariant "A cursor belongs to one consent and one account resource."
+    invariant "A delta read without an earlier cursor is refused rather than
+               answered with the whole history."
+    invariant "A cursor moves forward only."
+
+    root entity "DeltaCursor" {
+      id        "DeltaCursorId"
+      attribute "consentId"      : "ConsentId"
+      attribute "resourceId"     : "ResourceId"
+      attribute "lastEntryReference" : "Max35Text"
+      attribute "readAt"         : "Instant"
+    }
+  }
 }

@@ -1,0 +1,81 @@
+// Example map for the story "Notify the TPP of payment status changes"
+// (activity "Answer like the specification says", step "Tell the TPP what
+// changed"). Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Notify the TPP of payment status changes" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Notify the TPP of payment status changes" ~analysing @Conformance +bank-xs2a {
+    as "TPP operator"
+    want "a signed notification when a payment reaches a final status"
+    so "I do not learn about an execution from a polling loop"
+    question "Are notifications sent for every status change, or only for the final ones as assumed here?" +"ask bank"
+  }
+
+  rule "A payment that reaches a final status notifies the URI the initiation carried" {
+    example "A settled payment notifies" @Conformance +nominal {
+      given "pay001 was initiated with a notification URI and reaches ACSC"
+      when "the status change is recorded"
+      then "within five seconds the Bank posts {paymentId: pay001, transactionStatus: ACSC, timestamp: …} to that URI"
+    }
+    example "A rejected payment notifies" @Conformance +nominal {
+      given "pay001 reaches RJCT"
+      when "the change is recorded"
+      then "a notification with RJCT is posted"
+    }
+    example "A cancelled payment notifies" @Conformance +nominal {
+      given "pay002 reaches CANC"
+      when "the change is recorded"
+      then "a notification with CANC is posted"
+    }
+    example "An intermediate status does not notify" @Conformance +edge {
+      given "pay001 moves from RCVD to ACTC"
+      when "the change is recorded"
+      then "no notification is posted, because ACTC is not final"
+    }
+    example "A payment initiated without a notification URI notifies nobody" @Conformance +edge {
+      given "pay003 was initiated without the header"
+      when "it reaches ACSC"
+      then "nothing is posted"
+    }
+  }
+
+  rule "The notification is signed and carries no more than the status" +security {
+    example "The notification is signed with the Bank's sealing certificate" @Conformance +nominal {
+      given "a notification"
+      when "its headers are read"
+      then "it carries Digest, Signature and the Bank's signing certificate"
+      then "the TPP can verify it before acting"
+    }
+    example "The body carries no payment detail" @Conformance +nominal {
+      given "a notification body"
+      when "its fields are listed"
+      then "it holds the payment id, the status and a timestamp, and no amount, payee or PSU"
+    }
+    example "An unsigned notification is one a TPP should ignore" @Conformance +edge {
+      given "a client receiving an unsigned post on its notification URI"
+      when "it verifies the signature"
+      then "the verification fails and the client ignores the message"
+    }
+  }
+
+  rule "Delivery is retried, then given up, and the interface remains the source of truth" {
+    example "A failing endpoint is retried with a backoff" @Conformance +error {
+      given "the TPP's notification URI answers 503"
+      when "the Bank delivers"
+      then "it retries after 1, 5, 30, 120 and 600 minutes, then stops"
+    }
+    example "The status endpoint still tells the truth after a failed delivery" @Conformance +nominal {
+      given "every delivery failed"
+      when "the TPP reads the payment status"
+      then "the answer is the current status"
+    }
+    example "A duplicate notification is harmless" @Conformance +edge {
+      given "the same notification is delivered twice"
+      when "the client handles it"
+      then "the payment id and the status let it recognise the duplicate"
+    }
+  }
+}

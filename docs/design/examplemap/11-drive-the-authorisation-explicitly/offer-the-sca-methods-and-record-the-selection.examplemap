@@ -1,0 +1,81 @@
+// Example map for the story "Offer the SCA methods and record the selection"
+// (activity "Drive the authorisation explicitly", step "Update the PSU data").
+// Increment 3. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Offer the SCA methods and record the selection" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Offer the SCA methods and record the selection" ~analysing @"Authorisation resources" +bank-xs2a +bank-ciam +"spec 7.2.3" {
+    as "PSU"
+    want "the methods I have to choose from, and my choice remembered"
+    so "I approve with the device I have at hand"
+    question "Does the sandbox model more than one method, or is the registered device the only possession element?" +"ask product" +"spec 14.9"
+  }
+
+  rule "After the first factor, the Bank lists the SCA methods the PSU can use" +"spec 7.2.3" {
+    example "Two registered devices are two methods" @"Authorisation resources" +nominal {
+      given "Anna has the active devices Anna's iPhone and Browser simulator"
+      when "the first factor is verified in an embedded or decoupled flow"
+      then "the answer carries scaMethods with two authentication objects, each with an id, a type and a name"
+    }
+    example "One device means one method" @"Authorisation resources" +edge {
+      given "Anna has one active device"
+      when "the first factor is verified"
+      then "the answer carries one method, and the Bank may select it without asking"
+    }
+    example "No active device is a refusal, not an empty list" @"Authorisation resources" +error {
+      given "Anna has no active device"
+      when "the first factor is verified"
+      then "the answer is 401 SCA_METHOD_UNKNOWN and the authorisation is failed"
+    }
+    example "The method objects carry no secret" @"Authorisation resources" +nominal {
+      given "the listed methods"
+      when "their fields are read"
+      then "each holds authenticationMethodId, authenticationType and a name, and no key or push token"
+    }
+  }
+
+  rule "The PSU's selection is recorded on the authorisation and drives the challenge" +"spec 7.2.3" {
+    example "Selecting a device issues its challenge" @"Authorisation resources" +nominal {
+      given "the two methods above"
+      when "the TPP puts authenticationMethodId dev-anna-1 on the authorisation"
+      then "the answer is 200 {scaStatus: scaMethodSelected} with the challenge data"
+      then "the challenge is issued to that device"
+    }
+    example "Selecting an unknown method is refused" @"Authorisation resources" +error {
+      given "the same methods"
+      when "the id dev-nope is selected"
+      then "the answer is 400 SCA_METHOD_UNKNOWN"
+    }
+    example "Selecting a method of another PSU is refused" @"Authorisation resources" +error {
+      given "dev-ben-1 belongs to Ben"
+      when "it is selected on Anna's authorisation"
+      then "the answer is 400 SCA_METHOD_UNKNOWN"
+    }
+    example "Selecting twice replaces the challenge" @"Authorisation resources" +edge {
+      given "a challenge was issued for the first device"
+      when "the other device is selected"
+      then "the first challenge is expired and a new one is issued"
+    }
+    example "The selection is refused before the first factor" @"Authorisation resources" +error {
+      given "the authorisation is psuIdentified"
+      when "a method is selected"
+      then "the answer is 409 STATUS_INVALID"
+    }
+  }
+
+  rule "In the redirect approach the selection happens at the Bank, not through the interface" {
+    example "The Bank asks on its own page" @"Authorisation resources" +nominal {
+      given "the redirect approach and two active devices"
+      when "the PSU reaches the SCA page"
+      then "the Bank's page offers the choice and the interface exposes no method list"
+    }
+    example "A selection call in the redirect approach is refused" @"Authorisation resources" +error {
+      given "the redirect approach"
+      when "the TPP selects a method through the interface"
+      then "the answer is 409 STATUS_INVALID"
+    }
+  }
+}

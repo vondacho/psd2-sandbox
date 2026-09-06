@@ -1,0 +1,93 @@
+// Example map for the story "Serve the balances of an account" (activity "View
+// my accounts", step "See balances and transactions"). Increment 1.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the balances of an account" {
+  product "berlin-psd2-sandbox"
+
+  delivery "AIS reads" release
+
+  story "Serve the balances of an account" ~analysing @"AIS reads" +bank-xs2a +"spec 6.5.3" +"spec 14.23" {
+    as "PSU"
+    want "the balances endpoint to return every balance type the Bank holds for my account"
+    so "an app can show what I can actually spend"
+    question "Which balance types does the sandbox core produce besides closingBooked and interimAvailable: expected, forwardAvailable?" +"ask bank"
+  }
+
+  rule "The endpoint returns the account reference and every balance the Bank holds for that account" +"spec 6.5.3" {
+    example "Main Account has a booked and an available balance" @"AIS reads" +nominal {
+      given "consent 123cons456 valid with balances on Main Account, resourceId 3dc3d5b3-…"
+      given "the ledger holds closingBooked 1250.30 EUR of 2026-09-05 and interimAvailable 1180.30 EUR"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/balances"
+      then "the answer is 200 {account: {iban: DE23100100100123456789, currency: EUR}, balances: [closingBooked 1250.30, interimAvailable 1180.30]}"
+    }
+    example "Each balance carries its type, amount, currency and reference date" @"AIS reads" +nominal {
+      given "the closingBooked balance of 2026-09-05"
+      when "the entry is inspected"
+      then "it has balanceType closingBooked, balanceAmount {currency: EUR, amount: '1250.30'} and referenceDate 2026-09-05"
+    }
+    example "An account with a single balance returns one entry" @"AIS reads" +edge {
+      given "Savings has only a closingBooked balance"
+      when "its balances are read"
+      then "the array holds one entry"
+    }
+    example "A zero balance is served, not omitted" @"AIS reads" +edge {
+      given "a balance of 0.00 EUR"
+      when "the balances are read"
+      then "the entry is present with amount '0.00'"
+    }
+    example "An overdrawn account returns a negative amount" @"AIS reads" +edge {
+      given "closingBooked -12.50 EUR"
+      when "the balances are read"
+      then "the amount is '-12.50'"
+    }
+    example "A currency sub-account returns its own balance only" @"AIS reads" +edge {
+      given "the multicurrency account with a EUR and a USD sub-account"
+      when "the balances of the USD resourceId are read"
+      then "every balanceAmount has currency USD"
+    }
+  }
+
+  rule "The consent must grant balances for that account" +security {
+    example "An accounts-only consent is refused" @"AIS reads" +error {
+      given "consent 555cons666 grants the access type accounts only"
+      when "the balances endpoint is called"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "An account outside the consent is refused" @"AIS reads" +error {
+      given "Savings is not an accessible account of consent 123cons456"
+      when "its balances are read with that consent"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "A dedicated consent that grants balances on one account only" @"AIS reads" +edge {
+      given "a consent with accounts [Main, Savings] and balances [Main]"
+      when "the balances of Savings are read"
+      then "the answer is 401 CONSENT_INVALID"
+      when "the balances of Main Account are read"
+      then "the answer is 200"
+    }
+    example "The full validation chain runs first" @"AIS reads" +error {
+      given "an expired access token and a consent that grants balances"
+      when "the balances endpoint is called"
+      then "the answer is 401 TOKEN_EXPIRED, not CONSENT_INVALID"
+    }
+  }
+
+  rule "A read without the PSU present counts against the consented frequency" +"spec 6" {
+    example "A background read is counted for that account" @"AIS reads" +nominal {
+      given "the counter for Main Account is 2 of 4 today"
+      when "the balances are read without PSU-IP-Address"
+      then "the answer is 200 and the counter is 3"
+    }
+    example "A read with the PSU present is not counted" @"AIS reads" +nominal {
+      given "the counter is 4 of 4"
+      when "the balances are read with PSU-IP-Address"
+      then "the answer is 200 and the counter stays 4"
+    }
+    example "The fifth background read is refused" @"AIS reads" +error {
+      given "the counter is 4 of 4"
+      when "the balances are read without PSU-IP-Address"
+      then "the answer is 429 ACCESS_EXCEEDED"
+    }
+  }
+}

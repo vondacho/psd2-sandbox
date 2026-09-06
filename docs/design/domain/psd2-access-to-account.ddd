@@ -44,8 +44,9 @@ map "PSD2 access to account" {
                    account."
         language  "Account resource" "Resource id" "Balance" "Balance type"
                   "Transaction report" "Booking status" "With balance"
-                  "PSU present" "Hyperlink"
-        aggregate "AccountResource"
+                  "PSU present" "Hyperlink" "Entry reference" "Delta access"
+                  "Transaction details" "Paging"
+        aggregate "AccountResource" "TransactionReport" "DeltaCursor"
         owner     "Product owner, open banking"
         status    modelled
       }
@@ -55,10 +56,11 @@ map "PSD2 access to account" {
                    transaction status and its own authorisation trail. Shares
                    the authorisation model with consents on purpose."
         language  "Payment" "Payment product" "Transaction status"
-                  "Authorisation sub-resource" "Cancellation" "Signing basket"
-        aggregate "Payment" "PaymentAuthorisation"
+                  "Authorisation sub-resource" "Cancellation"
+                  "Payment service" "Execution" "Settlement"
+        aggregate "Payment" "PaymentAuthorisation" "PaymentCancellation"
         owner     "Product owner, payments"
-        status    drafted
+        status    modelled
       }
     }
 
@@ -102,7 +104,7 @@ map "PSD2 access to account" {
                   service provider" "Revocation" "Request signature"
         aggregate "TppIdentity"
         owner     "Security officer, open banking"
-        status    drafted
+        status    modelled
       }
     }
 
@@ -271,5 +273,34 @@ map "PSD2 access to account" {
               endpoints, token responses."
     because  "RFC 6749, 7636, 8414 and 8705 are read by every OAuth2 client;
               The TPP conforms to them, not to the OIDC-provider."
+  }
+
+  "Payment initiation" -> "Customer identity and SCA" : customer-supplier {
+    exchange "The payment to show on the review screen and to cover with the
+              dynamic link, and the outcome to record: SCA status, the debtor
+              account the PSU chose, the PSU-ID."
+    because  "The CIAM shows and approves a payment the same way it shows and
+              approves a consent; both teams sit inside the bank."
+  }
+
+  "Payment initiation" -> "Token issuance" : open-host-service / anticorruption-layer {
+    exchange "Existence, owner and status of the payment named in a PIS or
+              Cancel-PIS scope."
+    because  "The authorization server must never learn an amount or a payee.
+              A thin layer keeps PIS:<paymentId> an opaque handle."
+  }
+
+  "Accounts ledger" -> "Payment initiation" : anticorruption-layer {
+    exchange "Funds and limit checks, the booking of an accepted payment, and
+              the settlement or rejection that follows."
+    because  "The ledger's execution vocabulary is not the interface's
+              transaction status; the layer maps one to the other so no core
+              banking code reaches a TPP."
+  }
+
+  "TPP identification" -> "Payment initiation" : open-host-service {
+    exchange "The same validated TPP identity, with the PISP role that the
+              payment endpoints require."
+    because  "One answer to who is calling, whichever endpoint is called."
   }
 }

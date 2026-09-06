@@ -1,0 +1,81 @@
+// Example map for the story "Serve an explicit start of the authorisation
+// process" (activity "Drive the authorisation explicitly", step "Start and read
+// authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve an explicit start of the authorisation process" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Serve an explicit start of the authorisation process" ~analysing @"Authorisation resources" +bank-xs2a +"spec 7.1" {
+    as "TPP operator"
+    want "POST on the authorisations endpoint to create an authorisation when I ask for it explicitly"
+    so "I control when the PSU is sent to authenticate"
+    question "Does the sandbox allow several authorisations on one consent outside the multilevel case, or exactly one?" +"ask bank" +"spec 7.1"
+  }
+
+  rule "With the explicit preference, the resource is created without an authorisation and offers a start link" +"spec 7.1" {
+    example "A consent created for an explicit start" @"Authorisation resources" +nominal {
+      given "TPP-Explicit-Authorisation-Preferred: true on POST /v1/consents"
+      when "the consent is created"
+      then "the answer is 201 with a startAuthorisation link and no scaStatus link"
+      then "GET on the authorisations endpoint returns an empty list"
+    }
+    example "A payment created for an explicit start" @"Authorisation resources" +nominal {
+      given "the same header on a payment initiation"
+      when "the payment is created"
+      then "the answer carries startAuthorisation and no scaStatus"
+    }
+    example "Without the header the authorisation is implicit" @"Authorisation resources" +nominal {
+      given "no such header"
+      when "the consent is created"
+      then "the answer carries scaStatus and the authorisation exists"
+    }
+  }
+
+  rule "POST on the authorisations endpoint creates one authorisation in status received and returns its links" +"spec 7.1" {
+    example "The explicit start of a consent authorisation" @"Authorisation resources" +nominal {
+      given "consent 123cons456 created with an explicit preference"
+      when "the TPP calls POST /v1/consents/123cons456/authorisations with an empty body"
+      then "the answer is 201 with authorisationId 123auth567, scaStatus received and the scaStatus and scaOAuth links"
+    }
+    example "The explicit start of a payment authorisation" @"Authorisation resources" +nominal {
+      given "pay001 created with an explicit preference"
+      when "POST on its authorisations endpoint is called"
+      then "the answer is 201 with a new authorisation in status received"
+    }
+    example "A second explicit start is refused for a single-signature resource" @"Authorisation resources" +error {
+      given "one authorisation already exists on 123cons456"
+      when "POST is called again"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "An explicit start on a resource that is already valid is refused" @"Authorisation resources" +error {
+      given "consent 123cons456 is valid"
+      when "POST on its authorisations is called"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "An explicit start by another TPP is refused" @"Authorisation resources" +error {
+      given "the other TPP's certificate"
+      when "POST on the authorisations of 123cons456 is called"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+    example "The body may carry the PSU identification" @"Authorisation resources" +edge {
+      given "a body with psuData {password: …} in an embedded approach"
+      when "the authorisation is started"
+      then "the answer is 201 and the status is psuAuthenticated"
+    }
+  }
+
+  rule "Whichever way it was created, the authorisation behaves the same afterwards" +"spec 7" {
+    example "An explicitly started authorisation runs the same SCA" @"Authorisation resources" +nominal {
+      given "an authorisation created by POST"
+      when "the PSU authenticates and approves"
+      then "the status ladder and the challenge are the same as for an implicit one"
+    }
+    example "The steering links after an explicit start point at the same places" @"Authorisation resources" +nominal {
+      given "an explicit and an implicit authorisation of two consents"
+      when "their links are compared"
+      then "both carry scaStatus and scaOAuth with the same shape"
+    }
+  }
+}

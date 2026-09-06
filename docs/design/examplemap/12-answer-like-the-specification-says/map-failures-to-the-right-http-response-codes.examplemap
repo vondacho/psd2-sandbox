@@ -1,0 +1,99 @@
+// Example map for the story "Map failures to the right HTTP response codes"
+// (activity "Answer like the specification says", step "Errors and response
+// codes"). Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Map failures to the right HTTP response codes" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Map failures to the right HTTP response codes" ~ready @Conformance +bank-xs2a +"spec 4.12" {
+    as "TPP operator"
+    want "400, 401, 403, 404, 405, 406, 409 and 429 used as the specification prescribes"
+    so "I can act on the status line before parsing the body"
+  }
+
+  rule "Each class of failure has its status code" +"spec 4.12" {
+    example "A syntactically wrong request is 400" @Conformance +nominal {
+      given "a consent body without the access object"
+      when "it is posted"
+      then "the answer is 400 with FORMAT_ERROR"
+    }
+    example "A certificate or token problem is 401" @Conformance +nominal {
+      given "an expired token"
+      when "the account list is called"
+      then "the answer is 401 with TOKEN_EXPIRED"
+    }
+    example "A resource that exists but is not yours is 403" @Conformance +nominal {
+      given "a consent of the other TPP"
+      when "its status is read"
+      then "the answer is 403 with CONSENT_UNKNOWN"
+    }
+    example "A path that names nothing is 404" @Conformance +nominal {
+      given "an unknown resource id under a valid consent"
+      when "it is read"
+      then "the answer is 404 with RESOURCE_UNKNOWN"
+    }
+    example "A method the resource does not offer is 405" @Conformance +nominal {
+      given "a payment that cannot be cancelled"
+      when "DELETE is called on it"
+      then "the answer is 405 with CANCELLATION_INVALID"
+    }
+    example "A format the interface does not serve is 406" @Conformance +nominal {
+      given "Accept: text/csv on the transaction list"
+      when "the call is made"
+      then "the answer is 406 with REQUESTED_FORMATS_INVALID"
+    }
+    example "A call that contradicts the resource state is 409" @Conformance +nominal {
+      given "a confirmation on an authorisation that is only started"
+      when "it is called"
+      then "the answer is 409 with STATUS_INVALID"
+    }
+    example "Too many accesses is 429" @Conformance +nominal {
+      given "the daily frequency is used up"
+      when "a background read is made"
+      then "the answer is 429 with ACCESS_EXCEEDED"
+    }
+    example "A created resource is 201 with a Location" @Conformance +nominal {
+      given "a valid consent request"
+      when "it is posted"
+      then "the answer is 201 with a Location header naming the new resource"
+    }
+    example "A deletion that succeeded is 204 with no body" @Conformance +nominal {
+      given "a consent that can be deleted"
+      when "DELETE is called"
+      then "the answer is 204 and the body is empty"
+    }
+  }
+
+  rule "The status code and the message code agree" +"spec 4.13" {
+    example "No 200 carries an ERROR message" @Conformance +nominal {
+      given "every successful answer of the sandbox"
+      when "their bodies are inspected"
+      then "none holds a tppMessage of category ERROR"
+    }
+    example "No refusal carries an empty body" @Conformance +nominal {
+      given "every refusal from 400 to 429"
+      when "their bodies are inspected"
+      then "each holds at least one tppMessage"
+    }
+    example "A 500 says nothing about internals" @Conformance +edge {
+      given "an unexpected failure inside the Bank"
+      when "the answer is built"
+      then "it is 500 with a generic INTERNAL_ERROR message and a request id, and no detail"
+    }
+  }
+
+  rule "Every answer carries the request id and the standard headers" +"spec 4.1" {
+    example "X-Request-ID is echoed on success and on failure" @Conformance +nominal {
+      given "a call with X-Request-ID 6b2d1f4a-…"
+      when "it succeeds and when it fails"
+      then "both answers carry that X-Request-ID"
+    }
+    example "The content type is JSON" @Conformance +nominal {
+      given "any answer with a body"
+      when "its headers are read"
+      then "Content-Type is application/json"
+    }
+  }
+}

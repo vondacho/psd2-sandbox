@@ -1,0 +1,89 @@
+// Example map for the story "Accept a consent on all available accounts"
+// (activity "Connect the Bank from the TPP", step "Request the consent"). Increment 2.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Accept a consent on all available accounts" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Consent models" release
+
+  story "Accept a consent on all available accounts" ~analysing @"Consent models" +bank-xs2a +"spec 6.3.1.2" +"spec 14.17" {
+    as "TPP operator"
+    want "availableAccounts and availableAccountsWithBalance to grant the account list only"
+    so "an app that just lists accounts does not ask for transaction rights"
+    question "Does the Bank require an SCA for an available-accounts consent, which the specification leaves open?" +"ask bank" +"spec 6.3.1.2"
+  }
+
+  rule "availableAccounts grants the account list and nothing else" +"spec 14.17" {
+    example "The list of every payment account, without balances" @"Consent models" +nominal {
+      given "access {availableAccounts: allAccounts} and Anna holds Main Account and Savings"
+      when "the consent is valid and GET /v1/accounts is called"
+      then "both accounts are listed"
+      then "no entry carries balances and no balances link"
+    }
+    example "Balances are refused" @"Consent models" +error {
+      given "the same consent"
+      when "GET /v1/accounts?withBalance=true is called"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Transactions are refused" @"Consent models" +error {
+      given "the same consent"
+      when "the transactions endpoint is called"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Account details are served" @"Consent models" +edge {
+      given "the same consent"
+      when "GET /v1/accounts/3dc3d5b3-… is called"
+      then "the answer is 200 without balances"
+    }
+  }
+
+  rule "availableAccountsWithBalance grants the list and its balances" +"spec 14.17" {
+    example "The list with balances" @"Consent models" +nominal {
+      given "access {availableAccountsWithBalance: allAccounts}"
+      when "GET /v1/accounts?withBalance=true is called"
+      then "the answer is 200 and every account carries its balances"
+    }
+    example "Transactions are still refused" @"Consent models" +error {
+      given "the same consent"
+      when "the transactions endpoint is called"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "The balances endpoint is served" @"Consent models" +nominal {
+      given "the same consent"
+      when "the balances endpoint of Main Account is called"
+      then "the answer is 200"
+    }
+  }
+
+  rule "The code must be allAccounts, and no other access field may be combined with it" +"spec 14.17" {
+    example "An unknown code is refused" @"Consent models" +error {
+      given "access {availableAccounts: everything}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR naming access.availableAccounts"
+    }
+    example "Combining with a named accounts array is refused" @"Consent models" +error {
+      given "access {availableAccounts: allAccounts, accounts: [DE23…]}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "Combining both available-accounts codes is refused" @"Consent models" +error {
+      given "access holding availableAccounts and availableAccountsWithBalance"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+
+  rule "The accessible accounts follow the PSU's accounts at the moment of authorisation" {
+    example "An account opened after the consent is not added" @"Consent models" +edge {
+      given "the consent was authorised when Anna held two accounts"
+      when "she opens a third account and the list is read"
+      then "the list holds the two accounts that were accessible at authorisation"
+    }
+    example "An account closed after the consent is shown as deleted" @"Consent models" +edge {
+      given "Savings is closed in the ledger"
+      when "the list is read"
+      then "Savings is present with status deleted"
+    }
+  }
+}

@@ -1,0 +1,82 @@
+// Example map for the story "Update PSU data for identification" (activity
+// "Drive the authorisation explicitly", step "Update the PSU data"). Increment 3.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Update PSU data for identification" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Update PSU data for identification" ~analysing @"Authorisation resources" +bank-xs2a +"spec 7.2.1" {
+    as "TPP operator"
+    want "PUT on the authorisation with a PSU-ID to move it to psuIdentified"
+    so "the bank knows whose accounts are addressed before authentication"
+    question "May a TPP identify a PSU on a consent that already carries a different PSU-ID, or is that always refused?" +"ask bank"
+  }
+
+  rule "A PSU identification moves the authorisation to psuIdentified and records the PSU on the resource" +"spec 7.2.1" {
+    example "Identifying Anna on a consent authorisation" @"Authorisation resources" +nominal {
+      given "the authorisation 123auth567 is in status received"
+      when "the TPP calls PUT on it with the header PSU-ID anna.mueller"
+      then "the answer is 200 {scaStatus: psuIdentified}"
+      then "the consent carries psuId anna.mueller"
+    }
+    example "Identifying on a payment authorisation" @"Authorisation resources" +nominal {
+      given "pay001auth1 in status received"
+      when "the PSU is identified"
+      then "the answer is psuIdentified"
+    }
+    example "An unknown PSU-ID is refused without saying it is unknown" @"Authorisation resources" +error {
+      given "the PSU-ID nobody.here"
+      when "the identification is called"
+      then "the answer is 401 PSU_CREDENTIALS_INVALID"
+      then "the response time matches that of a known PSU-ID"
+    }
+    example "A second identification with the same PSU-ID is harmless" @"Authorisation resources" +edge {
+      given "the authorisation is already psuIdentified for anna.mueller"
+      when "the same identification is repeated"
+      then "the answer is 200 and the status stays psuIdentified"
+    }
+    example "A different PSU-ID on an identified authorisation is refused" @"Authorisation resources" +error {
+      given "the authorisation is psuIdentified for anna.mueller"
+      when "an identification for ben.weber is called"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "Identification after authentication is refused" @"Authorisation resources" +error {
+      given "the authorisation is psuAuthenticated"
+      when "an identification is called"
+      then "the answer is 409 STATUS_INVALID"
+    }
+  }
+
+  rule "In the redirect approach the identification is optional, and the Bank asks anyway" {
+    example "Without an identification the redirect still works" @"Authorisation resources" +nominal {
+      given "an authorisation in status received"
+      when "the PSU is redirected and logs in at the Bank"
+      then "the authorisation reaches psuAuthenticated without the TPP identifying anybody"
+    }
+    example "With an identification the Bank still asks for the password" @"Authorisation resources" +nominal {
+      given "the authorisation is psuIdentified for anna.mueller"
+      when "the PSU arrives at the Bank's login page"
+      then "the page asks for the password of that customer"
+    }
+    example "A PSU who logs in as somebody else fails the authorisation" @"Authorisation resources" +error {
+      given "the authorisation is psuIdentified for anna.mueller"
+      when "Ben logs in with his own credentials"
+      then "the authorisation is failed and the resource is rejected"
+    }
+  }
+
+  rule "The identification carries no credential in the redirect approach" +security {
+    example "A password sent in the redirect approach is refused" @"Authorisation resources" +error {
+      given "the sandbox announces REDIRECT"
+      when "the identification body carries psuData with a password"
+      then "the answer is 400 FORMAT_ERROR with text 'credentials are not accepted in the redirect approach'"
+    }
+    example "The PSU-ID is not echoed to the TPP afterwards" @"Authorisation resources" +nominal {
+      given "an identified authorisation"
+      when "the SCA status is read"
+      then "the answer holds the status only"
+    }
+  }
+}

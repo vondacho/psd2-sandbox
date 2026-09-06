@@ -1,0 +1,81 @@
+// Example map for the story "Cover amount and payee in the dynamic link"
+// (activity "Approve the payment at the Bank", step "Sign the payment on my device").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Cover amount and payee in the dynamic link" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Cover amount and payee in the dynamic link" ~ready @"PIS core" +bank-ciam +sca +"RTS art. 5" {
+    as "Bank security officer"
+    want "the challenge hash to cover paymentId, payee, amount and debtor account"
+    so "an approval cannot be replayed for another payment"
+  }
+
+  rule "The dynamic-link hash of a payment covers the payment id, the TPP, the amount, the payee and the debtor account" +"RTS art. 5" {
+    example "The canonical string of pay001" @"PIS core" +nominal {
+      given "pay001, TPP PSDDE-BAFIN-123456, 12.50 EUR, creditor DE12500105170648489890, debtor DE23100100100123456789"
+      when "the challenge is created"
+      then "the canonical string is 'pay001|PSDDE-BAFIN-123456|12.50 EUR|DE12500105170648489890|DE23100100100123456789'"
+      then "the hash is its SHA-256, hex-encoded, and is called P1"
+    }
+    example "A different amount changes the hash" @"PIS core" +nominal {
+      given "the same payment with 12.51 EUR"
+      when "the challenge is created"
+      then "the hash differs from P1"
+    }
+    example "A different payee changes the hash" @"PIS core" +nominal {
+      given "the same payment to another creditor IBAN"
+      when "the challenge is created"
+      then "the hash differs from P1"
+    }
+    example "A different debtor account changes the hash" @"PIS core" +nominal {
+      given "the same payment from Savings"
+      when "the challenge is created"
+      then "the hash differs from P1"
+    }
+    example "The same payment always gives the same hash" @"PIS core" +edge {
+      given "two challenges for pay001 after an expiry"
+      when "their hashes are compared"
+      then "they are equal, while their nonces differ"
+    }
+  }
+
+  rule "What the device shows is what the hash covers" +"RTS art. 5" {
+    example "The approval screen shows amount, payee and account" @"PIS core" +nominal {
+      given "the challenge for pay001"
+      when "the app loads it"
+      then "the screen shows 'Pay EUR 12.50 to Payee X from Main Account' and the TPP name"
+    }
+    example "The summary stored with the challenge matches the screen" @"PIS core" +nominal {
+      given "the challenge's dynamic link"
+      when "its summary is read"
+      then "it is 'TPP App: pay EUR 12.50 to Payee X from DE23 …7 89'"
+    }
+    example "A payment challenge is not an account-consent challenge" @"PIS core" +nominal {
+      given "the challenge for pay001"
+      when "its subject is read"
+      then "the subject kind is PIS_PAYMENT and the subject id is pay001"
+    }
+  }
+
+  rule "An approval of one payment cannot approve another" +security {
+    example "A signature over another payment's hash is refused" @"PIS core" +error {
+      given "a valid device signature over the hash of pay002"
+      when "it is posted for the challenge of pay001"
+      then "the SCA engine answers 400 'signature does not match challenge'"
+      then "pay001 stays RCVD"
+    }
+    example "A signature over an account consent's hash is refused" @"PIS core" +error {
+      given "a valid signature over H1, the hash of consent 123cons456"
+      when "it is posted for the payment challenge"
+      then "the answer is 400 and nothing is approved"
+    }
+    example "Changing the payment after the challenge invalidates it" @"PIS core" +edge {
+      given "a pending challenge for pay001"
+      when "the payment amount is changed by any path"
+      then "the challenge is expired and a new one must be issued"
+    }
+  }
+}

@@ -1,0 +1,81 @@
+// Example map for the story "Renew the consent when its access period ends"
+// (activity "Come back later", step "Reuse the connection"). Increment 6.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Renew the consent when its access period ends" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Access rules" release
+
+  story "Renew the consent when its access period ends" ~analysing @"Access rules" +bank-xs2a +"RTS art. 10" +"spec 14.15" {
+    as "PSU"
+    want "my consent to expire at the end of the access period and to need a new SCA"
+    so "no app keeps access indefinitely on one authentication"
+    question "Is the access period 180 days under the amended standard, or does the sandbox keep 90 to match older deployments?" +"ask bank" +"RTS art. 10"
+  }
+
+  rule "The access period is capped at the configured maximum, counted from the authorisation" +"RTS art. 10" {
+    example "A consent authorised today expires at the cap" @"Access rules" +nominal {
+      given "the cap is 180 days and the consent is authorised on 2026-09-07"
+      when "the consent becomes valid"
+      then "validUntil is 2027-03-06 at the latest"
+    }
+    example "A shorter validUntil asked by the TPP is kept" @"Access rules" +nominal {
+      given "the TPP asked validUntil 2026-12-05"
+      when "the consent becomes valid"
+      then "validUntil is 2026-12-05"
+    }
+    example "A longer validUntil is shortened, not refused" @"Access rules" +edge {
+      given "the TPP asked validUntil 2027-09-06 and the cap is 180 days"
+      when "the consent is created"
+      then "the answer is 201 and the stored validUntil is the capped date"
+    }
+    example "The cap is a sandbox parameter" @"Access rules" +edge {
+      given "the sandbox runs with a cap of 90 days"
+      when "a consent is authorised on 2026-09-07"
+      then "validUntil is 2026-12-06 at the latest"
+    }
+  }
+
+  rule "When the period ends the consent expires by itself and serves nothing" +"spec 14.15" {
+    example "The consent expires at the end of its last day" @"Access rules" +nominal {
+      given "validUntil 2026-12-05"
+      when "the clock passes 2026-12-06 00:00 Europe/Berlin"
+      then "the consent status is expired"
+    }
+    example "Reads after expiry are refused" @"Access rules" +error {
+      given "the expired consent"
+      when "any account endpoint is called"
+      then "the answer is 401 CONSENT_EXPIRED"
+    }
+    example "The last day still serves" @"Access rules" +edge {
+      given "validUntil 2026-12-05 and the call at 2026-12-05 23:59 Europe/Berlin"
+      when "the account list is read"
+      then "the answer is 200"
+    }
+    example "Expiry revokes the tokens of the consent" @"Access rules" +nominal {
+      given "the consent expired"
+      when "the TPP refreshes its token"
+      then "the OIDC-provider answers invalid_grant"
+    }
+  }
+
+  rule "Renewal is a new consent with a new SCA, never an extension of the old one" {
+    example "A new consent is created and authorised" @"Access rules" +nominal {
+      given "the expired consent 123cons456"
+      when "Anna reconnects and completes SCA on a new consent"
+      then "the new consent is valid with a fresh access period"
+      then "123cons456 stays expired"
+    }
+    example "The old consent cannot be extended" @"Access rules" +error {
+      given "the expired consent"
+      when "a request tries to authorise it again"
+      then "the OIDC-provider refuses the scope, because the consent is not in status received"
+    }
+    example "The PSU sees the renewal at the Bank" @"Access rules" +edge {
+      given "the renewal completed"
+      when "Anna opens her consent dashboard"
+      then "the old consent is listed as expired and the new one as valid"
+    }
+  }
+}

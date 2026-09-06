@@ -1,0 +1,77 @@
+// Example map for the story "Require an authorisation for a cancellation"
+// (activity "Cancel the payment", step "Cancel with its own SCA"). Increment 5.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Require an authorisation for a cancellation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS cancellation" release
+
+  story "Require an authorisation for a cancellation" ~analysing @"PIS cancellation" +bank-xs2a +"spec 5.7" {
+    as "Bank security officer"
+    want "the cancellation to answer ACTC with a cancellation authorisation link when SCA is needed"
+    so "a payment is never withdrawn without the PSU"
+    question "Is a cancellation SCA required for every accepted payment, or only above an amount threshold?" +"ask bank"
+  }
+
+  rule "When the Bank requires an SCA, the cancellation is started rather than done" +"spec 5.7" {
+    example "The cancellation is accepted for authorisation" @"PIS cancellation" +nominal {
+      given "pay002 is ACTC and the sandbox runs with cancellationScaRequired true"
+      when "the TPP calls DELETE /v1/payments/sepa-credit-transfers/pay002"
+      then "the answer is 202 with transactionStatus ACTC and a startAuthorisationWithPsuAuthentication link"
+      then "the payment is not yet cancelled"
+    }
+    example "The payment keeps its status until the cancellation is authorised" @"PIS cancellation" +nominal {
+      given "the cancellation was accepted for authorisation"
+      when "the status is read"
+      then "the answer is ACTC"
+    }
+    example "The execution is held while the cancellation is pending" @"PIS cancellation" +edge {
+      given "a pending cancellation authorisation on pay002"
+      when "the execution job runs"
+      then "the payment is not handed to the core until the cancellation is resolved"
+    }
+    example "A cancellation that is never authorised leaves the payment alone" @"PIS cancellation" +edge {
+      given "the cancellation authorisation expired without an approval"
+      when "the expiry is processed"
+      then "the cancellation is failed and the payment continues to execution"
+    }
+  }
+
+  rule "The cancellation authorisation is a resource of its own, separate from the payment's" +"spec 5.8" {
+    example "It has its own id and its own SCA status" @"PIS cancellation" +nominal {
+      given "the cancellation of pay002 was accepted for authorisation"
+      when "the cancellation authorisation is created"
+      then "it has the id pay002cancauth1 and scaStatus received"
+      then "the payment's own authorisation pay002auth1 is untouched and still finalised"
+    }
+    example "The two authorisations do not share a challenge" @"PIS cancellation" +nominal {
+      given "a challenge for the payment and a challenge for its cancellation"
+      when "their subjects are compared"
+      then "they differ, and a signature over one is refused for the other"
+    }
+    example "The dynamic link of a cancellation names the cancellation" @"PIS cancellation" +nominal {
+      given "the cancellation challenge"
+      when "the approval screen renders"
+      then "it says 'Cancel the payment of EUR 12.50 to Payee X', not 'Pay'"
+    }
+  }
+
+  rule "Whether an SCA is required is the Bank's decision, announced in the answer" {
+    example "Without the requirement the payment is cancelled at once" @"PIS cancellation" +nominal {
+      given "cancellationScaRequired false"
+      when "the cancellation is called"
+      then "the answer is 204 and the status is CANC"
+    }
+    example "With the requirement the answer carries the link" @"PIS cancellation" +nominal {
+      given "cancellationScaRequired true"
+      when "the cancellation is called"
+      then "the answer is 202 with a link to start the cancellation authorisation"
+    }
+    example "The TPP does not have to guess which case it is in" @"PIS cancellation" +nominal {
+      given "either answer"
+      when "the client reads it"
+      then "204 means done and 202 with a link means one more step"
+    }
+  }
+}

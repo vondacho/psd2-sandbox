@@ -198,4 +198,36 @@ views {
     }
     include tpp.backend.xs2aClient, tpp.backend.oauthClient, OidcProvider.tokenService, bank.xs2aGateway, bank.xs2aService, bank.consentMgmt
   }
+
+  view bankPayments of bank.paymentMgmt {
+    title 'Container: payment initiation at the Bank'
+    include *
+    include bank.xs2aService, bank.ciam, bank.coreAdapter, OidcProvider.authorize, tpp.backend
+    style bank.xs2aService, bank.ciam, bank.coreAdapter, OidcProvider.authorize, tpp.backend {
+      color muted
+    }
+  }
+
+  dynamic view paymentInitiation {
+    title '6.6 Payment initiation and approval (increment 4)'
+    description 'A PSU pays from an account at the Bank through the TPP. The SCA, the device and the tokens are those of the account journey; only the resource and the dynamic link change.'
+    psu -> tpp.frontend 'pay 12.50 EUR to Payee X'
+    tpp.backend.xs2aClient -> bank.xs2aGateway 'POST /v1/payments/sepa-credit-transfers'
+    bank.xs2aGateway -> bank.xs2aService 'forwards with the client certificate'
+    bank.xs2aService -> bank.paymentMgmt 'creates the payment (RCVD) and its authorisation'
+    bank.paymentMgmt -> tpp.backend.xs2aClient '201 paymentId, RCVD, scaOAuth and scaStatus links'
+    tpp.backend.oauthClient -> OidcProvider.authorize 'scope PIS:<paymentId>, state, PKCE'
+    OidcProvider.authorize -> bank.paymentMgmt 'payment exists, is RCVD and belongs to this client?'
+    OidcProvider.broker -> bank.ciam.consentUi 'brokers the PSU to the Bank'
+    psu -> bank.ciam.consentUi 'password, then reviews payee, amount and debtor account'
+    bank.ciam.scaEngine -> bankApp 'challenge whose dynamic link covers amount and payee'
+    psu -> bankApp 'approves with biometric or PIN'
+    bankApp -> bank.ciam.scaEngine 'signed challenge response'
+    bank.ciam.orchestration -> bank.paymentMgmt 'authorisation finalised'
+    bank.ciam.orchestration -> OidcProvider.broker 'ID token (acr, amr, payment id)'
+    OidcProvider.tokenService -> tpp.backend.oauthClient 'access token scoped to the payment'
+    tpp.backend.xs2aClient -> bank.xs2aGateway 'PUT authorisation (confirmation), then GET status'
+    bank.paymentMgmt -> bank.coreAdapter 'execute'
+    bank.coreAdapter -> bank.paymentMgmt 'booked: ACSC'
+  }
 }

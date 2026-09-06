@@ -1,0 +1,75 @@
+// Example map for the story "Accept data extensions without breaking" (activity
+// "Answer like the specification says", step "Errors and response codes").
+// Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Accept data extensions without breaking" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Accept data extensions without breaking" ~analysing @Conformance +bank-xs2a +"spec 4.16" {
+    as "TPP operator"
+    want "unknown extension fields ignored rather than rejected"
+    so "a bank-specific extension does not break a standard client"
+    question "Does the sandbox itself add any extension field to its answers, so clients can be tested against one?" +"ask sandbox" +"spec 4.16"
+  }
+
+  rule "An unknown field in a request body is ignored, not refused" +"spec 4.16" {
+    example "An extra field on a consent request" @Conformance +nominal {
+      given "a valid consent body plus a field 'colour': 'blue'"
+      when "the consent is created"
+      then "the answer is 201 and the stored consent has no colour"
+    }
+    example "An extra field on a payment initiation" @Conformance +nominal {
+      given "a valid payment body plus an unknown field"
+      when "the payment is created"
+      then "the answer is 201"
+    }
+    example "An unknown field never overrides a known one" @Conformance +error {
+      given "a body with validUntil and an extra field 'validUntilReally'"
+      when "the consent is created"
+      then "the stored validity comes from validUntil"
+    }
+    example "A mandatory field is still mandatory" @Conformance +error {
+      given "a body with extension fields and no access object"
+      when "the consent is created"
+      then "the answer is 400 FORMAT_ERROR naming access"
+    }
+    example "An extension cannot smuggle a larger access" @Conformance +error {
+      given "an accounts-only consent body plus 'allPsd2': 'allAccounts' outside the access object"
+      when "the consent is authorised"
+      then "only the account list is granted"
+    }
+  }
+
+  rule "Unknown headers and query parameters are ignored the same way" {
+    example "An unknown header" @Conformance +nominal {
+      given "a call with the header X-Bank-Experiment: 1"
+      when "it is made"
+      then "the answer is the same as without it"
+    }
+    example "An unknown query parameter" @Conformance +edge {
+      given "the account list called with ?colour=blue"
+      when "it is made"
+      then "the answer is 200 and the parameter is ignored"
+    }
+    example "A misspelled known parameter is not silently ignored" @Conformance +error {
+      given "the transaction list called with bookingstatus=booked in the wrong case"
+      when "it is made"
+      then "the answer is 400 FORMAT_ERROR naming bookingStatus, because it is missing"
+    }
+  }
+
+  rule "The Bank's own extensions are additive and namespaced" +"spec 4.16" {
+    example "An extension field in an answer is ignorable" @Conformance +nominal {
+      given "the sandbox adds a field under an extension object"
+      when "a standard client parses the answer"
+      then "it can ignore the extension and still read every standard field"
+    }
+    example "No standard field changes meaning" @Conformance +nominal {
+      given "an answer with an extension"
+      when "the standard fields are read"
+      then "each has the value and the meaning the specification defines"
+    }
+  }
+}

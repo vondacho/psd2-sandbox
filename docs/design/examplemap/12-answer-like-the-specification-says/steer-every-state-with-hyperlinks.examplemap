@@ -1,0 +1,85 @@
+// Example map for the story "Steer every state with hyperlinks" (activity
+// "Answer like the specification says", step "Errors and response codes").
+// Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Steer every state with hyperlinks" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Steer every state with hyperlinks" ~analysing @Conformance +bank-xs2a +"spec 4.15" {
+    as "TPP operator"
+    want "the links that fit the current state, and none that do not"
+    so "I never construct a URL or call a step that is not available"
+    question "Are the link names of the specification used verbatim, including scaStatus, scaOAuth, startAuthorisation and confirmation?" +"ask bank" +"spec 14.6"
+  }
+
+  rule "The links offered are exactly the steps that are possible next" +"spec 4.15" {
+    example "A consent waiting for its SCA" @Conformance +nominal {
+      given "consent 123cons456 at received with an implicit authorisation"
+      when "the answer is read"
+      then "_links holds self, status, scaStatus and scaOAuth"
+    }
+    example "A consent waiting for an explicit start" @Conformance +nominal {
+      given "a consent created with the explicit preference"
+      when "the answer is read"
+      then "_links holds startAuthorisation and no scaStatus"
+    }
+    example "A valid consent offers its data" @Conformance +edge {
+      given "a valid consent"
+      when "it is read"
+      then "_links holds self and status, and no authorisation link"
+    }
+    example "An account entry offers only the access types granted" @Conformance +nominal {
+      given "an accounts and balances consent"
+      when "the account list is read"
+      then "each entry holds a balances link and no transactions link"
+    }
+    example "A payment accepted for execution offers no confirmation" @Conformance +edge {
+      given "a payment at ACTC with a finalised authorisation"
+      when "it is read"
+      then "_links holds self and status only"
+    }
+    example "A terminal resource offers nothing to do" @Conformance +edge {
+      given "a rejected consent"
+      when "it is read"
+      then "_links holds self and status"
+    }
+  }
+
+  rule "Every link is usable as given, and the client never has to build one" +"spec 14.6" {
+    example "A link resolves against the API base" @Conformance +nominal {
+      given "the href /psd2/v1/consents/123cons456/status"
+      when "it is resolved against https://api.bank.sandbox"
+      then "the call answers 200"
+    }
+    example "The scaOAuth link is absolute" @Conformance +nominal {
+      given "the scaOAuth link"
+      when "it is read"
+      then "it is an absolute https URL to the authorization server metadata"
+    }
+    example "Links carry ids, never IBANs or PSU identifiers" @Conformance +nominal {
+      given "every link the sandbox serves"
+      when "they are inspected"
+      then "none carries an IBAN, a PAN or a customer number"
+    }
+    example "A client that follows links only can complete the journey" @Conformance +nominal {
+      given "a client that never builds a URL"
+      when "it runs the whole consent and payment journey"
+      then "every step it needs was offered as a link"
+    }
+  }
+
+  rule "Link names are the ones the specification defines" +"spec 14.6" {
+    example "The names used by the sandbox" @Conformance +nominal {
+      given "every answer that carries links"
+      when "the names are collected"
+      then "they are among self, status, scaStatus, scaOAuth, scaRedirect, startAuthorisation, confirmation, balances, transactions, next, account and cardAccount"
+    }
+    example "No bank-specific link name is invented" @Conformance +error {
+      given "the collected names"
+      when "they are compared with the specification"
+      then "none is outside it"
+    }
+  }
+}

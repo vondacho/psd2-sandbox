@@ -1,0 +1,80 @@
+// Example map for the story "Update PSU data for authentication" (activity
+// "Drive the authorisation explicitly", step "Update the PSU data"). Increment 3.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Update PSU data for authentication" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Update PSU data for authentication" ~analysing @"Authorisation resources" +bank-xs2a +bank-ciam +security +"spec 7.2.2" {
+    as "Bank security officer"
+    want "a password accepted on the authorisation resource only in the decoupled or embedded approach"
+    so "credentials never travel through a TPP in the redirect approach"
+    question "Will the sandbox offer the embedded approach at all, given that it means the TPP handles the PSU's password?" +"ask product" +"RTS art. 22"
+  }
+
+  rule "A credential on the authorisation is accepted only when the announced approach is decoupled or embedded" +"spec 7.2.2" {
+    example "Refused under the redirect approach" @"Authorisation resources" +error {
+      given "the resource announced REDIRECT"
+      when "PUT on the authorisation carries psuData {password: 'correct-horse-battery'}"
+      then "the answer is 400 FORMAT_ERROR and no authentication is attempted"
+    }
+    example "Accepted under the embedded approach" @"Authorisation resources" +nominal {
+      given "the sandbox runs with the embedded approach and the authorisation is psuIdentified"
+      when "the correct password is sent on the authorisation"
+      then "the answer is 200 {scaStatus: psuAuthenticated} with the available SCA methods"
+    }
+    example "Accepted under the decoupled approach" @"Authorisation resources" +nominal {
+      given "the decoupled approach and an identified PSU"
+      when "the password is sent"
+      then "the answer is psuAuthenticated and the Bank pushes the challenge to the device"
+    }
+    example "A wrong password is refused and counted" @"Authorisation resources" +error {
+      given "the embedded approach"
+      when "a wrong password is sent"
+      then "the answer is 401 PSU_CREDENTIALS_INVALID and the failure counts towards the lock"
+    }
+    example "A locked identity is refused" @"Authorisation resources" +error {
+      given "anna.mueller is locked"
+      when "the correct password is sent"
+      then "the answer is 401 PSU_CREDENTIALS_INVALID and the authorisation is failed"
+    }
+  }
+
+  rule "The credential is never stored, logged or echoed" +security {
+    example "The password does not reach the audit log" @"Authorisation resources" +nominal {
+      given "an embedded authentication"
+      when "the audit trail and the access log are read"
+      then "neither holds the password or a fragment of it"
+    }
+    example "The answer carries no credential" @"Authorisation resources" +nominal {
+      given "the answer of a successful authentication"
+      when "its fields are listed"
+      then "it holds the SCA status and the methods, and no psuData"
+    }
+    example "The credential is verified by the CIAM, not by the XS2A service" @"Authorisation resources" +nominal {
+      given "an embedded authentication"
+      when "the call is traced"
+      then "the XS2A service passes the credential to the CIAM and keeps nothing"
+    }
+  }
+
+  rule "Authentication is possible only from an identified authorisation" +"spec 14.16" {
+    example "From received it is refused" @"Authorisation resources" +error {
+      given "the authorisation is in status received with no PSU"
+      when "a password is sent"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "From psuAuthenticated it is refused" @"Authorisation resources" +error {
+      given "the authorisation is already psuAuthenticated"
+      when "a password is sent again"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "From failed it is refused" @"Authorisation resources" +error {
+      given "the authorisation is failed"
+      when "a password is sent"
+      then "the answer is 409 STATUS_INVALID"
+    }
+  }
+}

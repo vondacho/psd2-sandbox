@@ -1,0 +1,44 @@
+@startuml 13-seq-payment-cancellation
+title Payment cancellation with its own SCA (increment 5)
+autonumber
+actor PSU
+participant "PSU browser" as Br
+participant "TPP back end" as TPP
+participant "Bank XS2A API" as XS2A
+participant "Bank payment mgmt" as PM
+participant "OIDC provider" as OIDC
+participant "Bank CIAM" as CIAM
+participant "Bank app (registered device)" as App
+participant "Core banking" as Core
+
+PSU -> Br : cancel my payment
+Br -> TPP : POST /cancel
+TPP -> XS2A : DELETE /v1/payments/sepa-credit-transfers/{paymentId} (mTLS QWAC)
+XS2A -> PM : cancellable? terminal status? SCA required?
+
+alt no SCA required and the payment is not executed
+  PM -> PM : transactionStatus = CANC
+  XS2A --> TPP : 204
+else SCA required
+  PM -> PM : create cancellation + cancellation authorisation (received)
+  XS2A --> TPP : 202 {transactionStatus: ACTC},\n_links: startAuthorisationWithPsuAuthentication, cancellation-authorisations
+  TPP --> Br : 302 OIDC/authorize?scope=Cancel-PIS:{paymentId}
+  Br -> OIDC : GET /authorize
+  OIDC -> PM : is a cancellation pending for this payment and client?
+  PM --> OIDC : yes
+  OIDC --> Br : 302 Bank CIAM (broker)
+  PSU -> CIAM : password
+  CIAM --> Br : "Cancel the payment of EUR 12.50 to Payee X?"
+  PSU -> Br : confirm
+  CIAM -> App : challenge (dynamic link over the cancellation)
+  PSU -> App : approve
+  App -> CIAM : signed challenge response
+  CIAM -> PM : cancellation authorisation finalised
+  PM -> PM : transactionStatus = CANC
+  PM -> Core : withdraw the instruction (never handed over)
+  TPP -> XS2A : GET .../status
+  XS2A --> TPP : 200 {transactionStatus: CANC}
+else the payment is already settled
+  XS2A --> TPP : 405 CANCELLATION_INVALID
+end
+@enduml

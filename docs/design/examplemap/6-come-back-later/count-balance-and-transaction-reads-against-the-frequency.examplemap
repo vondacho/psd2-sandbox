@@ -1,0 +1,90 @@
+// Example map for the story "Count balance and transaction reads against the
+// frequency" (activity "Come back later", step "Reuse the connection"). Increment 6.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Count balance and transaction reads against the frequency" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Access rules" release
+
+  story "Count balance and transaction reads against the frequency" ~analysing @"Access rules" +bank-xs2a +"spec 6" {
+    as "Bank product owner"
+    want "every account-data read without the PSU counted, not only the account list"
+    so "the consented frequency means the same on all endpoints"
+    question "Does one read of the account list with withBalance count once or twice for an account, since it serves two access types?" +"ask bank" +"spec 6"
+  }
+
+  rule "Every read of account data without the PSU present increments the counter of each account it touches" +"spec 6" +"RTS art. 36" {
+    example "The balances endpoint counts one for its account" @"Access rules" +nominal {
+      given "the counter for Main Account is 0 of 4 and no PSU-IP-Address"
+      when "the balances of Main Account are read"
+      then "the counter for Main Account is 1 and the counter for Savings is 0"
+    }
+    example "The transaction list counts one for its account" @"Access rules" +nominal {
+      given "the counter for Main Account is 1"
+      when "its transactions are read without the PSU"
+      then "the counter is 2"
+    }
+    example "A transaction detail counts one" @"Access rules" +nominal {
+      given "the counter is 2"
+      when "one transaction's details are read without the PSU"
+      then "the counter is 3"
+    }
+    example "The account list counts one on every account it returns" @"Access rules" +nominal {
+      given "counters Main 0 and Savings 0"
+      when "GET /v1/accounts is read without the PSU"
+      then "both counters are 1"
+    }
+    example "A paged report counts once, not once per page" @"Access rules" +edge {
+      given "the counter is 0 and a report of three pages"
+      when "all three pages are read without the PSU"
+      then "the counter is 1"
+    }
+    example "A status or consent read is never counted" @"Access rules" +nominal {
+      given "the counter is 4 of 4"
+      when "the consent status and the consent object are read"
+      then "both answer 200 and the counter stays 4"
+    }
+  }
+
+  rule "The counter refuses the read that would exceed the consented frequency, and refuses it whole" +"spec 14.11" {
+    example "The fifth read of an account is refused" @"Access rules" +error {
+      given "the counter for Main Account is 4 of 4"
+      when "its balances are read without the PSU"
+      then "the answer is 429 ACCESS_EXCEEDED and the counter stays 4"
+    }
+    example "A list touching one exhausted account is refused whole" @"Access rules" +edge {
+      given "counters Main 4 and Savings 1"
+      when "GET /v1/accounts is read without the PSU"
+      then "the answer is 429 ACCESS_EXCEEDED and no counter moves"
+    }
+    example "The other endpoints of an exhausted account are refused too" @"Access rules" +error {
+      given "the counter for Main Account is 4"
+      when "its transactions, its details and one transaction detail are read without the PSU"
+      then "each answers 429 ACCESS_EXCEEDED"
+    }
+    example "A read with the PSU present is served past the limit" @"Access rules" +nominal {
+      given "the counter is 4 of 4"
+      when "the transactions are read with PSU-IP-Address"
+      then "the answer is 200 and the counter stays 4"
+    }
+  }
+
+  rule "Counters are per consent, per account and per calendar day of the Bank" {
+    example "Midnight resets every counter of the consent" @"Access rules" +edge {
+      given "counters Main 4 and Savings 4 on 2026-09-06"
+      when "a read is made at 2026-09-07 00:00:01 Europe/Berlin without the PSU"
+      then "the answer is 200 and the counter for that account is 1 for the new day"
+    }
+    example "Two consents on the same account count apart" @"Access rules" +edge {
+      given "Main Account is accessible under 123cons456 at 4 and under 333cons444 at 0"
+      when "the other TPP reads it without the PSU"
+      then "the answer is 200"
+    }
+    example "The counters are visible to the PSU" @"Access rules" +nominal {
+      given "the counter for Main Account is 3 of 4 today"
+      when "Anna opens her consent dashboard"
+      then "the consent shows that the app read that account three of four times today without her"
+    }
+  }
+}

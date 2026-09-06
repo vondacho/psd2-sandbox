@@ -1,0 +1,82 @@
+// Example map for the story "Announce notification support and accept a
+// notification URI" (activity "Answer like the specification says", step "Tell
+// the TPP what changed"). Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Announce notification support and accept a notification URI" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Announce notification support and accept a notification URI" ~analysing @Conformance +bank-xs2a +"spec 4.8" {
+    as "TPP operator"
+    want "the bank to say whether it notifies, and to take my notification URI and content preference"
+    so "I know whether to poll or to wait"
+    question "Which notification content types does the sandbox support: status only, or also the full resource?" +"ask bank"
+  }
+
+  rule "The Bank answers every resource creation with whether it will notify" +"spec 4.8" {
+    example "Notification support announced on a consent" @Conformance +nominal {
+      given "the sandbox runs with notifications enabled"
+      given "the request carries TPP-Notification-URI https://tpp.sandbox/xs2a/notifications/bank and TPP-Notification-Content status"
+      when "the consent is created"
+      then "the answer carries ASPSP-Notification-Support true and ASPSP-Notification-Content status"
+    }
+    example "Notification support announced on a payment" @Conformance +nominal {
+      given "the same headers on a payment initiation"
+      when "the payment is created"
+      then "the answer carries the same two headers"
+    }
+    example "A bank that does not notify says so" @Conformance +nominal {
+      given "the sandbox runs with notifications disabled"
+      when "a resource is created with a notification URI"
+      then "the answer carries ASPSP-Notification-Support false"
+      then "the TPP knows it has to poll"
+    }
+    example "Without a notification URI nothing is promised" @Conformance +edge {
+      given "a request without TPP-Notification-URI"
+      when "the resource is created"
+      then "no notification headers are returned and no notification is ever sent"
+    }
+    example "A content preference the Bank cannot meet is answered with what it will send" @Conformance +edge {
+      given "TPP-Notification-Content asking for the full resource on a bank that sends the status only"
+      when "the resource is created"
+      then "ASPSP-Notification-Content is status"
+    }
+  }
+
+  rule "The notification URI is checked like every other TPP URI" +"spec 4.10" +security {
+    example "A URI inside the certificate domain is accepted" @Conformance +nominal {
+      given "the certificate names tpp.sandbox"
+      when "the notification URI is https://tpp.sandbox/xs2a/notifications/bank"
+      then "it is stored on the resource"
+    }
+    example "A URI outside the certificate domain is refused" @Conformance +error {
+      given "the notification URI https://evil.example/n"
+      when "the resource is created"
+      then "the answer is 400 FORMAT_ERROR naming TPP-Notification-URI"
+    }
+    example "An http URI is refused" @Conformance +error {
+      given "the notification URI http://tpp.sandbox/n"
+      when "the resource is created"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "The URI is stored per resource, not per TPP" @Conformance +edge {
+      given "two consents created with different notification URIs"
+      when "each changes status"
+      then "each notification goes to the URI its own consent carried"
+    }
+  }
+
+  rule "The notification promise does not change what the interface owes otherwise" {
+    example "Polling still works when notifications are on" @Conformance +nominal {
+      given "notifications enabled for a consent"
+      when "the TPP polls the status anyway"
+      then "the answer is 200 as usual"
+    }
+    example "A failed notification does not change the resource" @Conformance +edge {
+      given "the notification endpoint of the TPP is down"
+      when "the consent becomes valid"
+      then "the consent is valid and readable, whatever the notification did"
+    }
+  }
+}

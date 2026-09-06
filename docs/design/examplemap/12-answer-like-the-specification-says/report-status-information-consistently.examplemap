@@ -1,0 +1,74 @@
+// Example map for the story "Report status information consistently" (activity
+// "Answer like the specification says", step "Errors and response codes").
+// Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Report status information consistently" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Report status information consistently" ~ready @Conformance +bank-xs2a +"spec 4.14" {
+    as "TPP operator"
+    want "consent, transaction and SCA status returned in the same shape everywhere"
+    so "one parser serves every status endpoint"
+  }
+
+  rule "Each status endpoint answers with its one status field and the vocabulary of the specification" +"spec 4.14" {
+    example "The consent status endpoint" @Conformance +nominal {
+      given "a valid consent"
+      when "its status endpoint is called"
+      then "the answer is {consentStatus: valid}, using the values of the consent status list"
+    }
+    example "The payment status endpoint" @Conformance +nominal {
+      given "an accepted payment"
+      when "its status endpoint is called"
+      then "the answer is {transactionStatus: ACTC}, using the transaction status list"
+    }
+    example "The SCA status endpoint" @Conformance +nominal {
+      given "an authorisation waiting for the device"
+      when "its status endpoint is called"
+      then "the answer is {scaStatus: started}, using the SCA status list"
+    }
+    example "The status also appears on the resource itself" @Conformance +nominal {
+      given "the consent object and the payment resource"
+      when "they are read"
+      then "each carries the same status value as its status endpoint"
+    }
+    example "A status value outside the list is never served" @Conformance +error {
+      given "an internal state such as 'queued'"
+      when "any status is served"
+      then "it is mapped to a value of the specification's list"
+    }
+  }
+
+  rule "The status a client reads is the status the Bank acts on" {
+    example "A revoked consent reads revoked and serves nothing" @Conformance +nominal {
+      given "the PSU revoked the consent a second ago"
+      when "the status is read and the account list is called"
+      then "the status is revokedByPsu and the account call answers 401 CONSENT_INVALID"
+    }
+    example "An accepted payment reads ACTC and is executed" @Conformance +nominal {
+      given "a payment whose status reads ACTC"
+      when "the execution job runs"
+      then "that payment is handed to the core"
+    }
+    example "Two reads a second apart do not disagree" @Conformance +edge {
+      given "no event between them"
+      when "the status is read twice"
+      then "both answers are the same"
+    }
+  }
+
+  rule "A status read is available to the resource owner at any point of the lifecycle" {
+    example "Before, during and after the SCA" @Conformance +nominal {
+      given "a consent at received, then started, then valid"
+      when "the status is read at each point"
+      then "each read answers 200 with the current value"
+    }
+    example "After a terminal status the endpoint still answers" @Conformance +edge {
+      given "an expired consent"
+      when "its status is read"
+      then "the answer is 200 with expired, not 404"
+    }
+  }
+}

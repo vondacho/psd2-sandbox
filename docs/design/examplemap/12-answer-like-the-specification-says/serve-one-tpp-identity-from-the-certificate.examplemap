@@ -1,0 +1,80 @@
+// Example map for the story "Serve one TPP identity from the certificate"
+// (activity "Answer like the specification says", step "Prove who is calling").
+// Increment 7. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve one TPP identity from the certificate" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Conformance" release
+
+  story "Serve one TPP identity from the certificate" ~analysing @Conformance +bank-xs2a +security +"spec 4.9" {
+    as "Bank security officer"
+    want "one service that turns a presented certificate into a TPP identity with roles, or a refusal"
+    so "the gateway, the payment endpoints and the authorization server give the same answer"
+    question "Does the identification service cache a validation result, and for how long, given that revocation must take effect quickly?" +"ask bank" +security
+  }
+
+  rule "One service answers who is calling, from the certificate alone" +"spec 4.9" {
+    example "A valid QWAC becomes a TPP identity" @Conformance +nominal {
+      given "the TPP's QWAC issued by the sandbox CA"
+      when "the identification service is asked"
+      then "the answer holds organizationIdentifier PSDDE-BAFIN-123456, the legal name TPP Fintech GmbH, the roles AISP and PISP and the certificate validity"
+    }
+    example "The same certificate gives the same identity everywhere" @Conformance +nominal {
+      given "the XS2A gateway, the payment endpoints and the authorization server"
+      when "each identifies the same certificate"
+      then "all three receive the same organization identifier and roles"
+    }
+    example "A certificate without the PSD2 statement is refused" @Conformance +error {
+      given "a certificate from the sandbox CA without the PSD2 qualified statement"
+      when "the identification service is asked"
+      then "the answer is a refusal with CERTIFICATE_INVALID"
+    }
+    example "A revoked certificate is refused" @Conformance +error {
+      given "a certificate on the revocation list"
+      when "the identification service is asked"
+      then "the answer is a refusal with CERTIFICATE_REVOKED"
+    }
+    example "An expired certificate is refused" @Conformance +error {
+      given "a certificate past its validity"
+      when "the identification service is asked"
+      then "the answer is a refusal with CERTIFICATE_EXPIRED"
+    }
+    example "The identity carries no more than the certificate says" @Conformance +nominal {
+      given "an identified TPP"
+      when "the fields are listed"
+      then "each comes from the certificate, and nothing is inferred or remembered from earlier calls"
+    }
+  }
+
+  rule "The roles of the identity decide which endpoints the caller may use" +"spec 3" {
+    example "An AISP may read accounts and not initiate payments" @Conformance +nominal {
+      given "an identity with the AISP role only"
+      when "the account list and a payment initiation are attempted"
+      then "the first is served and the second answers 401 ROLE_INVALID"
+    }
+    example "A PISP may initiate payments and not read accounts" @Conformance +nominal {
+      given "an identity with the PISP role only"
+      when "both are attempted"
+      then "the payment is served and the account list answers 401 ROLE_INVALID"
+    }
+    example "A role check happens before any token or consent check" @Conformance +nominal {
+      given "a PISP-only identity with a valid account token"
+      when "the account list is called"
+      then "the answer is 401 ROLE_INVALID"
+    }
+  }
+
+  rule "A revocation takes effect quickly and is visible in the audit trail" +security {
+    example "A certificate revoked between two calls" @Conformance +edge {
+      given "a call served at 10:00 and the certificate revoked at 10:05"
+      when "the next call is made at 10:11"
+      then "it answers 401 CERTIFICATE_REVOKED"
+    }
+    example "Every identification is logged with the request id" @Conformance +nominal {
+      given "any call"
+      when "the audit trail is read"
+      then "it holds the organization identifier, the roles used and the request id"
+    }
+  }
+}

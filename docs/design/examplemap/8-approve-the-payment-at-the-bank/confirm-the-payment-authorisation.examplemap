@@ -1,0 +1,93 @@
+// Example map for the story "Confirm the payment authorisation" (activity
+// "Approve the payment at the Bank", step "Sign the payment on my device").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Confirm the payment authorisation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Confirm the payment authorisation" ~ready @"PIS core" +bank-xs2a +"spec 7.6.4" {
+    as "Bank security officer"
+    want "the confirmation call checked against the token's payment id and client"
+    so "the payment becomes valid only for the TPP that created it"
+  }
+
+  rule "A confirmation with a token scoped to that payment finalises the authorisation and accepts the payment" +"spec 7.6.4" {
+    example "The nominal confirmation" @"PIS core" +nominal {
+      given "pay001auth1 is unconfirmed and the TPP holds a token with scope PIS:pay001"
+      when "PUT /v1/payments/sepa-credit-transfers/pay001/authorisations/pay001auth1 is called with that token"
+      then "the answer is 200 {scaStatus: finalised}"
+      then "the transaction status of pay001 is ACTC"
+    }
+    example "The confirmation is idempotent" @"PIS core" +edge {
+      given "the authorisation is finalised"
+      when "the confirmation is repeated"
+      then "the answer is 200 {scaStatus: finalised} and nothing changes"
+    }
+    example "The status link shows the payment moved" @"PIS core" +nominal {
+      given "the confirmation succeeded"
+      when "the status link is followed"
+      then "the answer is {transactionStatus: ACTC}"
+    }
+  }
+
+  rule "A token for another payment, another client or no token at all does not confirm" +security {
+    example "A token for another payment" @"PIS core" +error {
+      given "a token with scope PIS:pay002"
+      when "the confirmation of pay001 is called"
+      then "the answer is 401 TOKEN_INVALID and the authorisation stays unconfirmed"
+    }
+    example "A consent token cannot confirm a payment" @"PIS core" +error {
+      given "a token with scope AIS:123cons456"
+      when "the confirmation of pay001 is called"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "A token presented over another certificate" @"PIS core" +error {
+      given "the right token over the other TPP's certificate"
+      when "the confirmation is called"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "No token" @"PIS core" +error {
+      given "the confirmation without an Authorization header"
+      when "it is called"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "An expired token" @"PIS core" +error {
+      given "a token past its expiry"
+      when "the confirmation is called"
+      then "the answer is 401 TOKEN_EXPIRED"
+    }
+  }
+
+  rule "Confirmation is possible only from the unconfirmed state" +"spec 14.16" {
+    example "Confirming a started authorisation" @"PIS core" +error {
+      given "the authorisation is started, with no device approval yet"
+      when "the confirmation is called"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "Confirming a failed authorisation" @"PIS core" +error {
+      given "the authorisation is failed"
+      when "the confirmation is called"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "Confirming a payment that was rejected" @"PIS core" +error {
+      given "pay001 is RJCT"
+      when "the confirmation is called"
+      then "the answer is 409 STATUS_INVALID"
+    }
+  }
+
+  rule "Until the payment is accepted, nothing is executed" {
+    example "No booking before ACTC" @"PIS core" +nominal {
+      given "the authorisation is unconfirmed"
+      when "the core banking is inspected"
+      then "no booking exists for pay001"
+    }
+    example "The execution starts after acceptance" @"PIS core" +nominal {
+      given "the confirmation moved pay001 to ACTC"
+      when "the execution job runs"
+      then "the payment is handed to the core banking"
+    }
+  }
+}

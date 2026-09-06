@@ -1,0 +1,80 @@
+// Example map for the story "Limit the transaction history without a fresh SCA"
+// (activity "Come back later", step "Reuse the connection"). Increment 6.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Limit the transaction history without a fresh SCA" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Access rules" release
+
+  story "Limit the transaction history without a fresh SCA" ~analysing @"Access rules" +bank-xs2a +security +"RTS art. 10" {
+    as "Bank security officer"
+    want "transactions older than ninety days served only when the PSU is authenticated"
+    so "the exemption for account information stays within its limits"
+    question "Does PSU presence alone open the older history, or does the specification require an SCA in that same session?" +"ask bank" +"RTS art. 10"
+  }
+
+  rule "Without the PSU present, a transaction report reaches back ninety days and no further" +"RTS art. 10" {
+    example "A period inside the window is served" @"Access rules" +nominal {
+      given "today is 2026-09-07 and no PSU-IP-Address"
+      when "transactions are read with dateFrom=2026-08-01"
+      then "the answer is 200"
+    }
+    example "A period reaching further back is refused" @"Access rules" +error {
+      given "the same call without the PSU"
+      when "dateFrom=2026-01-01 is used"
+      then "the answer is 401 CONSENT_INVALID with text 'transactions older than 90 days require PSU presence'"
+    }
+    example "Exactly ninety days back is served" @"Access rules" +edge {
+      given "today is 2026-09-07 and no PSU-IP-Address"
+      when "dateFrom=2026-06-09 is used"
+      then "the answer is 200"
+    }
+    example "One day beyond is refused" @"Access rules" +edge {
+      given "the same call"
+      when "dateFrom=2026-06-08 is used"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "The window moves with the day" @"Access rules" +edge {
+      given "a period accepted yesterday at its oldest edge"
+      when "the same period is read a day later without the PSU"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+  }
+
+  rule "With the PSU present, the whole history the Bank holds is served" +"RTS art. 10" {
+    example "A long period with the PSU present" @"Access rules" +nominal {
+      given "PSU-IP-Address is sent"
+      when "dateFrom=2026-01-01 is used"
+      then "the answer is 200 with the bookings of that period"
+    }
+    example "A transaction detail older than ninety days with the PSU" @"Access rules" +nominal {
+      given "tx-2001 booked 100 days ago and PSU-IP-Address sent"
+      when "its details are read"
+      then "the answer is 200"
+    }
+    example "The same detail without the PSU" @"Access rules" +error {
+      given "no PSU-IP-Address"
+      when "tx-2001 is read"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+  }
+
+  rule "The limit applies to delta reads and to what the Bank actually returns" {
+    example "A delta read that would cross the window is refused" @"Access rules" +error {
+      given "entryReferenceFrom names an entry booked 100 days ago and no PSU-IP-Address"
+      when "the delta read is made"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "A period that starts inside the window returns nothing older" @"Access rules" +edge {
+      given "dateFrom inside the window and bookings older than it in the ledger"
+      when "the report is built"
+      then "no entry older than dateFrom is returned"
+    }
+    example "Balances are not limited by the window" @"Access rules" +nominal {
+      given "no PSU-IP-Address"
+      when "the balances are read"
+      then "the answer is 200, because a balance has no history"
+    }
+  }
+}

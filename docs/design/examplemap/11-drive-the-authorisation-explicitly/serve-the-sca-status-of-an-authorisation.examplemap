@@ -1,0 +1,89 @@
+// Example map for the story "Serve the SCA status of an authorisation"
+// (activity "Drive the authorisation explicitly", step "Start and read
+// authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the SCA status of an authorisation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Serve the SCA status of an authorisation" ~ready @"Authorisation resources" +bank-xs2a +"spec 7.5" +"spec 14.16" {
+    as "TPP operator"
+    want "GET on one authorisation to return its scaStatus and nothing else"
+    so "polling never leaks who the PSU is"
+  }
+
+  rule "The endpoint returns the current SCA status of that authorisation" +"spec 7.5" {
+    example "Before anything happens" @"Authorisation resources" +nominal {
+      given "the authorisation 123auth567 was just created"
+      when "GET /v1/consents/123cons456/authorisations/123auth567 is called"
+      then "the answer is 200 {scaStatus: received}"
+    }
+    example "After the PSU authenticated" @"Authorisation resources" +nominal {
+      given "the password was verified"
+      when "the status is read"
+      then "the answer is {scaStatus: psuAuthenticated}"
+    }
+    example "While the challenge is pending" @"Authorisation resources" +nominal {
+      given "the QR challenge was issued"
+      when "the status is read"
+      then "the answer is {scaStatus: started}"
+    }
+    example "After the approval, before the confirmation" @"Authorisation resources" +nominal {
+      given "the device approved and a confirmation is required"
+      when "the status is read"
+      then "the answer is {scaStatus: unconfirmed}"
+    }
+    example "After the confirmation" @"Authorisation resources" +nominal {
+      given "the confirmation was called"
+      when "the status is read"
+      then "the answer is {scaStatus: finalised}"
+    }
+    example "After a failure" @"Authorisation resources" +nominal {
+      given "the PSU denied the challenge"
+      when "the status is read"
+      then "the answer is {scaStatus: failed}"
+    }
+    example "The same endpoint serves payment authorisations" @"Authorisation resources" +nominal {
+      given "pay001auth1 at started"
+      when "its status is read"
+      then "the answer is {scaStatus: started}"
+    }
+  }
+
+  rule "The answer carries the status alone, with no PSU or device data" +security {
+    example "The fields of the answer" @"Authorisation resources" +nominal {
+      given "any status answer"
+      when "its fields are listed"
+      then "it holds scaStatus, optionally links, and no psuId, device name or challenge data"
+    }
+    example "A failed status does not say why" @"Authorisation resources" +nominal {
+      given "the authorisation failed because the identity was locked"
+      when "the status is read"
+      then "the answer is failed with no reason, and the reason lives in the Bank's audit trail"
+    }
+  }
+
+  rule "Polling is allowed, cheap and bounded by the resource's own access rules" {
+    example "Polling every two seconds during the SCA" @"Authorisation resources" +edge {
+      given "the challenge is pending"
+      when "the status is polled thirty times"
+      then "every call answers 200"
+    }
+    example "A status read is not counted against the consent frequency" @"Authorisation resources" +nominal {
+      given "the usage counters are at their limit"
+      when "the SCA status is read without the PSU"
+      then "the answer is 200 and no counter changes"
+    }
+    example "Another TPP cannot poll it" @"Authorisation resources" +error {
+      given "the other TPP's certificate"
+      when "the status of 123auth567 is read"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+    example "An unknown authorisation id" @"Authorisation resources" +error {
+      given "no authorisation nope on that consent"
+      when "its status is read"
+      then "the answer is 404 RESOURCE_UNKNOWN"
+    }
+  }
+}

@@ -1,0 +1,82 @@
+// Example map for the story "Accept a consent on dedicated accounts" (activity
+// "Connect the Bank from the TPP", step "Request the consent"). Increment 2.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Accept a consent on dedicated accounts" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Consent models" release
+
+  story "Accept a consent on dedicated accounts" ~analysing @"Consent models" +bank-xs2a +"spec 6.3.1.1" {
+    as "TPP operator"
+    want "a consent naming the IBANs I already know to be accepted without a bank-side account choice"
+    so "a PSU who has told me their accounts is not asked twice"
+    question "When a named IBAN does not belong to the PSU who authenticates, is the whole consent rejected or is that account dropped?" +"ask bank"
+  }
+
+  rule "A request naming accounts is accepted and the named accounts become the accessible ones" +"spec 6.3.1.1" {
+    example "Two accounts named for accounts and balances" @"Consent models" +nominal {
+      given "access {accounts: [DE23100100100123456789, DE89370400440532013000], balances: [DE23100100100123456789]}"
+      when "the TPP calls POST /v1/consents"
+      then "the answer is 201 with consentStatus received"
+      when "Anna authenticates and approves"
+      then "the consent has two accessible accounts, and only DE23… carries the access type balances"
+    }
+    example "The PSU is not asked to choose accounts" @"Consent models" +nominal {
+      given "a dedicated consent naming Main Account"
+      when "Anna reaches the Bank's consent screen"
+      then "the screen shows the named account and no selection list"
+    }
+    example "An account reference with a currency addresses one sub-account" @"Consent models" +edge {
+      given "access.accounts [{iban: DE11…, currency: USD}]"
+      when "the consent is authorised"
+      then "only the USD sub-account is accessible"
+    }
+    example "An IBAN the PSU does not hold is refused" @"Consent models" +error {
+      given "access.accounts [DE75512108001245126199], which belongs to Ben"
+      when "Anna authenticates for that consent"
+      then "the consent is rejected with CONSENT_INVALID and no account becomes accessible"
+    }
+    example "A malformed IBAN is refused at creation" @"Consent models" +error {
+      given "access.accounts [DE00]"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR naming access.accounts"
+    }
+    example "An empty accounts array with a non-empty balances array is refused" @"Consent models" +error {
+      given "access {accounts: [], balances: [DE23100100100123456789]}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+
+  rule "An access type may only name accounts that the accounts array also names" +"spec 14.17" {
+    example "Transactions on an account that is not in accounts is refused" @"Consent models" +error {
+      given "access {accounts: [DE23…], transactions: [DE89…]}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "Balances on a subset is accepted" @"Consent models" +nominal {
+      given "access {accounts: [DE23…, DE89…], balances: [DE23…]}"
+      when "the consent is authorised"
+      then "balances are served for DE23… and refused for DE89…"
+    }
+  }
+
+  rule "A dedicated consent still needs one SCA and follows the same lifecycle" +"spec 14.15" {
+    example "The consent becomes valid only after SCA" @"Consent models" +nominal {
+      given "a dedicated consent in status received"
+      when "the account list is read before the SCA"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "The account list holds exactly the named accounts" @"Consent models" +nominal {
+      given "a dedicated consent on Main Account only, now valid"
+      when "GET /v1/accounts is called"
+      then "the list holds Main Account and not Savings"
+    }
+    example "A dedicated recurring consent replaces the previous recurring consent" @"Consent models" +edge {
+      given "the TPP holds a valid bank-offered consent for Anna"
+      when "a dedicated recurring consent of the same TPP becomes valid"
+      then "the older consent is terminated"
+    }
+  }
+}

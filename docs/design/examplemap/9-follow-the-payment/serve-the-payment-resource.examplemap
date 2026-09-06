@@ -1,0 +1,75 @@
+// Example map for the story "Serve the payment resource" (activity "Follow the
+// payment", step "Read the status and the payment"). Increment 4.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the payment resource" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Serve the payment resource" ~analysing @"PIS core" +bank-xs2a +"spec 5.6" {
+    as "TPP operator"
+    want "GET on the payment to return the instruction as the Bank stored it"
+    so "the client can show what was actually initiated"
+    question "Does the answer echo the debtor account when the Bank filled it in during the review, as assumed here?" +"ask bank" +"spec 5.6"
+  }
+
+  rule "The payment resource returns the instruction the Bank holds, with its status" +"spec 5.6" {
+    example "The stored instruction of pay001" @"PIS core" +nominal {
+      given "pay001 accepted for execution"
+      when "the TPP calls GET /v1/payments/sepa-credit-transfers/pay001"
+      then "the answer is 200 with instructedAmount {currency: EUR, amount: '12.50'}, debtorAccount DE23100100100123456789, creditorName 'Payee X', creditorAccount DE12500105170648489890, remittanceInformationUnstructured 'Invoice 42' and transactionStatus ACTC"
+    }
+    example "A debtor account chosen at the Bank is echoed" @"PIS core" +edge {
+      given "pay002 was initiated without a debtor account and Anna chose Main Account"
+      when "the payment is read"
+      then "debtorAccount is DE23100100100123456789"
+    }
+    example "The answer never carries the PSU's identity" @"PIS core" +nominal {
+      given "any payment answer"
+      when "its fields are listed"
+      then "there is no psuId, no customer number and no device data"
+    }
+    example "A rejected payment is still readable" @"PIS core" +edge {
+      given "pay001 is RJCT"
+      when "it is read"
+      then "the answer is 200 with the instruction and transactionStatus RJCT"
+    }
+  }
+
+  rule "The resource is served under the service and product it was created with" +"spec 4.11.1" {
+    example "The right path serves the payment" @"PIS core" +nominal {
+      given "pay001 created as a sepa-credit-transfers payment"
+      when "it is read under /v1/payments/sepa-credit-transfers/pay001"
+      then "the answer is 200"
+    }
+    example "Another product in the path does not find it" @"PIS core" +error {
+      given "the same payment"
+      when "it is read under /v1/payments/instant-sepa-credit-transfers/pay001"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "Another service in the path does not find it" @"PIS core" +error {
+      given "the same payment"
+      when "it is read under /v1/bulk-payments/sepa-credit-transfers/pay001"
+      then "the answer is 404 SERVICE_INVALID"
+    }
+  }
+
+  rule "The same access rules as the status endpoint apply" +security {
+    example "Another TPP is refused" @"PIS core" +error {
+      given "the other TPP's certificate"
+      when "pay001 is read"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "A token scoped to another payment is refused" @"PIS core" +error {
+      given "a token with scope PIS:pay002"
+      when "pay001 is read"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "Reading before the SCA is allowed for the creator" @"PIS core" +edge {
+      given "pay001 is RCVD and the TPP holds no token yet"
+      when "it is read with the TPP's certificate"
+      then "the answer is 200, because the creator may read what it created"
+    }
+  }
+}

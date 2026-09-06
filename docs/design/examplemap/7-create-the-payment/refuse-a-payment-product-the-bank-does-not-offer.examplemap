@@ -1,0 +1,74 @@
+// Example map for the story "Refuse a payment product the Bank does not offer"
+// (activity "Create the payment", step "Serve the payment initiation request").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Refuse a payment product the Bank does not offer" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Refuse a payment product the Bank does not offer" ~ready @"PIS core" +bank-xs2a +"spec 14.11" {
+    as "Bank security officer"
+    want "an unknown payment service or product refused with PRODUCT_UNKNOWN"
+    so "only the products the Bank sells can be initiated"
+  }
+
+  rule "The payment product in the path must be one the Bank offers" +"spec 4.11.1" {
+    example "The offered product is accepted" @"PIS core" +nominal {
+      given "the sandbox offers sepa-credit-transfers"
+      when "POST /v1/payments/sepa-credit-transfers is called"
+      then "the answer is 201"
+    }
+    example "An unknown product is refused" @"PIS core" +error {
+      given "the same sandbox"
+      when "POST /v1/payments/space-credit-transfers is called"
+      then "the answer is 404 PRODUCT_UNKNOWN"
+    }
+    example "A product the specification defines but the Bank does not offer is refused" @"PIS core" +error {
+      given "the sandbox does not offer cross-border-credit-transfers"
+      when "it is used in the path"
+      then "the answer is 404 PRODUCT_UNKNOWN and the message names the products on offer"
+    }
+    example "The product is case-sensitive" @"PIS core" +edge {
+      given "the path segment SEPA-Credit-Transfers"
+      when "the payment is initiated"
+      then "the answer is 404 PRODUCT_UNKNOWN"
+    }
+  }
+
+  rule "The payment service in the path must be one the Bank offers" +"spec 4.11.1" {
+    example "Single payments are offered" @"PIS core" +nominal {
+      given "the path segment payments"
+      when "a payment is initiated"
+      then "the answer is 201"
+    }
+    example "Bulk payments are refused while they are not implemented" @"PIS core" +error {
+      given "the sandbox does not implement bulk-payments"
+      when "POST /v1/bulk-payments/sepa-credit-transfers is called"
+      then "the answer is 404 SERVICE_INVALID"
+    }
+    example "Periodic payments are refused while they are not implemented" @"PIS core" +error {
+      given "the same sandbox"
+      when "POST /v1/periodic-payments/sepa-credit-transfers is called"
+      then "the answer is 404 SERVICE_INVALID"
+    }
+    example "An unknown service is refused" @"PIS core" +error {
+      given "the path segment donations"
+      when "it is called"
+      then "the answer is 404 SERVICE_INVALID"
+    }
+  }
+
+  rule "What the Bank offers is discoverable rather than guessed" {
+    example "The refusal names what is available" @"PIS core" +nominal {
+      given "a refusal for an unknown product"
+      when "the body is read"
+      then "the text lists the payment services and products the sandbox offers"
+    }
+    example "The offered products are a configuration parameter" @"PIS core" +edge {
+      given "the sandbox is configured with sepa-credit-transfers and instant-sepa-credit-transfers"
+      when "both are used"
+      then "both answer 201"
+    }
+  }
+}

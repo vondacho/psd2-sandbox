@@ -1,0 +1,71 @@
+// Example map for the story "Create the payment authorisation implicitly"
+// (activity "Create the payment", step "Serve the payment initiation request").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Create the payment authorisation implicitly" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Create the payment authorisation implicitly" ~ready @"PIS core" +bank-xs2a +"spec 4.6" +"spec 7" {
+    as "TPP operator"
+    want "the payment resource to carry an authorisation sub-resource from the start"
+    so "the same authorisation model serves consents and payments"
+  }
+
+  rule "A payment created without an explicit authorisation request carries one authorisation in status received" +"spec 4.6" {
+    example "The authorisation exists with the payment" @"PIS core" +nominal {
+      given "pay001 was just created"
+      when "the TPP follows the scaStatus link"
+      then "the answer is 200 {scaStatus: received}"
+      then "the authorisation id is pay001auth1"
+    }
+    example "The authorisation list holds exactly one entry" @"PIS core" +nominal {
+      given "pay001"
+      when "GET /v1/payments/sepa-credit-transfers/pay001/authorisations is called"
+      then "the answer is {authorisationIds: [pay001auth1]}"
+    }
+    example "The authorisation belongs to that payment only" @"PIS core" +error {
+      given "pay001auth1 belongs to pay001"
+      when "it is read under pay002"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "No second authorisation is created implicitly" @"PIS core" +edge {
+      given "pay001 with its implicit authorisation"
+      when "the payment is read again"
+      then "the authorisation list still holds one entry"
+    }
+  }
+
+  rule "The payment authorisation is the same kind of resource as a consent authorisation" +"spec 7" {
+    example "The SCA status vocabulary is the same" @"PIS core" +nominal {
+      given "the payment authorisation"
+      when "it moves through the journey"
+      then "it takes the values received, psuIdentified, psuAuthenticated, started, unconfirmed, finalised and failed"
+    }
+    example "The status moves forward only" @"PIS core" +edge {
+      given "the authorisation is finalised"
+      when "a late update arrives"
+      then "it stays finalised"
+    }
+    example "The challenge is issued by the same SCA engine" @"PIS core" +nominal {
+      given "the payment authorisation reaches the challenge step"
+      when "the challenge is created"
+      then "it is an ScaChallenge with subject kind PIS_PAYMENT and the payment id as its subject"
+    }
+  }
+
+  rule "When the TPP prefers an explicit start, no implicit authorisation is created" +"spec 7.1" {
+    example "The header suppresses the implicit authorisation" @"PIS core" +edge {
+      given "TPP-Explicit-Authorisation-Preferred: true on the initiation"
+      when "the payment is created"
+      then "the answer carries a startAuthorisation link and no scaStatus link"
+      then "the authorisation list is empty"
+    }
+    example "Without the header the implicit authorisation is created" @"PIS core" +nominal {
+      given "no TPP-Explicit-Authorisation-Preferred header"
+      when "the payment is created"
+      then "the scaStatus link is present"
+    }
+  }
+}

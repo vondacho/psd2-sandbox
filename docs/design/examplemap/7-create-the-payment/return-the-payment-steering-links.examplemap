@@ -1,0 +1,79 @@
+// Example map for the story "Return the payment steering links" (activity
+// "Create the payment", step "Serve the payment initiation request").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Return the payment steering links" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Return the payment steering links" ~ready @"PIS core" +bank-xs2a +"spec 4.15" +"spec 5.1.5" {
+    as "TPP operator"
+    want "scaOAuth, scaStatus, self and status links with the SCA approach header"
+    so "the client never guesses a payment URL"
+  }
+
+  rule "The 201 carries the links that fit the OAuth2 approach with an implicit authorisation" +"spec 5.1.5" {
+    example "The links of a freshly created payment" @"PIS core" +nominal {
+      given "pay001 created with the OAuth2 approach"
+      when "the answer is inspected"
+      then "_links holds self /psd2/v1/payments/sepa-credit-transfers/pay001, status …/status, scaStatus …/authorisations/pay001auth1 and scaOAuth https://oidc-provider.sandbox/.well-known/oauth-authorization-server"
+    }
+    example "The confirmation link appears when the Bank requires confirmation" @"PIS core" +edge {
+      given "the sandbox runs with confirmationRequired true"
+      when "the payment is created"
+      then "_links also holds confirmation, equal to the scaStatus href"
+    }
+    example "The header announces the approach" @"PIS core" +nominal {
+      given "the created payment"
+      when "the response headers are read"
+      then "ASPSP-SCA-Approach is REDIRECT"
+    }
+    example "Every href is a path under the API base" @"PIS core" +nominal {
+      given "the links"
+      when "they are inspected"
+      then "each starts with /psd2/v1/ except scaOAuth, which is an absolute https URL"
+    }
+    example "No link carries an IBAN or a PSU identifier" @"PIS core" +nominal {
+      given "the links"
+      when "they are inspected"
+      then "they hold the payment id and the authorisation id only"
+    }
+  }
+
+  rule "The links follow the state: what cannot be done next is not linked" +"spec 4.15" {
+    example "An explicit start offers startAuthorisation instead of scaStatus" @"PIS core" +edge {
+      given "TPP-Explicit-Authorisation-Preferred: true"
+      when "the payment is created"
+      then "_links holds startAuthorisation and no scaStatus"
+    }
+    example "A finalised authorisation no longer offers confirmation" @"PIS core" +edge {
+      given "the authorisation is finalised"
+      when "the payment is read"
+      then "_links holds self and status, and no confirmation"
+    }
+    example "A rejected payment offers status only" @"PIS core" +edge {
+      given "pay001 was rejected on validation of the debtor account"
+      when "the payment is read"
+      then "_links holds self and status"
+    }
+  }
+
+  rule "The steering links are stable for the life of the payment" {
+    example "The self link resolves to the payment" @"PIS core" +nominal {
+      given "the self link of pay001"
+      when "it is followed with the TPP's certificate"
+      then "the answer is 200 with the payment"
+    }
+    example "The status link resolves to the transaction status" @"PIS core" +nominal {
+      given "the status link"
+      when "it is followed"
+      then "the answer is {transactionStatus: RCVD}"
+    }
+    example "The links do not change after authorisation" @"PIS core" +edge {
+      given "the payment before and after the SCA"
+      when "the self and status hrefs are compared"
+      then "they are identical"
+    }
+  }
+}

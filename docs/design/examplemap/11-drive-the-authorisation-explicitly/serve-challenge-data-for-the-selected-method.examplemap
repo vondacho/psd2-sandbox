@@ -1,0 +1,71 @@
+// Example map for the story "Serve challenge data for the selected method"
+// (activity "Drive the authorisation explicitly", step "Update the PSU data").
+// Increment 3. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve challenge data for the selected method" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Serve challenge data for the selected method" ~analysing @"Authorisation resources" +bank-ciam +sca +"spec 14.8" +"spec 14.10" {
+    as "TPP operator"
+    want "the challenge object of the chosen method, with its image or data and its expiry"
+    so "an embedded flow can show the challenge to the PSU"
+    question "If the sandbox offers the embedded approach, does it return the QR as an image or as data the client renders?" +"ask product" +"spec 14.10"
+  }
+
+  rule "The challenge object carries what the PSU needs and nothing that would let a TPP answer for them" +"spec 14.10" {
+    example "A photo challenge for the registered device" @"Authorisation resources" +nominal {
+      given "the method dev-anna-1 was selected in an embedded flow"
+      when "the answer is built"
+      then "challengeData holds the image of the QR, the expiry and an explanatory text"
+      then "it holds no device key, no nonce that the device did not receive and no signature"
+    }
+    example "The expiry matches the challenge itself" @"Authorisation resources" +nominal {
+      given "a challenge created at 09:12:00Z with a three-minute life"
+      when "the challenge data is read"
+      then "its expiry is 09:15:00Z"
+    }
+    example "The additional information tells the PSU what to do" @"Authorisation resources" +edge {
+      given "the challenge data"
+      when "it is read"
+      then "it holds a text such as 'Scan this code with the Bank app on your registered device'"
+    }
+    example "The data cannot be replayed to approve" @"Authorisation resources" +error {
+      given "the challenge data of an authorisation"
+      when "a client posts it back as an approval"
+      then "the approval is refused, because only a device signature approves"
+    }
+  }
+
+  rule "The challenge data is available only while the challenge is pending, to the owning TPP" +security {
+    example "After approval there is no challenge data" @"Authorisation resources" +edge {
+      given "the challenge was approved"
+      when "the authorisation is read"
+      then "the answer carries the status and no challenge data"
+    }
+    example "After expiry there is no challenge data" @"Authorisation resources" +edge {
+      given "the challenge expired"
+      when "the authorisation is read"
+      then "the answer carries the status and no challenge data"
+    }
+    example "Another TPP cannot read it" @"Authorisation resources" +error {
+      given "the other TPP's certificate"
+      when "the authorisation is read"
+      then "the answer is 403 and no challenge data is served"
+    }
+  }
+
+  rule "In the redirect approach no challenge data crosses the interface" {
+    example "The QR stays on the Bank's page" @"Authorisation resources" +nominal {
+      given "the redirect approach"
+      when "the authorisation is read while the challenge is pending"
+      then "the answer holds the SCA status only"
+    }
+    example "The device fetches the challenge from the Bank, not from the TPP" @"Authorisation resources" +nominal {
+      given "the redirect approach"
+      when "the app loads the challenge"
+      then "it calls the Bank's SCA engine over its device-authenticated channel"
+    }
+  }
+}

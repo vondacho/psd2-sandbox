@@ -1,0 +1,71 @@
+// Example map for the story "Serve the owner name and additional information"
+// (activity "Connect the Bank from the TPP", step "Request the consent"). Increment 2.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the owner name and additional information" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Consent models" release
+
+  story "Serve the owner name and additional information" ~analysing @"Consent models" +bank-xs2a +"spec 14.18" {
+    as "PSU"
+    want "my name released only when the consent asked for it"
+    so "an app learns no more about me than I agreed"
+    question "Does the sandbox also offer the trusted-beneficiaries additional information, or the owner name only?" +"ask product" +"spec 14.18"
+  }
+
+  rule "The owner name is served only for the accounts named under ownerName in the additional information" +"spec 14.18" {
+    example "Owner name asked for one account" @"Consent models" +nominal {
+      given "access with additionalInformation {ownerName: [DE23100100100123456789]}"
+      when "the consent is valid and the account details of Main Account are read"
+      then "the answer carries ownerName 'Anna Müller'"
+    }
+    example "The other account keeps the name hidden" @"Consent models" +nominal {
+      given "the same consent"
+      when "the details of Savings are read"
+      then "the answer carries no ownerName"
+    }
+    example "No additional information means no owner name anywhere" @"Consent models" +nominal {
+      given "a consent without additionalInformation"
+      when "any account is read"
+      then "no answer carries ownerName"
+    }
+    example "The account list carries the owner name too when granted" @"Consent models" +edge {
+      given "ownerName granted on Main Account"
+      when "GET /v1/accounts is called"
+      then "the Main Account entry carries ownerName and the Savings entry does not"
+    }
+    example "An account named under ownerName must also be in the access" @"Consent models" +error {
+      given "additionalInformation {ownerName: [DE89370400440532013000]} while access.accounts holds DE23… only"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+
+  rule "The consent screen shows the additional information as part of what is granted" {
+    example "The summary names the owner name" @"Consent models" +nominal {
+      given "a consent asking for ownerName"
+      when "the consent summary renders"
+      then "it says that the app will also see the name of the account holder"
+    }
+    example "The approval on the device shows the same" @"Consent models" +nominal {
+      given "the same consent"
+      when "the approval screen renders"
+      then "it lists the owner name alongside the accounts and the validity"
+    }
+  }
+
+  rule "A bank that does not support an additional-information type refuses it rather than ignoring it" +"spec 14.11" {
+    example "Trusted beneficiaries when the Bank does not offer them" @"Consent models" +error {
+      given "additionalInformation {trustedBeneficiaries: [DE23…]} and the sandbox runs without that feature"
+      when "POST /v1/consents is called"
+      then "the answer is 400 SERVICE_INVALID"
+      then "no consent is created"
+    }
+    example "An unknown additional-information field is refused" @"Consent models" +error {
+      given "additionalInformation {favouriteColour: [DE23…]}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+}

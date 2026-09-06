@@ -1,0 +1,81 @@
+// Example map for the story "Cancel a payment that needs no authorisation"
+// (activity "Cancel the payment", step "Cancel without a new SCA"). Increment 5.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Cancel a payment that needs no authorisation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS cancellation" release
+
+  story "Cancel a payment that needs no authorisation" ~analysing @"PIS cancellation" +bank-xs2a +"spec 5.7" +"spec 4.7" {
+    as "PSU"
+    want "a payment that has not been executed cancelled straight away"
+    so "I can stop a payment I no longer want"
+    question "Which payments may be cancelled without a new SCA in the sandbox: everything before execution, or only payments the PSU has not yet authorised?" +"ask bank" +"spec 5.7"
+  }
+
+  rule "A payment that the Bank can still stop, and whose cancellation needs no SCA, is cancelled at once" +"spec 5.7" {
+    example "A payment still waiting for its SCA" @"PIS cancellation" +nominal {
+      given "pay001 is RCVD"
+      when "the TPP calls DELETE /v1/payments/sepa-credit-transfers/pay001"
+      then "the answer is 204"
+      then "the transaction status is CANC"
+    }
+    example "A payment accepted but not yet executed, when the Bank requires no SCA" @"PIS cancellation" +nominal {
+      given "pay002 is ACTC, the sandbox runs with cancellationScaRequired false"
+      when "the cancellation is called"
+      then "the answer is 204 and the status is CANC"
+    }
+    example "The cancelled payment is never handed to the core" @"PIS cancellation" +nominal {
+      given "pay002 was cancelled before the execution job ran"
+      when "the job runs"
+      then "the core receives nothing"
+    }
+    example "Cancelling twice is harmless" @"PIS cancellation" +edge {
+      given "pay002 is CANC"
+      when "the cancellation is repeated"
+      then "the answer is 204 and the status stays CANC"
+    }
+    example "The status endpoint shows the cancellation" @"PIS cancellation" +nominal {
+      given "the cancelled payment"
+      when "the status is read"
+      then "the answer is {transactionStatus: CANC}"
+    }
+  }
+
+  rule "Only the TPP that created the payment may cancel it" +security {
+    example "Another TPP is refused" @"PIS cancellation" +error {
+      given "the other TPP's certificate"
+      when "DELETE on pay001 is called"
+      then "the answer is 403 RESOURCE_UNKNOWN and the payment is untouched"
+    }
+    example "A token scoped to another payment is refused" @"PIS cancellation" +error {
+      given "a token with scope PIS:pay002"
+      when "pay001 is cancelled"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "An unknown payment id" @"PIS cancellation" +error {
+      given "no payment pay999"
+      when "it is cancelled"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "The PSU can also cancel through the Bank's own channel" @"PIS cancellation" +edge {
+      given "pay002 is ACTC"
+      when "Anna cancels it in online banking"
+      then "the status is CANC and the TPP reads CANC on its next status call"
+    }
+  }
+
+  rule "A cancellation is refused when the payment product does not allow it" +"spec 14.11" {
+    example "An instant payment cannot be cancelled" @"PIS cancellation" +error {
+      given "pay003 is an instant-sepa-credit-transfers payment at ACTC"
+      when "it is cancelled"
+      then "the answer is 405 CANCELLATION_INVALID with text 'this payment product cannot be cancelled'"
+    }
+    example "The product's rule is configuration, not code" @"PIS cancellation" +edge {
+      given "the sandbox marks sepa-credit-transfers cancellable and instant payments not"
+      when "each product is cancelled"
+      then "the first answers 204 and the second 405"
+    }
+  }
+}

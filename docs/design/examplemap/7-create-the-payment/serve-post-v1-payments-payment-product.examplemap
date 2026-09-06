@@ -1,0 +1,92 @@
+// Example map for the story "Serve POST /v1/payments/{payment-product}"
+// (activity "Create the payment", step "Serve the payment initiation request").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve POST /v1/payments/{payment-product}" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Serve POST /v1/payments/{payment-product}" ~analysing @"PIS core" +bank-xs2a +"spec 5.3.1" +"spec 4.11.1" {
+    as "TPP operator"
+    want "a 201 with paymentId, transactionStatus RCVD and the steering links"
+    so "the payment can be authorised in the next step"
+    question "Which payment products does the sandbox offer besides sepa-credit-transfers?" +"ask product" +"spec 4.11.1"
+  }
+
+  rule "A valid single payment creates a payment resource in status RCVD" +"spec 5.3.1" {
+    example "A SEPA credit transfer of 12.50 EUR" @"PIS core" +nominal {
+      given "the TPP's QWAC carries the PISP role and X-Request-ID is a fresh UUID"
+      given "the body is {instructedAmount: {currency: EUR, amount: '12.50'}, debtorAccount: {iban: DE23100100100123456789}, creditorName: 'Payee X', creditorAccount: {iban: DE12500105170648489890}, remittanceInformationUnstructured: 'Invoice 42'}"
+      when "POST /v1/payments/sepa-credit-transfers is called"
+      then "the answer is 201 with transactionStatus RCVD, paymentId pay001 and Location /psd2/v1/payments/sepa-credit-transfers/pay001"
+      then "the ASPSP-SCA-Approach header is REDIRECT"
+    }
+    example "The payment is stored as the Bank read it" @"PIS core" +nominal {
+      given "the created payment pay001"
+      when "the resource is read in payment initiation"
+      then "it holds the amount, both accounts, the creditor name, the remittance, the TPP id and createdAt"
+    }
+    example "Two initiations create two payments" @"PIS core" +edge {
+      given "the same body sent twice with different X-Request-ID values"
+      when "both answers arrive"
+      then "two payment ids exist, both RCVD"
+    }
+    example "X-Request-ID is echoed" @"PIS core" +nominal {
+      given "X-Request-ID 6b2d1f4a-…"
+      when "the payment is created"
+      then "the response carries the same X-Request-ID"
+    }
+    example "A debtor account the PSU does not hold is refused at authorisation" @"PIS core" +edge {
+      given "debtorAccount DE75512108001245126199, which belongs to Ben"
+      when "Anna authenticates for pay001"
+      then "the payment is rejected with RJCT and text 'debtor account not held by the PSU'"
+    }
+    example "A payment without debtorAccount is accepted and the account is chosen at the Bank" @"PIS core" +edge {
+      given "a body without debtorAccount"
+      when "the payment is created and Anna authenticates"
+      then "the Bank's review screen asks her which account to pay from"
+    }
+  }
+
+  rule "Only a certificate carrying the PISP role may initiate a payment" +security +"spec 3" {
+    example "An AISP-only certificate is refused" @"PIS core" +error {
+      given "a QWAC with the role PSP_AI only"
+      when "POST /v1/payments/sepa-credit-transfers is called"
+      then "the answer is 401 ROLE_INVALID and no payment is created"
+    }
+    example "A revoked certificate is refused" @"PIS core" +error {
+      given "the TPP's QWAC is on the revocation list"
+      when "the payment is initiated"
+      then "the answer is 401 CERTIFICATE_REVOKED"
+    }
+    example "No client certificate at all" @"PIS core" +error {
+      given "a connection without a client certificate"
+      when "the payment is initiated"
+      then "the connection is refused at the TLS handshake"
+    }
+    example "The payment belongs to the initiating TPP" @"PIS core" +nominal {
+      given "pay001 created by PSDDE-BAFIN-123456"
+      when "another TPP reads it with its own certificate"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+  }
+
+  rule "The redirect URIs and PSU context of the initiation are stored with the payment" +"spec 4.8" +"spec 4.10" {
+    example "The redirect URIs are kept for the authorisation" @"PIS core" +nominal {
+      given "TPP-Redirect-URI https://tpp.sandbox/xs2a/callback/bank and its nok variant"
+      when "the payment is created"
+      then "both are stored on the payment and used when the PSU returns"
+    }
+    example "A redirect URI outside the certificate domain is refused" @"PIS core" +error {
+      given "TPP-Redirect-URI https://evil.example/cb"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming TPP-Redirect-URI"
+    }
+    example "The PSU context is passed to the risk engine" @"PIS core" +nominal {
+      given "PSU-IP-Address, PSU-User-Agent and PSU-Device-ID are sent"
+      when "the payment is created"
+      then "the risk engine receives them with the payment"
+    }
+  }
+}

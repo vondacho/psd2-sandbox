@@ -1,0 +1,74 @@
+// Example map for the story "Serve the list of authorisation sub-resources"
+// (activity "Drive the authorisation explicitly", step "Start and read
+// authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the list of authorisation sub-resources" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Serve the list of authorisation sub-resources" ~ready @"Authorisation resources" +bank-xs2a +"spec 7.4" {
+    as "TPP operator"
+    want "GET on the authorisations endpoint to list the authorisation ids of a resource"
+    so "I can find the authorisation I did not create myself"
+  }
+
+  rule "The endpoint lists the authorisation ids of that resource, and nothing else" +"spec 7.4" {
+    example "One authorisation on a consent" @"Authorisation resources" +nominal {
+      given "consent 123cons456 with the implicit authorisation 123auth567"
+      when "GET /v1/consents/123cons456/authorisations is called"
+      then "the answer is 200 {authorisationIds: [123auth567]}"
+    }
+    example "One authorisation on a payment" @"Authorisation resources" +nominal {
+      given "pay001 with pay001auth1"
+      when "GET on its authorisations endpoint is called"
+      then "the answer is 200 {authorisationIds: [pay001auth1]}"
+    }
+    example "An empty list before an explicit start" @"Authorisation resources" +edge {
+      given "a consent created with an explicit preference and no start yet"
+      when "the list is read"
+      then "the answer is 200 {authorisationIds: []}"
+    }
+    example "The list carries no status and no PSU data" @"Authorisation resources" +nominal {
+      given "any answer of this endpoint"
+      when "its fields are listed"
+      then "it holds authorisation ids only"
+    }
+    example "A finalised authorisation is still listed" @"Authorisation resources" +edge {
+      given "123auth567 is finalised"
+      when "the list is read"
+      then "it still holds 123auth567"
+    }
+  }
+
+  rule "Only the TPP that owns the resource may list its authorisations" +security {
+    example "Another TPP is refused" @"Authorisation resources" +error {
+      given "the other TPP's certificate"
+      when "the authorisations of 123cons456 are listed"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+    example "An unknown resource is refused the same way" @"Authorisation resources" +error {
+      given "no consent 999cons000"
+      when "its authorisations are listed"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+    example "A payment of another TPP is refused" @"Authorisation resources" +error {
+      given "pay003 belongs to the other TPP"
+      when "its authorisations are listed by this client"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+  }
+
+  rule "The listing is the way to find an authorisation the client did not create" {
+    example "A client that lost its authorisation id finds it again" @"Authorisation resources" +nominal {
+      given "the client stored the consent id but not the authorisation id"
+      when "it lists the authorisations"
+      then "it gets the id and can read the SCA status with it"
+    }
+    example "The ids are stable" @"Authorisation resources" +nominal {
+      given "two listings a minute apart"
+      when "they are compared"
+      then "the ids are the same"
+    }
+  }
+}

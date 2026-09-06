@@ -17,21 +17,25 @@
 9. [State machines](#9-state-machines)
 10. [Security controls](#10-security-controls)
 11. [Error handling](#11-error-handling)
-12. [Reuse for PIS](#12-reuse-for-pis)
+12. [Payment initiation service](#12-payment-initiation-service)
 13. [Sandbox realisation](#13-sandbox-realisation)
 14. [Assumptions and open points](#14-assumptions-and-open-points)
 15. [Business analysis of the domain](#15-business-analysis-of-the-domain)
 16. [PlantUML attachments](#16-plantuml-attachments)
+17. [ASPSP compliance increments](#17-aspsp-compliance-increments)
 
 **Models as code.** The journey, the backlog and the domain are kept as text next to this document, in grammars that diff and review like code:
 
 | Model | File | Grammar |
 |---|---|---|
 | Event storm of the PSU journey (software-design level; lanes per party, one column per moment) | [`eventstorming/psu-account-list-journey.eventstorm`](eventstorming/psu-account-list-journey.eventstorm) | `.eventstorm`, doc-es.obya.ch/dsl |
-| Story map whose backbone is that event storm: one activity per phase between pivotal events, one step per timeline column, stories sliced into three deliveries | [`storymap/psu-account-list-journey.storymap`](storymap/psu-account-list-journey.storymap) | `.storymap`, doc-sm.obya.ch/dsl |
+| Event storm of the payment journey, the backbone of the payment story map | [`eventstorming/psu-payment-journey.eventstorm`](eventstorming/psu-payment-journey.eventstorm) | `.eventstorm`, doc-es.obya.ch/dsl |
+| Story map whose backbone is that event storm: one activity per phase between pivotal events, one step per timeline column, stories sliced into deliveries | [`storymap/psu-account-list-journey.storymap`](storymap/psu-account-list-journey.storymap) | `.storymap`, doc-sm.obya.ch/dsl |
+| Story map of the Bank's payment services, backbone the payment event storm (increments 4 and 5) | [`storymap/aspsp-payment-services.storymap`](storymap/aspsp-payment-services.storymap) | `.storymap`, doc-sm.obya.ch/dsl |
+| Story map of what the interface owes every TPP whatever the service (increments 3 and 7) | [`storymap/aspsp-interface-conformance.storymap`](storymap/aspsp-interface-conformance.storymap) | `.storymap`, doc-sm.obya.ch/dsl |
 | Example maps, one per story of the story map: business rules, examples with Given/When/Then steps and concrete values (nominal, edge and error cases), open questions | [`examplemap/`](examplemap/) (index and shared fixtures in [`examplemap/README.md`](examplemap/README.md)) | `.examplemap`, doc-em.obya.ch/dsl |
 | Context map: domains, subdomains, bounded contexts and their relationships | [`domain/psd2-access-to-account.ddd`](domain/psd2-access-to-account.ddd) | `.ddd`, ba-cm.obya.ch/dsl |
-| Domain models, one per bounded context: aggregates, roots, entities, values, enums, invariants | [`domain/consent-management.ddm`](domain/consent-management.ddm), [`domain/account-information.ddm`](domain/account-information.ddm), [`domain/customer-identity-and-sca.ddm`](domain/customer-identity-and-sca.ddm), [`domain/token-issuance.ddm`](domain/token-issuance.ddm), [`domain/bank-connection.ddm`](domain/bank-connection.ddm) | `.ddm`, ba-cm.obya.ch/dsl#ddm |
+| Domain models, one per bounded context: aggregates, roots, entities, values, enums, invariants | [`domain/consent-management.ddm`](domain/consent-management.ddm), [`domain/account-information.ddm`](domain/account-information.ddm), [`domain/customer-identity-and-sca.ddm`](domain/customer-identity-and-sca.ddm), [`domain/token-issuance.ddm`](domain/token-issuance.ddm), [`domain/bank-connection.ddm`](domain/bank-connection.ddm), [`domain/payment-initiation.ddm`](domain/payment-initiation.ddm), [`domain/tpp-identification.ddm`](domain/tpp-identification.ddm) | `.ddm`, ba-cm.obya.ch/dsl#ddm |
 | C4 model in LikeC4: notation, model (people, systems, containers, components, relationships) and views (landscape, one per system, CIAM components, and the five journey sequences as dynamic views) | [`likec4/specs.c4`](likec4/specs.c4), [`likec4/model.c4`](likec4/model.c4), [`likec4/views.c4`](likec4/views.c4) | LikeC4 DSL, likec4.dev/dsl |
 
 **How the story map follows the event storm.** Each activity of the story map is a phase of the event storm between two pivotal events, and each step is one timeline column:
@@ -153,6 +157,8 @@ flowchart LR
 | **XS2A gateway** | TLS termination with client-certificate request; QWAC validation (chain to a qualified trust service provider, revocation, PSD2 QcStatement roles per ETSI TS 119 495); optional HTTP-signature verification with the QSEAL; JWT validation against the OIDC-provider's JWKS; rate limiting; `X-Request-ID` logging. |
 | **XS2A service (AIS + PIS)** | `POST /v1/consents`, `GET /v1/consents/{id}`, `GET /v1/consents/{id}/status`, `DELETE /v1/consents/{id}`, `GET /v1/consents/{id}/authorisations/{authId}`, `PUT /v1/consents/{id}/authorisations/{authId}`, `GET /v1/accounts`, `GET /v1/accounts/{id}`, `GET /v1/accounts/{id}/balances`, `GET /v1/accounts/{id}/transactions` and the payment endpoints (§4.11). Produces the `_links` steering (§4.15). |
 | **Consent management** | Consent store and state machine (§14.15), authorisation sub-resources with `scaStatus` (§14.16), accessible-account list per consent, per-account daily usage counters, side effects on new recurring consents (§6.3.1.1). Internal API for the OIDC-provider and CIAM. |
+| **Payment initiation** | Payment store and transaction-status state machine (§14.13), payment authorisations and cancellations with their own SCA status (§5.7, §5.8), handover to the core banking for execution. Shares the authorisation model with consent management. |
+| **TPP identification** | Turns a presented QWAC or QSEAL into a TPP identity with its PSD2 roles, or into a refusal (§3, §4.9). One answer for the gateway, the payment endpoints and the client registry of the OIDC-provider. |
 | **CIAM: identity store** | PSU identities (PSU-ID, PSU-ID-Type, credential hashes, status), corporate identities if any. |
 | **CIAM: device registry** | Enrolled devices per PSU: device id, app instance id, public key (P-256, hardware-backed), attestation, push token, status, enrolment date, last use. |
 | **CIAM: authentication orchestration** | Journey engine: identify → first factor → risk assessment → account selection and consent screen → SCA challenge → result. Acts as OpenID Provider towards the OIDC-provider. |
@@ -675,6 +681,24 @@ stateDiagram-v2
     expired --> [*]
 ```
 
+### 9.4 Payment transaction status (`transactionStatus`, §14.13)
+
+```mermaid
+stateDiagram-v2
+    [*] --> RCVD: POST /v1/payments/{payment-product}
+    RCVD --> ACTC: authorisation finalised (and confirmation if required)
+    RCVD --> RJCT: SCA denied, expired or refused; validation failed
+    RCVD --> CANC: cancelled before authorisation
+    ACTC --> ACSC: executed and settled by the core banking
+    ACTC --> RJCT: refused by the core banking (funds, limits, blocked account)
+    ACTC --> CANC: cancellation authorised before execution
+    ACSC --> [*]
+    RJCT --> [*]
+    CANC --> [*]
+```
+
+The sandbox serves this subset of §14.13. A payment is handed to the core banking only at `ACTC`, and a cancellation is possible until the core books it.
+
 ---
 
 ## 10. Security controls
@@ -716,20 +740,79 @@ stateDiagram-v2
 | Daily frequency exceeded without PSU presence | `429 ACCESS_EXCEEDED` | Back off until next day or wait for a PSU-initiated request. |
 | Certificate problems | `401 CERTIFICATE_INVALID / EXPIRED / REVOKED / BLOCKED`, `401 ROLE_INVALID` | Operational alert. |
 | Bad request | `400 FORMAT_ERROR` with `tppMessages[].path` | Fix and retry. |
+| Payment product or service not offered | `404 PRODUCT_UNKNOWN`, `404 SERVICE_INVALID` | Configuration error; use a product the bank offers. |
+| Payment instruction refused by the bank | `400 PAYMENT_FAILED` | Show the reason to the PSU; do not retry unchanged. |
+| Cancellation of an executed or non-cancellable payment | `405 CANCELLATION_INVALID` | Tell the PSU the payment already went through. |
+| Call that contradicts the resource state | `409 STATUS_INVALID` | Re-read the status and follow the links. |
+| Format the interface does not serve | `406 REQUESTED_FORMATS_INVALID` | Ask for JSON. |
 
 Error bodies follow §4.13 (`tppMessages` array with `category`, `code`, `path`, `text`).
 
 ---
 
-## 12. Reuse for PIS
+## 12. Payment initiation service
 
-The Bank's PISP compliance reuses every component above:
+Increments 4 and 5 turn the sketch of a payment service into one the sandbox serves. The scope is single payments in JSON on the products the Bank offers, their status, and their cancellation. Bulk, periodic, future-dated and XML instructions are known and deliberately left out; §17 says where they sit.
 
-- `POST /v1/payments/{payment-product}` creates the payment resource and an implicit authorisation sub-resource, returns `scaOAuth` (§5.1.5).
-- The TPP runs the same authorization-code flow with `scope=PIS:<paymentId>`; the OIDC-provider validates the scope against the payment resource; the CIAM journey shows the payment (payee, amount) instead of the consent, and the dynamic link covers amount and payee (RTS Art. 5).
-- The app's approval screen renders "Pay 12.50 EUR to Payee X" from the server-side challenge details.
-- `GET /v1/payments/{product}/{paymentId}/status` with the bearer token (§5.4).
-- Combined AIS + PIS session: the TPP sets `combinedServiceIndicator: true` on the consent and passes `Consent-ID` in the payment initiation, so the Bank does not ask for the first factor again (§9).
+**Everything below the interface is reused.** The authorisation sub-resource, its SCA status vocabulary, the SCA engine with its dynamic linking, the device registry, the certificate checks and the token issuance are the ones of the account journey. What a payment adds is a resource with a transaction status, and a dynamic link that covers the amount, the payee and the debtor account instead of the accounts and the validity.
+
+| Endpoint | Purpose | Spec |
+|---|---|---|
+| `POST /v1/payments/{payment-product}` | Create the payment and, unless the TPP prefers an explicit start, its authorisation. Answers `201` with `paymentId`, `transactionStatus: RCVD`, `ASPSP-SCA-Approach` and the steering links. | §5.3.1, §4.11.1 |
+| `GET /v1/payments/{payment-product}/{paymentId}` | The instruction as the Bank stored it, with its status. | §5.6 |
+| `GET /v1/payments/{payment-product}/{paymentId}/status` | The transaction status alone. | §5.4 |
+| `DELETE /v1/payments/{payment-product}/{paymentId}` | Cancel. `204` when no authorisation is needed, `202` with a cancellation authorisation link when one is. | §5.7, §4.7 |
+| `GET|POST /v1/payments/{payment-product}/{paymentId}/authorisations` | List or explicitly start the payment authorisations. | §7.1, §7.4 |
+| `GET|PUT /v1/payments/{payment-product}/{paymentId}/authorisations/{authorisationId}` | Read the SCA status, or confirm with the bearer token. | §7.5, §7.6.4 |
+| `GET /v1/payments/{payment-product}/{paymentId}/cancellation-authorisations` | The cancellation authorisations and their SCA status. | §5.8 |
+
+### 12.1 Initiate a payment
+
+```http
+POST /psd2/v1/payments/sepa-credit-transfers HTTP/1.1
+Host: api.bank.sandbox
+Content-Type: application/json
+X-Request-ID: 6b2d1f4a-9d2a-4c31-9d2e-0a5b7c1e44f1
+PSU-IP-Address: 192.168.8.78
+TPP-Redirect-URI: https://tpp.sandbox/xs2a/callback/bank
+TPP-Nok-Redirect-URI: https://tpp.sandbox/xs2a/callback/bank?outcome=nok
+
+{
+  "instructedAmount": { "currency": "EUR", "amount": "12.50" },
+  "debtorAccount":    { "iban": "DE23100100100123456789" },
+  "creditorName":     "Payee X",
+  "creditorAccount":  { "iban": "DE12500105170648489890" },
+  "remittanceInformationUnstructured": "Invoice 42"
+}
+```
+
+```http
+HTTP/1.1 201 Created
+X-Request-ID: 6b2d1f4a-9d2a-4c31-9d2e-0a5b7c1e44f1
+ASPSP-SCA-Approach: REDIRECT
+Location: /psd2/v1/payments/sepa-credit-transfers/pay001
+
+{
+  "transactionStatus": "RCVD",
+  "paymentId": "pay001",
+  "_links": {
+    "self":      { "href": "/psd2/v1/payments/sepa-credit-transfers/pay001" },
+    "status":    { "href": "/psd2/v1/payments/sepa-credit-transfers/pay001/status" },
+    "scaStatus": { "href": "/psd2/v1/payments/sepa-credit-transfers/pay001/authorisations/pay001auth1" },
+    "scaOAuth":  { "href": "https://oidc-provider.sandbox/.well-known/oauth-authorization-server" }
+  }
+}
+```
+
+The flow that follows is the one of §6.2 to §6.4 with `scope=PIS:pay001`: the OIDC-provider validates the scope against the payment, the CIAM shows the payment instead of the consent, the device signs a challenge whose hash covers `paymentId | tppId | amount | creditor IBAN | debtor IBAN`, the confirmation call finalises the authorisation, and the payment moves to `ACTC`. Execution at the core banking then decides between `ACSC` and `RJCT`. The sequence is drawn in [`puml/12-seq-payment-initiation.puml`](puml/12-seq-payment-initiation.puml).
+
+### 12.2 Cancel a payment
+
+`DELETE` answers `204` and sets `CANC` when the Bank needs no new authorisation and the payment is not executed. When it does need one, it answers `202` with a link to start a cancellation authorisation, which runs the same SCA with `scope=Cancel-PIS:pay001` and a dynamic link that says "cancel" rather than "pay". A payment that is already `ACSC` or `RJCT` answers `405 CANCELLATION_INVALID`. While a cancellation authorisation is pending, the payment is not handed to the core banking. The sequence is drawn in [`puml/13-seq-payment-cancellation.puml`](puml/13-seq-payment-cancellation.puml).
+
+### 12.3 Combined session
+
+A TPP that holds both roles sets `combinedServiceIndicator: true` on the consent and passes the `Consent-ID` in the payment initiation, so the Bank does not ask for the first factor again inside the agreed window (§9).
 
 ---
 
@@ -743,6 +826,7 @@ Suggested layout for `docker compose`, one container per box in §3:
 | `oidc-provider` | A headless authorization server with an external login-and-consent app (for example ORY Hydra), or Keycloak with identity brokering to `bank-ciam` | Must support `tls_client_auth`, certificate-bound tokens, PKCE, RFC 8414 metadata, custom scope validation hook. |
 | `bank-xs2a` | XS2A service behind a reverse proxy that terminates mTLS and forwards the client certificate | Implements the endpoints of §4.11 for consents and accounts, then payments. |
 | `bank-consent` | Consent management with the model of §8 | Internal API for `oidc-provider` and `bank-ciam`. |
+| `bank-payment` | Payment initiation: payments, their authorisations and their cancellations | Internal API for `oidc-provider` and `bank-ciam`; hands accepted payments to `bank-core`. |
 | `bank-ciam` | Login, account selection, consent page, QR page, SCA engine, device registry; OpenID Provider towards `oidc-provider` | — |
 | `bank-app` | A browser-based "device simulator" that scans the QR with the camera or accepts a pasted payload, holds a WebCrypto key pair, and signs challenges | Replaces the native app in the sandbox. |
 | `bank-core` | Mock core banking with a few PSUs and accounts | Seeded IBANs. |
@@ -836,9 +920,34 @@ Sources under [`puml/`](puml/), one file per diagram, rendered with PlantUML 1.2
 | [`09-state-authorisation.puml`](puml/09-state-authorisation.puml) | Authorisation sub-resource status | 9.2 |
 | [`10-state-sca-challenge.puml`](puml/10-state-sca-challenge.puml) | SCA challenge | 9.3 |
 | [`11-data-model.puml`](puml/11-data-model.puml) | Data model | 8 |
+| [`12-seq-payment-initiation.puml`](puml/12-seq-payment-initiation.puml) | Payment initiation and approval | 12.1 |
+| [`13-seq-payment-cancellation.puml`](puml/13-seq-payment-cancellation.puml) | Payment cancellation with its own SCA | 12.2 |
+| [`14-state-transaction-status.puml`](puml/14-state-transaction-status.puml) | Transaction status | 9.4 |
 
 Render all of them with:
 
 ```sh
 java -jar plantuml.jar -tpng -o out docs/design/puml/*.puml
 ```
+
+---
+
+## 17. ASPSP compliance increments
+
+The account journey of this document is one complete path through the interface. Making the sandbox a compliant ASPSP for account information and payment initiation takes the seven increments below. Each one is a delivery band in a story map, and every story in it carries an example map with its rules and examples.
+
+| # | Increment | Spec | Delivery band | Story map |
+|---|---|---|---|---|
+| 1 | Finish the account reads: balances, transaction lists with booking status and period, delta access, transaction details, paging | §6.5.3 to §6.5.5, §14.23 to §14.26 | AIS reads | account-list |
+| 2 | The consent models beyond bank-offered: dedicated accounts, available accounts with and without balance, global access, owner name and additional information | §6.3.1, §14.17, §14.18 | Consent models | account-list |
+| 3 | The authorisation sub-resource as a resource of its own: explicit start, listing, SCA status, PSU data updates, method selection, challenge data | §7.1 to §7.5, §14.8 to §14.10 | Authorisation resources | conformance |
+| 4 | Payment initiation core: single payments, transaction status, get payment, the payment authorisation reusing the SCA engine | §4.11.1, §5.1.5, §5.3.1, §5.4, §5.6, §11.1, §14.13 | PIS core | payment services |
+| 5 | Payment cancellation with and without an authorisation of its own | §4.7, §5.7, §5.8 | PIS cancellation | payment services |
+| 6 | The access rules on every read: the frequency counter, the history limit without a fresh SCA, the renewal of the access period | §6, RTS art. 10 and 36(5) | Access rules | account-list |
+| 7 | Conformance sweep: message codes per service, response codes, status information, hyperlink steering, data extensions, notifications, one TPP identity from the certificate | §4.12 to §4.16, §14.11 | Conformance | conformance |
+
+Increment 3 gates 4, 5 and everything that later adds a second SCA approach. Increments 1, 2 and 6 are independent of it. Increment 7 is continuous rather than a phase, because every new endpoint adds codes and links to it.
+
+**Deliberately not in this scope.** Payment variants (bulk, periodic, future-dated, multicurrency, the XML instruction, §5.3.2 to §5.3.4, §5.10, §11.2, §11.3), multilevel SCA (§5.9, §6.3.4), card accounts (§6.6, §4.11.3), signing baskets (§8) and the confirmation of funds service (§10) are each conditional on a product the Bank sells or on an optional feature. A second SCA approach, decoupled or embedded, is a follow-on to increment 3 and the difference between a sandbox that proves the Bank works and one that proves a third-party client works.
+
+**What no increment can close.** Availability and performance parity with the Bank's own channel, published key performance indicators and quarterly statistics, a testing facility with documentation ahead of launch, change notice periods, and either a contingency interface or a supervisory exemption, all under the regulatory technical standards on dedicated interfaces. Certificate and register handling against the real trusted lists, incident and fraud reporting, and the exemptions with the monitoring that justifies them, sit outside the models as well.

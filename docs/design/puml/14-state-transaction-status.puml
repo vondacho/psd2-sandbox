@@ -1,0 +1,18 @@
+@startuml 14-state-transaction-status
+title Transaction status of a payment (section 14.13, increments 4 and 5)
+[*] --> RCVD : POST /v1/payments/{product}
+RCVD --> ACTC : authorisation finalised (and confirmation if required)
+RCVD --> RJCT : SCA denied, expired, refused by risk, or validation failed
+RCVD --> CANC : cancelled before authorisation
+ACTC --> ACSC : executed and settled by the core banking
+ACTC --> RJCT : refused by the core banking (funds, limits, blocked account)
+ACTC --> CANC : cancellation authorised before execution
+ACSC --> [*]
+RJCT --> [*]
+CANC --> [*]
+note right of ACTC
+  Accepted for execution.
+  A cancellation is still possible
+  until the core books the payment.
+end note
+@enduml

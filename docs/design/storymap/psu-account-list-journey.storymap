@@ -24,6 +24,22 @@ storymap "PSU account-list journey" {
           risk engine, push, PAR, app-to-app, PIS."
   }
 
+  delivery "AIS reads" release {
+    note "Increment 1: balances, transaction lists with booking status and\
+          period, delta access, transaction details and paging.\
+          Section 6.5.3 to 6.5.5."
+  }
+  delivery "Consent models" release {
+    note "Increment 2: the consent models beyond bank-offered, and the\
+          additional information a consent may grant. Section 6.3.1,\
+          14.17, 14.18."
+  }
+  delivery "Access rules" release {
+    note "Increment 6: the frequency counter on every read, the history\
+          limit without a fresh SCA, and the renewal of the access period.\
+          Section 6, RTS art. 10 and 36(5)."
+  }
+
   activity "Enrol a device at the Bank" +precondition +"ES column 1" {
     persona "PSU"
     persona "Bank security officer"
@@ -127,6 +143,26 @@ storymap "PSU account-list journey" {
         as "PSU"
         want "an older recurring consent from the same TPP to expire when the new one is authorised"
         so "I never have two live consents for the same app"
+      }
+      story "Accept a consent on dedicated accounts" @"Consent models" +bank-xs2a +"spec 6.3.1.1" {
+        as "TPP operator"
+        want "a consent naming the IBANs I already know to be accepted without a bank-side account choice"
+        so "a PSU who has told me their accounts is not asked twice"
+      }
+      story "Accept a consent on all available accounts" @"Consent models" +bank-xs2a +"spec 6.3.1.2" +"spec 14.17" {
+        as "TPP operator"
+        want "availableAccounts and availableAccountsWithBalance to grant the account list only"
+        so "an app that just lists accounts does not ask for transaction rights"
+      }
+      story "Accept a global consent" @"Consent models" +bank-xs2a +"spec 14.17" {
+        as "TPP operator"
+        want "allPsd2 to grant every payment account the PSU can see online"
+        so "an aggregator does not re-consent when the PSU opens a new account"
+      }
+      story "Serve the owner name and additional information" @"Consent models" +bank-xs2a +"spec 14.18" {
+        as "PSU"
+        want "my name released only when the consent asked for it"
+        so "an app learns no more about me than I agreed"
       }
     }
     step "Start the authorization at the OIDC-provider" +tpp +oidc-provider +"ES column 4" {
@@ -417,6 +453,33 @@ storymap "PSU account-list journey" {
         so "I can follow my spending in one place"
       }
     }
+    step "See balances and transactions" +bank-xs2a +"ES column 13" {
+      story "Serve the balances of an account" @"AIS reads" +bank-xs2a +"spec 6.5.3" +"spec 14.23" {
+        as "PSU"
+        want "the balances endpoint to return every balance type the Bank holds for my account"
+        so "an app can show what I can actually spend"
+      }
+      story "Serve the transaction list for a period" @"AIS reads" +bank-xs2a +"spec 6.5.4" +"spec 14.25" {
+        as "PSU"
+        want "booked, pending or both over the dates I ask for"
+        so "I see the bookings I am looking for and no others"
+      }
+      story "Serve delta access on the transaction list" @"AIS reads" +bank-xs2a +"spec 6.5.4" {
+        as "TPP operator"
+        want "entryReferenceFrom or deltaList to return only what changed since my last read"
+        so "a daily sync does not download the whole history"
+      }
+      story "Serve one transaction's details" @"AIS reads" +bank-xs2a +"spec 6.5.5" +"spec 14.26" {
+        as "PSU"
+        want "the details of a booking I picked, including the structured remittance"
+        so "I can tell what a line on my statement was"
+      }
+      story "Page a long transaction list" @"AIS reads" +bank-xs2a +"spec 4.15" {
+        as "TPP operator"
+        want "a next link when the report does not fit one response"
+        so "a long history is read without guessing offsets"
+      }
+    }
   }
 
   activity "Come back later" +"ES column 14" {
@@ -438,6 +501,21 @@ storymap "PSU account-list journey" {
         as "TPP operator"
         want "the TPP to map the XS2A error codes to refresh, re-consent or alert"
         so "the PSU sees the right next step"
+      }
+      story "Count balance and transaction reads against the frequency" @"Access rules" +bank-xs2a +"spec 6" {
+        as "Bank product owner"
+        want "every account-data read without the PSU counted, not only the account list"
+        so "the consented frequency means the same on all endpoints"
+      }
+      story "Limit the transaction history without a fresh SCA" @"Access rules" +bank-xs2a +"RTS art. 10" {
+        as "Bank security officer"
+        want "transactions older than ninety days served only when the PSU is authenticated"
+        so "the exemption for account information stays within its limits"
+      }
+      story "Renew the consent when its access period ends" @"Access rules" +bank-xs2a +"RTS art. 10" +"spec 14.15" {
+        as "PSU"
+        want "my consent to expire at the end of the access period and to need a new SCA"
+        so "no app keeps access indefinitely on one authentication"
       }
     }
     step "Revoke or renew the consent" +bank-ciam +bank-xs2a +oidc-provider +tpp +"ES column 14" {

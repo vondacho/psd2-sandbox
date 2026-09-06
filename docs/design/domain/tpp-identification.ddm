@@ -1,0 +1,76 @@
+// The inside of "TPP identification" from psd2-access-to-account.ddd.
+// Aggregate: TppIdentity. Vocabulary: NextGenPSD2 XS2A 1.3.16 sections 3, 4.9
+// and 12, eIDAS and ETSI TS 119 495.
+// One service turns a presented certificate into an identity with roles, or
+// into a refusal, so the gateway, the payment endpoints and the authorization
+// server give the same answer.
+
+context "TPP identification" {
+
+  enum "Psd2Role" {
+    "AISP" "PISP" "PIISP" "ASPSP"
+  }
+
+  enum "CertificateKind" {
+    "QWAC" "QSEAL"
+  }
+
+  enum "CertificateVerdict" {
+    "valid" "invalid" "expired" "revoked" "blocked" "roleMissing"
+  }
+
+  value "QcStatement" {
+    attribute "organizationIdentifier" : "OrganizationIdentifier"
+    attribute "ncaName"                : "Max70Text"
+    attribute "ncaId"                  : "Max35Text"
+    embeds    "Psd2Role" at-least-one
+  }
+
+  value "CertificateChain" {
+    attribute "subjectDn"   : "DistinguishedName"
+    attribute "issuerDn"    : "DistinguishedName"
+    attribute "serial"      : "Max35Text"
+    attribute "thumbprint"  : "Sha256Thumbprint"
+    attribute "notBefore"   : "Instant"
+    attribute "notAfter"    : "Instant"
+    attribute "domains"     : "String[]"
+  }
+
+  value "RevocationCheck" {
+    attribute "source"    : "URI"
+    attribute "checkedAt" : "Instant"
+    attribute "revoked"   : "Boolean"
+  }
+
+  aggregate "TppIdentity" {
+    intent "Who is calling, read from the certificate presented on the
+            connection: the organization identifier, the legal name and the
+            PSD2 roles, or a refusal with the reason. Nothing here is
+            remembered about a TPP beyond what its certificate says."
+
+    invariant "The identity is derived from the presented certificate only; no
+               field is inferred from an earlier call."
+    invariant "A certificate without a PSD2 qualified statement yields no
+               identity."
+    invariant "The organization identifier of the identity is the one in the
+               certificate subject, and it is the client id everywhere else."
+    invariant "An endpoint is served only when the identity holds the role that
+               endpoint requires."
+    invariant "A revoked, expired or blocked certificate yields a refusal, and
+               revocation is honoured within the configured freshness window."
+    invariant "A sealing certificate identifies the same TPP as the transport
+               certificate of the same connection."
+
+    root entity "TppIdentity" {
+      id        "OrganizationIdentifier"
+      attribute "legalName"      : "Max140Text"
+      attribute "brandName"      : "Max140Text"
+      attribute "identifiedAt"   : "Instant"
+      embeds    "CertificateKind" one
+      embeds    "CertificateChain" one
+      embeds    "QcStatement" one
+      embeds    "CertificateVerdict" one
+      embeds    "RevocationCheck" optional
+    }
+  }
+}

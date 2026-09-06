@@ -1,0 +1,97 @@
+// Example map for the story "Validate the PIS scope against the payment"
+// (activity "Approve the payment at the Bank", step "Review the payment").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Validate the PIS scope against the payment" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Validate the PIS scope against the payment" ~ready @"PIS core" +oidc-provider +bank-xs2a +"spec 13.1" {
+    as "Bank security officer"
+    want "PIS:<paymentId> accepted only for a payment that exists, is RCVD and belongs to this client"
+    so "a TPP cannot authorise somebody else's payment"
+  }
+
+  rule "The scope names exactly one payment resource, optionally with offline access" +"spec 13.1" {
+    example "PIS:pay001 is accepted" @"PIS core" +nominal {
+      given "scope 'PIS:pay001' from the client that created pay001"
+      when "the OIDC-provider parses it"
+      then "the target is kind PIS, resource pay001"
+    }
+    example "Two payment scopes are refused" @"PIS core" +error {
+      given "scope 'PIS:pay001 PIS:pay002'"
+      when "it is parsed"
+      then "the OIDC-provider redirects with error=invalid_scope"
+    }
+    example "A payment scope mixed with a consent scope is refused" @"PIS core" +error {
+      given "scope 'PIS:pay001 AIS:123cons456'"
+      when "it is parsed"
+      then "the OIDC-provider redirects with error=invalid_scope"
+    }
+    example "A payment scope with an empty id is refused" @"PIS core" +error {
+      given "scope 'PIS:'"
+      when "it is parsed"
+      then "the OIDC-provider redirects with error=invalid_scope"
+    }
+  }
+
+  rule "The payment must exist, be in status RCVD and belong to the requesting client" {
+    example "A received payment of the requesting client is accepted" @"PIS core" +nominal {
+      given "pay001 exists with RCVD and tppId PSDDE-BAFIN-123456"
+      when "that client requests PIS:pay001"
+      then "the OIDC-provider brokers the PSU to the Bank"
+    }
+    example "An unknown payment is refused" @"PIS core" +error {
+      given "no payment pay999"
+      when "PIS:pay999 is requested"
+      then "the answer redirects with error=invalid_scope and error_description 'unknown resource'"
+    }
+    example "A payment of another TPP is refused" @"PIS core" +error {
+      given "pay003 was created by the other TPP"
+      when "PIS:pay003 is requested by this client"
+      then "the request is refused and both client ids are logged"
+    }
+    example "An already accepted payment cannot be authorised again" @"PIS core" +error {
+      given "pay001 is ACTC"
+      when "PIS:pay001 is requested"
+      then "the answer redirects with error=invalid_scope and error_description 'resource not in status received'"
+    }
+    example "A rejected payment is refused" @"PIS core" +error {
+      given "pay001 is RJCT"
+      when "PIS:pay001 is requested"
+      then "the answer redirects with error=invalid_scope"
+    }
+  }
+
+  rule "A PISP role is needed for a payment scope, and the scope kind decides the role" +"spec 13.1" {
+    example "An AISP-only client may not request a payment scope" @"PIS core" +error {
+      given "a client registered with the AISP role only"
+      when "PIS:pay001 is requested"
+      then "the answer redirects with error=invalid_scope"
+    }
+    example "A PISP client may request a payment scope" @"PIS core" +nominal {
+      given "the client holds the PISP role"
+      when "PIS:pay001 is requested"
+      then "the request proceeds"
+    }
+    example "The cancellation kind needs the same role" @"PIS core" +edge {
+      given "a PISP client"
+      when "Cancel-PIS:pay001 is requested"
+      then "the scope kind is accepted for role checking"
+    }
+  }
+
+  rule "The Bank tells the OIDC-provider only what it needs about a payment" +security {
+    example "The internal answer carries existence, owner and status" @"PIS core" +nominal {
+      given "the scope validation for PIS:pay001"
+      when "the OIDC-provider calls the internal payment endpoint"
+      then "the answer is {exists: true, ownedByClient: true, status: RCVD}"
+    }
+    example "No amount or payee crosses to the OIDC-provider" @"PIS core" +nominal {
+      given "the internal answer"
+      when "its fields are listed"
+      then "there is no amount, creditor, debtor or PSU field"
+    }
+  }
+}

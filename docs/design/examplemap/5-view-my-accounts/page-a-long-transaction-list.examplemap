@@ -1,0 +1,78 @@
+// Example map for the story "Page a long transaction list" (activity "View my
+// accounts", step "See balances and transactions"). Increment 1.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Page a long transaction list" {
+  product "berlin-psd2-sandbox"
+
+  delivery "AIS reads" release
+
+  story "Page a long transaction list" ~analysing @"AIS reads" +bank-xs2a +"spec 4.15" {
+    as "TPP operator"
+    want "a next link when the report does not fit one response"
+    so "a long history is read without guessing offsets"
+    question "What page size does the sandbox use, and is it configurable per bank?" +"ask sandbox"
+  }
+
+  rule "A report longer than the page size is split, and every page but the last carries a next link" +"spec 4.15" {
+    example "Three hundred bookings over two pages" @"AIS reads" +nominal {
+      given "the page size is 200 and the period holds 300 booked entries"
+      when "the TPP calls the transactions endpoint"
+      then "the answer holds 200 entries and _links.next"
+      when "the TPP follows _links.next"
+      then "the answer holds the remaining 100 entries and no next link"
+    }
+    example "A report that fits one page has no next link" @"AIS reads" +nominal {
+      given "the period holds 3 entries"
+      when "the report is read"
+      then "the answer has no _links.next"
+    }
+    example "An empty report has no next link" @"AIS reads" +edge {
+      given "the period holds no entry"
+      when "the report is read"
+      then "booked is empty and there is no next link"
+    }
+    example "The pages together are the whole report, with nothing repeated" @"AIS reads" +nominal {
+      given "the 300 entries"
+      when "both pages are concatenated"
+      then "every entry appears exactly once and the order is preserved"
+    }
+  }
+
+  rule "The next link is opaque, bound to the request that produced it, and expires" +security {
+    example "The link carries a cursor, not an offset the TPP can craft" @"AIS reads" +nominal {
+      given "a next link"
+      when "it is inspected"
+      then "its query holds an opaque cursor and no page number or IBAN"
+    }
+    example "A cursor of another consent is refused" @"AIS reads" +error {
+      given "a cursor issued under consent 111cons222"
+      when "it is followed with Consent-ID 123cons456"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "A cursor older than an hour is refused" @"AIS reads" +error {
+      given "a cursor issued 61 minutes ago"
+      when "it is followed"
+      then "the answer is 400 FORMAT_ERROR with text 'cursor expired'"
+      then "the TPP restarts the report from its period"
+    }
+    example "A tampered cursor is refused" @"AIS reads" +error {
+      given "a cursor with one character changed"
+      when "it is followed"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+
+  rule "Following a page counts as one access, and the report is stable while it is paged" +"spec 6" {
+    example "Two pages count one access, not two" @"AIS reads" +nominal {
+      given "the counter for Main Account is 0 and no PSU-IP-Address"
+      when "the first page and its next page are read"
+      then "the counter is 1"
+    }
+    example "A booking added between pages does not shift the pages" @"AIS reads" +edge {
+      given "the first page was served"
+      when "a new booking arrives and the next page is read"
+      then "the second page holds the entries that followed the cursor, and the new booking is not inserted in the middle"
+    }
+  }
+}

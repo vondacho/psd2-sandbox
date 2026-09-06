@@ -1,0 +1,137 @@
+// Event storm: a PSU pays from an account at the Bank through the TPP (PISP).
+// Level: software design. Same lanes and conventions as
+// eventstorming/psu-account-list-journey.eventstorm; the SCA, device and token
+// mechanics are the same, so this storm shows only what payments add.
+// Column map: 1 precondition | 2 payment prepared | 3 payment resource created
+//             4 authorisation requested | 5 first factor | 6 payment review
+//             7 SCA challenge | 8 device approval | 9 verification
+//             10 tokens | 11 confirmation | 12 status | 13 execution
+//             14 cancellation
+// Tags: +pivotal separates phases; +alternative marks branch events;
+//       +"spec x.y" cites the NextGenPSD2 XS2A Implementation Guidelines v1.3.16.
+
+eventstorm "PSU payment journey" {
+  product "berlin-psd2-sandbox"
+
+  lane "PSU" {
+    actor "PSU" @2
+    ui "Payment form" @2
+    command "Pay from my account at the Bank" @2
+    event "Payment instructed in the TPP" @2 +pivotal
+
+    actor "PSU" @5
+    actor "PSU" @6
+    actor "PSU" @8
+
+    command "Follow my payment" @12
+    command "Cancel my payment" @14
+    event "Cancellation requested by the PSU" @14 +alternative +"spec 5.7"
+  }
+
+  lane "TPP application" {
+    context "Payment initiation (TPP, PISP)" @1
+    aggregate "Payment attempt" @2
+
+    policy "Whenever the PSU instructs a payment, create the payment resource at the bank" @3
+    command "Initiate payment" @3 +"spec 5.3.1"
+    event "Payment initiation requested with a payment product and a payment service" @3 +"spec 4.11.1"
+
+    policy "Whenever the payment is received with a scaOAuth link, start the authorization-code flow" @4 +"spec 5.1.5"
+    command "Start authorization-code flow for the payment" @4 +oauth2
+
+    command "Exchange code for a payment-scoped token" @10 +"spec 13.3"
+    policy "Whenever tokens are issued and a confirmation link exists, confirm the authorisation" @11 +"spec 7.6.4"
+
+    command "Read the transaction status" @12 +"spec 5.4"
+    readmodel "Payment status" @12
+    ui "Payment status page" @12
+
+    command "Read the payment" @12 +"spec 5.6"
+    command "Request cancellation" @14 +"spec 5.7"
+  }
+
+  lane "OIDC-provider" {
+    context "Authorization (OIDC-provider)" @1
+    command "Validate scope PIS:paymentId against the payment resource" @4
+    event "Scope PIS:paymentId bound to the payment" @4 +"spec 13.1"
+    event "Access token issued, scoped to the payment and bound to the certificate" @10 +pivotal +"spec 13.4"
+    event "Cancel-PIS scope issued for a cancellation authorisation" @14 +alternative
+  }
+
+  lane "Bank CIAM" {
+    context "Customer identity and SCA (Bank CIAM)" @1
+    aggregate "Authentication session" @5
+    command "Identify and authenticate with password" @5
+    event "PSU authenticated with first factor" @5 +"spec 14.16"
+
+    ui "Payment review screen" @6
+    command "Review the payment" @6
+    event "Payment presented to the PSU (payee, amount, account, execution date)" @6 {
+      note "The PSU sees what the signature will cover:\
+            amount, payee and debtor account (RTS art. 5)."
+    }
+
+    policy "Whenever a payment is reviewed, issue an SCA challenge whose dynamic link covers amount and payee" @7
+    aggregate "SCA challenge" @7
+    command "Issue SCA challenge for the payment" @7 +sca
+    event "SCA challenge issued (dynamic link over paymentId, payee, amount, debtor account)" @7 +sca +"RTS art. 5"
+    ui "QR page" @7
+
+    command "Verify challenge response" @9 +sca
+    event "Challenge response verified against the registered device key" @9 +pivotal
+    event "Challenge denied by the PSU" @9 +alternative
+  }
+
+  lane "Bank mobile app" {
+    context "Device authenticator (Bank app)" @1
+    aggregate "Registered device" @1
+    event "Device enrolled at the Bank" @1 +pivotal {
+      note "Precondition, shared with the account-list journey."
+    }
+    readmodel "Payment details (payee, amount, account)" @8
+    ui "Approval screen" @8
+    command "Approve payment" @8
+    event "Payment approved with biometric or PIN" @8
+    event "Challenge signed with the device key" @8 +sca
+  }
+
+  lane "Bank payment services" {
+    context "Payment initiation (Bank XS2A)" @1
+
+    aggregate "Payment" @3
+    aggregate "Payment authorisation" @3
+    command "Create the payment resource" @3
+    event "Payment created with transaction status RCVD" @3 +pivotal +"spec 14.13"
+    event "Authorisation sub-resource created implicitly" @3 +"spec 4.6"
+    event "scaOAuth, scaStatus, status and self links returned" @3 +"spec 4.15"
+    event "Payment rejected on validation with RJCT" @3 +alternative +"spec 14.11"
+
+    event "Authorisation status psuAuthenticated" @5 +"spec 14.16"
+    event "Authorisation status started" @7 +"spec 14.16"
+    event "Authorisation status unconfirmed" @9 +"spec 14.16"
+    event "Payment authorisation finalised" @11 +pivotal +"spec 7.6.4"
+    event "Payment accepted for execution with ACTC" @11 +pivotal +"spec 14.13"
+
+    policy "Whenever an authorisation is finalised, hand the payment to the core for execution" @13
+    command "Serve the transaction status" @12
+    event "Transaction status read" @12 +"spec 5.4"
+    command "Serve the payment" @12
+    event "Payment read" @12 +"spec 5.6"
+
+    aggregate "Payment cancellation" @14
+    command "Cancel the payment" @14 +"spec 5.7"
+    event "Payment cancelled with CANC" @14 +alternative +"spec 14.13"
+    event "Cancellation authorisation required (status ACTC, cancellation pending)" @14 +alternative +"spec 5.8"
+    hotspot "Which payment products may be cancelled after acceptance, and which need their own SCA?" @14 +"ask bank"
+  }
+
+  lane "Bank core banking" {
+    context "Accounts ledger and clearing" @1
+    command "Check funds and limits" @13
+    event "Funds and limits checked" @13
+    event "Payment executed and settled with ACSC" @13 +pivotal +"spec 14.13"
+    event "Payment rejected by the core with RJCT" @13 +alternative
+    system "Clearing and settlement" @13
+    hotspot "Does the sandbox simulate settlement timing, or does ACSC follow ACTC immediately?" @13 +"ask sandbox"
+  }
+}

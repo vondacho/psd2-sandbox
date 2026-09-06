@@ -1,0 +1,99 @@
+// Example map for the story "Serve the transaction status" (activity "Follow
+// the payment", step "Read the status and the payment"). Increment 4.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the transaction status" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Serve the transaction status" ~ready @"PIS core" +bank-xs2a +"spec 5.4" +"spec 14.13" {
+    as "TPP operator"
+    want "GET .../status to return the current transaction status"
+    so "the PSU learns whether the payment went through"
+  }
+
+  rule "The status endpoint returns the transaction status of that payment and nothing more" +"spec 5.4" {
+    example "A payment waiting for its SCA" @"PIS core" +nominal {
+      given "pay001 was created and not yet authorised"
+      when "the TPP calls GET /v1/payments/sepa-credit-transfers/pay001/status"
+      then "the answer is 200 {transactionStatus: RCVD}"
+    }
+    example "A payment accepted for execution" @"PIS core" +nominal {
+      given "pay001 is ACTC"
+      when "the status is read"
+      then "the answer is {transactionStatus: ACTC}"
+    }
+    example "A settled payment" @"PIS core" +nominal {
+      given "pay001 is ACSC"
+      when "the status is read"
+      then "the answer is {transactionStatus: ACSC}"
+    }
+    example "A rejected payment" @"PIS core" +nominal {
+      given "pay001 is RJCT"
+      when "the status is read"
+      then "the answer is {transactionStatus: RJCT}"
+    }
+    example "A cancelled payment" @"PIS core" +nominal {
+      given "pay002 is CANC"
+      when "the status is read"
+      then "the answer is {transactionStatus: CANC}"
+    }
+    example "The body carries no amount or payee" @"PIS core" +nominal {
+      given "any status answer"
+      when "its fields are listed"
+      then "it holds the transaction status, and optionally a funds-available flag, and no payment detail"
+    }
+    example "A rejected payment may carry the reason" @"PIS core" +edge {
+      given "pay001 was rejected for insufficient funds"
+      when "the status is read"
+      then "the answer may carry tppMessages explaining the rejection"
+    }
+  }
+
+  rule "Only the TPP that created the payment reads its status, with a token scoped to it" +security {
+    example "The creating TPP reads the status" @"PIS core" +nominal {
+      given "the TPP's certificate and a token with scope PIS:pay001"
+      when "the status is read"
+      then "the answer is 200"
+    }
+    example "Another TPP is refused" @"PIS core" +error {
+      given "the other TPP's certificate"
+      when "the status of pay001 is read"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "A token for another payment is refused" @"PIS core" +error {
+      given "a token with scope PIS:pay002"
+      when "the status of pay001 is read"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "An unknown payment id" @"PIS core" +error {
+      given "no payment pay999"
+      when "its status is read"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "Unknown and foreign look the same" @"PIS core" +nominal {
+      given "the two refusals"
+      when "the bodies are compared"
+      then "they are identical apart from the request id"
+    }
+  }
+
+  rule "Reading a status is cheap and always allowed" +"spec 5.4" {
+    example "Polling every two seconds is served" @"PIS core" +edge {
+      given "the payment is waiting for its SCA"
+      when "the status is polled thirty times in a minute"
+      then "every call answers 200"
+    }
+    example "A status read is not counted against any frequency" @"PIS core" +nominal {
+      given "no PSU-IP-Address"
+      when "the status is read"
+      then "no usage counter changes, because a payment has no consent frequency"
+    }
+    example "A missing X-Request-ID is refused" @"PIS core" +error {
+      given "a status call without X-Request-ID"
+      when "it is made"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+}

@@ -1,0 +1,83 @@
+// Example map for the story "Show the payment on the Bank's review screen"
+// (activity "Approve the payment at the Bank", step "Review the payment").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Show the payment on the Bank's review screen" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Show the payment on the Bank's review screen" ~analysing @"PIS core" +bank-ciam {
+    as "PSU"
+    want "the payee, the amount, my debtor account and the execution date before I approve"
+    so "I know exactly what I am paying"
+    question "When the initiation named no debtor account, may the PSU pick any of their accounts, or only those the TPP is allowed to see?" +"ask bank"
+  }
+
+  rule "The review screen shows the payment as the Bank stored it, in the PSU's words" +"RTS art. 5" {
+    example "The review of a SEPA credit transfer" @"PIS core" +nominal {
+      given "pay001 of 12.50 EUR from Main Account to Payee X with the remittance 'Invoice 42', initiated by TPP App"
+      when "Anna reaches the review screen after her password"
+      then "it shows 'TPP App asks you to pay', 'EUR 12.50', 'to Payee X, DE12 5001 0517 0648 4898 90', 'from Main Account, DE23 1001 0010 0123 4567 89' and 'Invoice 42'"
+      then "it shows 'today' as the execution date"
+    }
+    example "The values come from the payment, never from the browser" @"PIS core" +nominal {
+      given "the review screen"
+      when "the rendered values are traced"
+      then "each is read from pay001 in payment initiation"
+    }
+    example "The TPP is named by its brand and its legal name" @"PIS core" +nominal {
+      given "the payment was initiated with the brand TPP App by TPP Fintech GmbH"
+      when "the screen renders"
+      then "it shows 'TPP App (TPP Fintech GmbH)'"
+    }
+    example "A payment without a debtor account asks which account to pay from" @"PIS core" +edge {
+      given "pay002 was initiated without debtorAccount"
+      when "Anna reaches the review screen"
+      then "it lists her payment accounts and asks her to choose one"
+      then "the chosen account is stored on the payment before the challenge is issued"
+    }
+    example "An account with too little money is shown but warned about" @"PIS core" +edge {
+      given "Main Account holds 5.00 EUR and the payment is 12.50 EUR"
+      when "the screen renders"
+      then "it warns that the balance may not cover the payment, and still lets Anna approve"
+    }
+  }
+
+  rule "The PSU can decline, and declining rejects the payment" +"spec 14.13" {
+    example "Decline on the review screen" @"PIS core" +nominal {
+      given "the review screen for pay001"
+      when "Anna clicks 'Decline'"
+      then "the authorisation is failed and the payment status is RJCT"
+      then "the browser ends at the TPP's nok redirect URI with error=access_denied"
+    }
+    example "Declining is final" @"PIS core" +edge {
+      given "Anna declined pay001"
+      when "she presses back and approves"
+      then "the page says the payment was declined and nothing is issued"
+    }
+    example "The TPP reads the rejection" @"PIS core" +nominal {
+      given "the declined payment"
+      when "the TPP reads the transaction status"
+      then "the answer is RJCT"
+    }
+  }
+
+  rule "The screen is reachable only inside an authenticated session for that payment" +security {
+    example "Without the first factor the review screen is not shown" @"PIS core" +error {
+      given "a session in step identified"
+      when "the review URL is opened directly"
+      then "the login page is shown instead"
+    }
+    example "A session for another payment cannot review this one" @"PIS core" +error {
+      given "a session opened for pay002"
+      when "the review screen of pay001 is requested"
+      then "the CIAM answers 404"
+    }
+    example "The session times out like any other" @"PIS core" +edge {
+      given "the review screen was opened eleven minutes ago with no action"
+      when "Anna clicks 'Approve'"
+      then "the page says the session expired and sends her back to the TPP"
+    }
+  }
+}

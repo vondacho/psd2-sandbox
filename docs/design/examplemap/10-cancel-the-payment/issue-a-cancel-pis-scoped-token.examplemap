@@ -1,0 +1,79 @@
+// Example map for the story "Issue a Cancel-PIS scoped token" (activity "Cancel
+// the payment", step "Cancel with its own SCA"). Increment 5.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Issue a Cancel-PIS scoped token" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS cancellation" release
+
+  story "Issue a Cancel-PIS scoped token" ~ready @"PIS cancellation" +oidc-provider +"spec 13.1" {
+    as "Bank security officer"
+    want "the cancellation authorised with scope Cancel-PIS:<paymentId>"
+    so "a payment token cannot cancel and a cancellation token cannot pay"
+  }
+
+  rule "A cancellation is authorised with its own scope kind, validated against the payment" +"spec 13.1" {
+    example "The cancellation scope is accepted" @"PIS cancellation" +nominal {
+      given "pay002 is ACTC with a pending cancellation and belongs to the requesting client"
+      when "the client requests scope Cancel-PIS:pay002"
+      then "the OIDC-provider brokers the PSU to the Bank for the cancellation"
+    }
+    example "A cancellation scope for a payment that has no pending cancellation is refused" @"PIS cancellation" +error {
+      given "pay001 with no cancellation started"
+      when "Cancel-PIS:pay001 is requested"
+      then "the answer redirects with error=invalid_scope"
+    }
+    example "A cancellation scope for another TPP's payment is refused" @"PIS cancellation" +error {
+      given "pay003 belongs to the other TPP"
+      when "Cancel-PIS:pay003 is requested"
+      then "the answer redirects with error=invalid_scope"
+    }
+    example "The PISP role is required" @"PIS cancellation" +error {
+      given "a client with the AISP role only"
+      when "Cancel-PIS:pay002 is requested"
+      then "the answer redirects with error=invalid_scope"
+    }
+  }
+
+  rule "The token that comes back cancels and does nothing else" +security {
+    example "The claims of a cancellation token" @"PIS cancellation" +nominal {
+      given "the cancellation was approved"
+      when "the token is issued"
+      then "its scope is 'Cancel-PIS:pay002', its audience is the Bank's API and it carries the certificate thumbprint"
+    }
+    example "A cancellation token cannot confirm a payment authorisation" @"PIS cancellation" +error {
+      given "a token with scope Cancel-PIS:pay002"
+      when "it is used to confirm the payment authorisation pay002auth1"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "A payment token cannot confirm a cancellation" @"PIS cancellation" +error {
+      given "a token with scope PIS:pay002"
+      when "it is used on the cancellation authorisation"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "A cancellation token reads no account data" @"PIS cancellation" +error {
+      given "a token with scope Cancel-PIS:pay002"
+      when "the account list is called with it"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "The token lives no longer than any other access token" @"PIS cancellation" +nominal {
+      given "the cancellation token"
+      when "its lifetime is read"
+      then "it is at most ten minutes"
+    }
+  }
+
+  rule "No refresh token is issued for a cancellation" +"spec 13.5" {
+    example "The token response carries no refresh token" @"PIS cancellation" +nominal {
+      given "the cancellation flow"
+      when "the tokens are issued"
+      then "the response holds an access token and no refresh token, because a cancellation happens once"
+    }
+    example "A refresh attempt is refused" @"PIS cancellation" +error {
+      given "no refresh token exists for the cancellation grant"
+      when "a refresh is attempted"
+      then "the OIDC-provider answers invalid_grant"
+    }
+  }
+}

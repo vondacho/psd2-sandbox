@@ -1,0 +1,121 @@
+// Story map: what the Bank's XS2A interface owes every TPP, whatever the
+// service. Increments 3 and 7 of the ASPSP compliance roadmap.
+// No event-storm backbone here: the journey is a TPP operator integrating with
+// the interface, not a PSU using it, so the activities follow the integration
+// rather than a timeline of PSU moments.
+// Deliveries are the roadmap increments; declaration order is timeline order.
+
+storymap "ASPSP interface conformance" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release {
+    note "Increment 3: the authorisation sub-resource as a resource of its\
+          own, so payments, cancellations and non-OAuth2 SCA approaches\
+          reuse one model. Section 7.1 to 7.5, 14.8 to 14.10."
+  }
+  delivery "Conformance" release {
+    note "Increment 7: error codes, response codes, status information,\
+          hyperlink steering, data extensions and notifications, across\
+          every service. Section 4.12 to 4.16, 14.11."
+  }
+
+  activity "Drive the authorisation explicitly" {
+    persona "TPP operator"
+    persona "Bank security officer"
+    step "Start and read authorisations" +bank-xs2a {
+      story "Serve an explicit start of the authorisation process" @"Authorisation resources" +bank-xs2a +"spec 7.1" {
+        as "TPP operator"
+        want "POST on the authorisations endpoint to create an authorisation when I ask for it explicitly"
+        so "I control when the PSU is sent to authenticate"
+      }
+      story "Serve the list of authorisation sub-resources" @"Authorisation resources" +bank-xs2a +"spec 7.4" {
+        as "TPP operator"
+        want "GET on the authorisations endpoint to list the authorisation ids of a resource"
+        so "I can find the authorisation I did not create myself"
+      }
+      story "Serve the SCA status of an authorisation" @"Authorisation resources" +bank-xs2a +"spec 7.5" {
+        as "TPP operator"
+        want "GET on one authorisation to return its scaStatus and nothing else"
+        so "polling never leaks who the PSU is"
+      }
+      story "Announce the SCA approach on every resource" @"Authorisation resources" +bank-xs2a +"spec 4.3" {
+        as "TPP operator"
+        want "the ASPSP-SCA-Approach header on every resource that starts an authorisation"
+        so "I know which flow to drive before I read the links"
+      }
+    }
+    step "Update the PSU data" +bank-xs2a +bank-ciam {
+      story "Update PSU data for identification" @"Authorisation resources" +bank-xs2a +"spec 7.2.1" {
+        as "TPP operator"
+        want "PUT on the authorisation with a PSU-ID to move it to psuIdentified"
+        so "the bank knows whose accounts are addressed before authentication"
+      }
+      story "Update PSU data for authentication" @"Authorisation resources" +bank-xs2a +bank-ciam +"spec 7.2.2" {
+        as "Bank security officer"
+        want "a password accepted on the authorisation resource only in the decoupled or embedded approach"
+        so "credentials never travel through a TPP in the redirect approach"
+      }
+      story "Offer the SCA methods and record the selection" @"Authorisation resources" +bank-xs2a +bank-ciam +"spec 7.2.3" {
+        as "PSU"
+        want "the methods I have to choose from, and my choice remembered"
+        so "I approve with the device I have at hand"
+      }
+      story "Serve challenge data for the selected method" @"Authorisation resources" +bank-ciam +sca +"spec 14.8" +"spec 14.10" {
+        as "TPP operator"
+        want "the challenge object of the chosen method, with its image or data and its expiry"
+        so "an embedded flow can show the challenge to the PSU"
+      }
+    }
+  }
+
+  activity "Answer like the specification says" {
+    persona "TPP operator"
+    persona "Bank security officer"
+    step "Errors and response codes" +bank-xs2a {
+      story "Serve the message codes of each service" @Conformance +bank-xs2a +"spec 14.11" {
+        as "TPP operator"
+        want "every refusal to carry the code the specification defines for that service"
+        so "my error handling is written once against the standard, not against this bank"
+      }
+      story "Map failures to the right HTTP response codes" @Conformance +bank-xs2a +"spec 4.12" {
+        as "TPP operator"
+        want "400, 401, 403, 404, 405, 406, 409 and 429 used as the specification prescribes"
+        so "I can act on the status line before parsing the body"
+      }
+      story "Report status information consistently" @Conformance +bank-xs2a +"spec 4.14" {
+        as "TPP operator"
+        want "consent, transaction and SCA status returned in the same shape everywhere"
+        so "one parser serves every status endpoint"
+      }
+      story "Steer every state with hyperlinks" @Conformance +bank-xs2a +"spec 4.15" {
+        as "TPP operator"
+        want "the links that fit the current state, and none that do not"
+        so "I never construct a URL or call a step that is not available"
+      }
+      story "Accept data extensions without breaking" @Conformance +bank-xs2a +"spec 4.16" {
+        as "TPP operator"
+        want "unknown extension fields ignored rather than rejected"
+        so "a bank-specific extension does not break a standard client"
+      }
+    }
+    step "Tell the TPP what changed" +bank-xs2a {
+      story "Announce notification support and accept a notification URI" @Conformance +bank-xs2a +"spec 4.8" {
+        as "TPP operator"
+        want "the bank to say whether it notifies, and to take my notification URI and content preference"
+        so "I know whether to poll or to wait"
+      }
+      story "Notify the TPP of payment status changes" @Conformance +bank-xs2a {
+        as "TPP operator"
+        want "a signed notification when a payment reaches a final status"
+        so "I do not learn about an execution from a polling loop"
+      }
+    }
+    step "Prove who is calling" +bank-xs2a +security {
+      story "Serve one TPP identity from the certificate" @Conformance +bank-xs2a +security +"spec 4.9" {
+        as "Bank security officer"
+        want "one service that turns a presented certificate into a TPP identity with roles, or a refusal"
+        so "the gateway, the payment endpoints and the authorization server give the same answer"
+      }
+    }
+  }
+}

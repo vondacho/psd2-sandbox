@@ -1,0 +1,176 @@
+// The inside of "Payment initiation" from psd2-access-to-account.ddd.
+// Aggregates: Payment, PaymentAuthorisation, PaymentCancellation.
+// Vocabulary: NextGenPSD2 XS2A 1.3.16, sections 5.3, 5.4, 5.6, 5.7, 5.8, 11.1,
+// 14.13. Scope of increments 4 and 5: single payments in JSON. Bulk, periodic,
+// future-dated and XML instructions are known and not modelled here.
+
+context "Payment initiation" {
+
+  // ---- shared values and enumerations -------------------------------------
+
+  enum "PaymentService" {
+    "payments"
+  }
+
+  enum "PaymentProduct" {
+    "sepa-credit-transfers" "instant-sepa-credit-transfers"
+  }
+
+  // Section 14.13. The sandbox serves this subset of the transaction statuses.
+  enum "TransactionStatus" {
+    "RCVD" "ACTC" "ACSC" "RJCT" "CANC"
+  }
+
+  enum "CancellationOutcome" {
+    "cancelled" "refused" "authorisationPending" "authorisationFailed"
+  }
+
+  value "Amount" {
+    attribute "currency" : "CurrencyCode"
+    attribute "amount"   : "Decimal"
+  }
+
+  value "PaymentParty" {
+    attribute "name"    : "Max70Text"
+    attribute "iban"    : "IBAN"
+    attribute "bic"     : "BICFI"
+    attribute "address" : "Address"
+  }
+
+  value "Remittance" {
+    attribute "unstructured" : "Max140Text"
+    attribute "structured"   : "Max140Text"
+  }
+
+  // What the PSU is asked to approve, and what the device signature covers.
+  value "PaymentDynamicLink" {
+    attribute "paymentId"     : "PaymentId"
+    attribute "tppName"       : "String"
+    attribute "amount"        : "Amount"
+    attribute "creditorIban"  : "IBAN"
+    attribute "debtorIban"    : "IBAN"
+    attribute "hash"          : "Hash"
+  }
+
+  // ---- Payment -------------------------------------------------------------
+
+  aggregate "Payment" {
+    intent "One payment instruction a PISP posted, from the moment it is
+            received until it is settled, rejected or cancelled. The
+            consistency boundary for the instruction, its status and its
+            authorisation trail."
+
+    invariant "A payment is executed only after every mandated authorisation is
+               finalised, so never before the status is accepted."
+    invariant "The transaction status moves forward only; settled, rejected and
+               cancelled are terminal."
+    invariant "The instructed amount is positive and carries a currency the
+               payment product allows."
+    invariant "The debtor account is an account of the PSU who authorised the
+               payment, whether the TPP named it or the PSU chose it."
+    invariant "A payment is served only to the TPP that created it."
+    invariant "The payment product and service of the path are the ones the
+               payment was created with."
+
+    root entity "Payment" {
+      id        "PaymentId"
+      attribute "tppId"                    : "OrganizationIdentifier"
+      attribute "psuId"                    : "PsuId"
+      attribute "createdAt"                : "Instant"
+      attribute "acceptedAt"               : "Instant"
+      attribute "settledAt"                : "Instant"
+      attribute "tppRedirectUri"           : "URI"
+      attribute "tppNokRedirectUri"        : "URI"
+      attribute "tppNotificationUri"       : "URI"
+      attribute "rejectionReason"          : "Max140Text"
+      embeds    "PaymentService" one
+      embeds    "PaymentProduct" one
+      embeds    "TransactionStatus" one
+      contains  "PaymentInstruction" one
+      contains  "StatusChange" many
+    }
+
+    entity "PaymentInstruction" {
+      id        "InstructionId"
+      attribute "endToEndIdentification" : "Max35Text"
+      attribute "requestedExecutionDate" : "Date"
+      embeds    "Amount" one
+      embeds    "PaymentParty" one
+      embeds    "Remittance" optional
+      attribute "debtorIban"             : "IBAN"
+      attribute "debtorCurrency"         : "CurrencyCode"
+    }
+
+    entity "StatusChange" {
+      id        "StatusChangeId"
+      attribute "from"      : "TransactionStatus"
+      attribute "to"        : "TransactionStatus"
+      attribute "at"        : "Instant"
+      attribute "cause"     : "Max140Text"
+    }
+  }
+
+  // ---- PaymentAuthorisation ------------------------------------------------
+
+  aggregate "PaymentAuthorisation" {
+    intent "One authorisation sub-resource of a payment (section 7): the trail
+            of one PSU's SCA over one payment. The same model as the consent
+            authorisation, by design, because the specification defines one
+            authorisation process for both."
+
+    invariant "scaStatus moves forward only; finalised and failed are terminal."
+    invariant "finalised requires a verified challenge whose dynamic link covers
+               the amount, the payee and the debtor account of this payment."
+    invariant "An authorisation belongs to exactly one payment."
+    invariant "A payment created without an explicit authorisation preference
+               carries exactly one authorisation from the start."
+
+    root entity "PaymentAuthorisation" {
+      id         "AuthorisationId"
+      attribute  "psuId"                : "PsuId"
+      attribute  "challengeId"          : "ChallengeId"
+      attribute  "startedAt"            : "Instant"
+      attribute  "finalisedAt"          : "Instant"
+      attribute  "confirmationRequired" : "Boolean"
+      embeds     "ScaStatus" one
+      embeds     "PaymentDynamicLink" one
+      references "Payment" one
+    }
+  }
+
+  // ---- PaymentCancellation -------------------------------------------------
+
+  aggregate "PaymentCancellation" {
+    intent "One request to withdraw a payment before it is executed, and the
+            authorisation it needs when the bank requires one."
+
+    invariant "A payment that reached a terminal status cannot be cancelled."
+    invariant "A payment product the bank marks as non-cancellable refuses every
+               cancellation."
+    invariant "While a cancellation authorisation is pending, the payment is not
+               handed to the core banking."
+    invariant "The payment is cancelled only when no authorisation is required or
+               when the cancellation authorisation is finalised."
+    invariant "A cancellation authorisation is a resource of its own and never
+               shares a challenge with the payment's authorisation."
+
+    root entity "PaymentCancellation" {
+      id         "CancellationId"
+      attribute  "requestedBy"       : "OrganizationIdentifier"
+      attribute  "requestedAt"       : "Instant"
+      attribute  "scaRequired"       : "Boolean"
+      attribute  "resolvedAt"        : "Instant"
+      embeds     "CancellationOutcome" one
+      contains   "CancellationAuthorisation" many
+      references "Payment" one
+    }
+
+    entity "CancellationAuthorisation" {
+      id        "CancellationAuthorisationId"
+      attribute "psuId"       : "PsuId"
+      attribute "challengeId" : "ChallengeId"
+      attribute "finalisedAt" : "Instant"
+      embeds    "ScaStatus" one
+    }
+  }
+}

@@ -1,0 +1,80 @@
+// Example map for the story "Announce the SCA approach on every resource"
+// (activity "Drive the authorisation explicitly", step "Start and read
+// authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Announce the SCA approach on every resource" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Authorisation resources" release
+
+  story "Announce the SCA approach on every resource" ~analysing @"Authorisation resources" +bank-xs2a +"spec 4.3" {
+    as "TPP operator"
+    want "the ASPSP-SCA-Approach header on every resource that starts an authorisation"
+    so "I know which flow to drive before I read the links"
+    question "Will the sandbox ever announce DECOUPLED or EMBEDDED, or is REDIRECT with an OAuth2 link the only approach it offers?" +"ask product" +"spec 4.3"
+  }
+
+  rule "Every answer that creates or starts an authorisation carries the approach" +"spec 4.3" {
+    example "On a consent creation" @"Authorisation resources" +nominal {
+      given "a consent is created"
+      when "the answer is inspected"
+      then "the header ASPSP-SCA-Approach is REDIRECT"
+    }
+    example "On a payment initiation" @"Authorisation resources" +nominal {
+      given "a payment is created"
+      when "the answer is inspected"
+      then "the header is REDIRECT"
+    }
+    example "On an explicit start of an authorisation" @"Authorisation resources" +nominal {
+      given "POST on the authorisations endpoint"
+      when "the answer is inspected"
+      then "the header is present with the same value"
+    }
+    example "On a cancellation that needs an authorisation" @"Authorisation resources" +nominal {
+      given "a cancellation accepted for authorisation"
+      when "the answer is inspected"
+      then "the header is present"
+    }
+    example "Not on a plain read" @"Authorisation resources" +edge {
+      given "a status or account read"
+      when "the answer is inspected"
+      then "no SCA approach header is sent, because nothing is being authorised"
+    }
+  }
+
+  rule "The announced approach matches the links the answer carries" +"spec 4.15" {
+    example "REDIRECT with an OAuth2 link" @"Authorisation resources" +nominal {
+      given "the sandbox uses the OAuth2 approach"
+      when "a consent is created"
+      then "the header is REDIRECT and the links carry scaOAuth"
+    }
+    example "REDIRECT with a plain redirect link" @"Authorisation resources" +edge {
+      given "a bank that redirects to its own page instead of an authorization server"
+      when "a consent is created"
+      then "the header is REDIRECT and the links carry scaRedirect rather than scaOAuth"
+    }
+    example "A client can tell the two apart from the links alone" @"Authorisation resources" +nominal {
+      given "either answer"
+      when "the client reads the links"
+      then "the presence of scaOAuth or scaRedirect decides what it does next"
+    }
+  }
+
+  rule "The approach is chosen per resource and does not change once announced" {
+    example "The approach is stable for one consent" @"Authorisation resources" +nominal {
+      given "a consent announced as REDIRECT"
+      when "its authorisation is read later"
+      then "the approach is still REDIRECT"
+    }
+    example "A configuration change does not move a live resource" @"Authorisation resources" +edge {
+      given "the operator changes the sandbox default while a consent is being authorised"
+      when "that consent continues"
+      then "it keeps the approach it was created with"
+    }
+    example "The preference header of the TPP is honoured when the Bank supports it" @"Authorisation resources" +edge {
+      given "TPP-Redirect-Preferred: false on a bank that also offers decoupled"
+      when "the consent is created"
+      then "the announced approach is DECOUPLED"
+    }
+  }
+}

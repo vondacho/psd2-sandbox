@@ -1,0 +1,157 @@
+// Story map: the Bank's payment initiation service (PISP-facing), increments 4
+// and 5 of the ASPSP compliance roadmap.
+// Backbone = the PSU payment journey of
+// docs/design/eventstorming/psu-payment-journey.eventstorm: one activity per
+// phase between two pivotal events, one step per timeline column (+"ES column n").
+// Scope: the Bank's own services. Stories for the TPP client live in the
+// account-list map; here the TPP appears only as the caller.
+// Deliveries are the roadmap increments; declaration order is timeline order.
+
+storymap "ASPSP payment services" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release {
+    note "Increment 4: single payments in JSON on one payment product,\
+          the payment authorisation reusing the SCA engine, transaction\
+          status and get payment. Section 5.3.1, 5.4, 5.6, 4.11.1."
+  }
+  delivery "PIS cancellation" release {
+    note "Increment 5: DELETE a payment, with and without an\
+          authorisation of its own. Section 4.7, 5.7, 5.8."
+  }
+
+  activity "Create the payment" +"ES columns 2-3" {
+    persona "TPP operator"
+    persona "Bank security officer"
+    step "Serve the payment initiation request" +bank-xs2a +"ES column 3" {
+      story "Serve POST /v1/payments/{payment-product}" @"PIS core" +bank-xs2a +"spec 5.3.1" +"spec 4.11.1" {
+        as "TPP operator"
+        want "a 201 with paymentId, transactionStatus RCVD and the steering links"
+        so "the payment can be authorised in the next step"
+      }
+      story "Validate the payment instruction" @"PIS core" +bank-xs2a +"spec 5.3.1" {
+        as "Bank security officer"
+        want "amount, currency, debtor and creditor accounts and the remittance checked before a resource exists"
+        so "a malformed instruction never reaches the core banking"
+      }
+      story "Create the payment authorisation implicitly" @"PIS core" +bank-xs2a +"spec 4.6" +"spec 7" {
+        as "TPP operator"
+        want "the payment resource to carry an authorisation sub-resource from the start"
+        so "the same authorisation model serves consents and payments"
+      }
+      story "Return the payment steering links" @"PIS core" +bank-xs2a +"spec 4.15" +"spec 5.1.5" {
+        as "TPP operator"
+        want "scaOAuth, scaStatus, self and status links with the SCA approach header"
+        so "the client never guesses a payment URL"
+      }
+      story "Refuse a payment product the Bank does not offer" @"PIS core" +bank-xs2a +"spec 14.11" {
+        as "Bank security officer"
+        want "an unknown payment service or product refused with PRODUCT_UNKNOWN"
+        so "only the products the Bank sells can be initiated"
+      }
+    }
+  }
+
+  activity "Approve the payment at the Bank" +"ES columns 4-9" {
+    persona "PSU"
+    persona "Bank security officer"
+    step "Review the payment" +bank-ciam +"ES column 6" {
+      story "Show the payment on the Bank's review screen" @"PIS core" +bank-ciam {
+        as "PSU"
+        want "the payee, the amount, my debtor account and the execution date before I approve"
+        so "I know exactly what I am paying"
+      }
+      story "Validate the PIS scope against the payment" @"PIS core" +oidc-provider +bank-xs2a +"spec 13.1" {
+        as "Bank security officer"
+        want "PIS:<paymentId> accepted only for a payment that exists, is RCVD and belongs to this client"
+        so "a TPP cannot authorise somebody else's payment"
+      }
+    }
+    step "Sign the payment on my device" +bank-ciam +sca +"ES columns 7-9" {
+      story "Cover amount and payee in the dynamic link" @"PIS core" +bank-ciam +sca +"RTS art. 5" {
+        as "Bank security officer"
+        want "the challenge hash to cover paymentId, payee, amount and debtor account"
+        so "an approval cannot be replayed for another payment"
+      }
+      story "Record the approved payment authorisation" @"PIS core" +bank-xs2a +"spec 14.16" {
+        as "Bank product owner"
+        want "the authorisation finalised and the payment moved to ACTC"
+        so "the payment is accepted for execution only after SCA"
+      }
+      story "Confirm the payment authorisation" @"PIS core" +bank-xs2a +"spec 7.6.4" {
+        as "Bank security officer"
+        want "the confirmation call checked against the token's payment id and client"
+        so "the payment becomes valid only for the TPP that created it"
+      }
+    }
+  }
+
+  activity "Follow the payment" +"ES columns 12-13" {
+    persona "TPP operator"
+    persona "Bank product owner"
+    step "Read the status and the payment" +bank-xs2a +"ES column 12" {
+      story "Serve the transaction status" @"PIS core" +bank-xs2a +"spec 5.4" +"spec 14.13" {
+        as "TPP operator"
+        want "GET .../status to return the current transaction status"
+        so "the PSU learns whether the payment went through"
+      }
+      story "Serve the payment resource" @"PIS core" +bank-xs2a +"spec 5.6" {
+        as "TPP operator"
+        want "GET on the payment to return the instruction as the Bank stored it"
+        so "the client can show what was actually initiated"
+      }
+    }
+    step "Execute the payment" +bank-core +"ES column 13" {
+      story "Move the transaction status through its lifecycle" @"PIS core" +bank-xs2a +"spec 14.13" {
+        as "Bank product owner"
+        want "RCVD, ACTC, ACSC and RJCT reached only through the allowed transitions"
+        so "a status never moves backwards or skips a step"
+      }
+      story "Execute the payment at the core banking" @"PIS core" +bank-core {
+        as "Bank product owner"
+        want "funds and limits checked, then the payment booked or rejected"
+        so "the transaction status reflects what the ledger did"
+      }
+    }
+  }
+
+  activity "Cancel the payment" +"ES column 14" {
+    persona "PSU"
+    persona "TPP operator"
+    persona "Bank security officer"
+    step "Cancel without a new SCA" +bank-xs2a +"ES column 14" {
+      story "Cancel a payment that needs no authorisation" @"PIS cancellation" +bank-xs2a +"spec 5.7" +"spec 4.7" {
+        as "PSU"
+        want "a payment that has not been executed cancelled straight away"
+        so "I can stop a payment I no longer want"
+      }
+      story "Refuse to cancel a payment that is already settled" @"PIS cancellation" +bank-xs2a +"spec 14.11" {
+        as "Bank security officer"
+        want "a cancellation of an executed payment refused with CANCELLATION_INVALID"
+        so "the ledger and the interface never disagree"
+      }
+    }
+    step "Cancel with its own SCA" +bank-xs2a +bank-ciam +"ES column 14" {
+      story "Require an authorisation for a cancellation" @"PIS cancellation" +bank-xs2a +"spec 5.7" {
+        as "Bank security officer"
+        want "the cancellation to answer ACTC with a cancellation authorisation link when SCA is needed"
+        so "a payment is never withdrawn without the PSU"
+      }
+      story "Serve the cancellation authorisation sub-resources" @"PIS cancellation" +bank-xs2a +"spec 5.8" {
+        as "TPP operator"
+        want "the cancellation authorisations listed and their SCA status readable"
+        so "the client can steer the cancellation like any other authorisation"
+      }
+      story "Issue a Cancel-PIS scoped token" @"PIS cancellation" +oidc-provider +"spec 13.1" {
+        as "Bank security officer"
+        want "the cancellation authorised with scope Cancel-PIS:<paymentId>"
+        so "a payment token cannot cancel and a cancellation token cannot pay"
+      }
+      story "Finish the cancellation with CANC" @"PIS cancellation" +bank-xs2a +"spec 14.13" {
+        as "PSU"
+        want "the payment set to CANC once the cancellation is authorised"
+        so "everyone sees that the payment will not be executed"
+      }
+    }
+  }
+}

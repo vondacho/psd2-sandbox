@@ -1,0 +1,79 @@
+// Example map for the story "Accept a global consent" (activity "Connect the
+// Bank from the TPP", step "Request the consent"). Increment 2.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Accept a global consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Consent models" release
+
+  story "Accept a global consent" ~analysing @"Consent models" +bank-xs2a +"spec 14.17" {
+    as "TPP operator"
+    want "allPsd2 to grant every payment account the PSU can see online"
+    so "an aggregator does not re-consent when the PSU opens a new account"
+    question "Does allPsd2 cover an account opened after the consent was authorised, or only those present at authorisation?" +"ask bank" +"spec 14.17"
+  }
+
+  rule "allPsd2 grants every access type on every payment account the PSU holds online" +"spec 14.17" {
+    example "Every account with balances and transactions" @"Consent models" +nominal {
+      given "access {allPsd2: allAccounts} authorised by Anna"
+      when "GET /v1/accounts?withBalance=true is called"
+      then "both of Anna's payment accounts are listed with balances"
+      when "the transactions of either account are read"
+      then "the answer is 200"
+    }
+    example "Accounts that are not payment accounts stay out" @"Consent models" +edge {
+      given "Anna also holds a loan account"
+      when "the list is read"
+      then "the loan account is absent"
+    }
+    example "The consent screen says what allPsd2 means" @"Consent models" +nominal {
+      given "the consent screen for an allPsd2 consent"
+      when "it renders"
+      then "it says that the app may read all payment accounts, their balances and their transactions until the validity date"
+    }
+    example "The code must be allAccounts" @"Consent models" +error {
+      given "access {allPsd2: everything}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "allPsd2 may not be combined with other access fields" @"Consent models" +error {
+      given "access {allPsd2: allAccounts, balances: [DE23…]}"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+
+  rule "A global consent is still bound by validity, frequency and ownership" +"spec 6" {
+    example "The frequency applies per account" @"Consent models" +nominal {
+      given "an allPsd2 consent with frequencyPerDay 4 and two accounts"
+      when "each account is read four times without the PSU"
+      then "every read is served"
+      when "a fifth read of one account is made"
+      then "the answer is 429 ACCESS_EXCEEDED for that account only"
+    }
+    example "Another TPP's global consent grants nothing here" @"Consent models" +error {
+      given "an allPsd2 consent of C for Anna"
+      when "the TPP calls with its own certificate and that consent id"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "Expiry ends every access at once" @"Consent models" +edge {
+      given "an allPsd2 consent whose validUntil has passed"
+      when "any account endpoint is called"
+      then "the answer is 401 CONSENT_EXPIRED"
+    }
+  }
+
+  rule "The Bank may cap what a global consent grants, and says so on the consent object" {
+    example "A bank that does not offer allPsd2 refuses it" @"Consent models" +error {
+      given "the sandbox runs with allPsd2 disabled"
+      when "POST /v1/consents is called with allPsd2"
+      then "the answer is 400 SERVICE_INVALID with text 'consent model not supported'"
+    }
+    example "The granted access is readable afterwards" @"Consent models" +nominal {
+      given "an authorised allPsd2 consent"
+      when "GET /v1/consents/123cons456 is called"
+      then "the access object shows what was finally granted, account by account"
+    }
+  }
+}

@@ -1,0 +1,81 @@
+// Example map for the story "Execute the payment at the core banking" (activity
+// "Follow the payment", step "Execute the payment"). Increment 4.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Execute the payment at the core banking" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Execute the payment at the core banking" ~analysing @"PIS core" +bank-core {
+    as "Bank product owner"
+    want "funds and limits checked, then the payment booked or rejected"
+    so "the transaction status reflects what the ledger did"
+    question "Does the sandbox settle immediately, or should it simulate a delay between acceptance and settlement so a TPP can see ACTC?" +"ask sandbox"
+  }
+
+  rule "A payment is handed to the core only after it is accepted for execution" {
+    example "Execution starts at ACTC" @"PIS core" +nominal {
+      given "pay001 moved to ACTC"
+      when "the execution job runs"
+      then "the core receives the instruction once"
+    }
+    example "A payment at RCVD is never executed" @"PIS core" +nominal {
+      given "pay001 at RCVD"
+      when "the execution job runs"
+      then "the core receives nothing"
+    }
+    example "A cancelled payment is not executed" @"PIS core" +nominal {
+      given "pay002 moved to CANC before the job ran"
+      when "the job runs"
+      then "the core receives nothing"
+    }
+    example "The instruction is handed over once, even after a retry" @"PIS core" +edge {
+      given "the job crashed after handing pay001 over"
+      when "it runs again"
+      then "the core recognises the payment id and does not book twice"
+    }
+  }
+
+  rule "The core checks funds and limits, and its answer drives the status" {
+    example "Enough funds: the payment is booked" @"PIS core" +nominal {
+      given "Main Account holds 1250.30 EUR and the payment is 12.50 EUR"
+      when "the core executes it"
+      then "the account is debited by 12.50 and the status becomes ACSC"
+    }
+    example "Not enough funds: the payment is rejected" @"PIS core" +error {
+      given "Main Account holds 5.00 EUR"
+      when "the core executes the payment"
+      then "nothing is debited and the status becomes RJCT with a reason"
+    }
+    example "Above the daily limit: the payment is rejected" @"PIS core" +error {
+      given "the daily payment limit of the account is reached"
+      when "the core executes the payment"
+      then "the status becomes RJCT"
+    }
+    example "A blocked account is rejected" @"PIS core" +error {
+      given "Main Account is blocked in the ledger"
+      when "the core executes the payment"
+      then "the status becomes RJCT"
+    }
+    example "The debit appears in the account's transactions" @"PIS core" +nominal {
+      given "pay001 was booked"
+      when "the transactions of Main Account are read with a consent that grants them"
+      then "a booking of -12.50 EUR to Payee X is in the list"
+    }
+  }
+
+  rule "The core is reached through an adapter, so its vocabulary never reaches the TPP" {
+    example "A core error code becomes a specification code" @"PIS core" +nominal {
+      given "the core answers with its own error 'E-4711 insufficient cover'"
+      when "the adapter translates it"
+      then "the interface answers RJCT with the code PAYMENT_FAILED"
+    }
+    example "The core being unavailable leaves the payment accepted" @"PIS core" +error {
+      given "the core does not answer"
+      when "the job runs"
+      then "the status stays ACTC and the job retries later"
+      then "an operational alert is raised"
+    }
+  }
+}

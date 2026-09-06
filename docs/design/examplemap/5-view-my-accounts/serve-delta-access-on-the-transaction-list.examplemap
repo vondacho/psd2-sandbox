@@ -1,0 +1,97 @@
+// Example map for the story "Serve delta access on the transaction list"
+// (activity "View my accounts", step "See balances and transactions"). Increment 1.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve delta access on the transaction list" {
+  product "berlin-psd2-sandbox"
+
+  delivery "AIS reads" release
+
+  story "Serve delta access on the transaction list" ~analysing @"AIS reads" +bank-xs2a +"spec 6.5.4" {
+    as "TPP operator"
+    want "entryReferenceFrom or deltaList to return only what changed since my last read"
+    so "a daily sync does not download the whole history"
+    question "Does the sandbox support both delta mechanisms, or only entryReferenceFrom?" +"ask bank" +"spec 6.5.4"
+    question "How long does an entry reference stay resolvable after the entry leaves the ninety-day window?" +"ask bank"
+  }
+
+  rule "entryReferenceFrom returns the entries booked after the named entry" +"spec 6.5.4" {
+    example "Everything after the last entry of the previous read" @"AIS reads" +nominal {
+      given "the previous report ended with entryReference ent-2026-08-15-01"
+      given "two bookings were added since: ent-2026-08-28-01 and ent-2026-09-02-01"
+      when "the TPP calls with bookingStatus=booked&entryReferenceFrom=ent-2026-08-15-01"
+      then "the answer is 200 with exactly those two entries"
+      then "the entry ent-2026-08-15-01 itself is not repeated"
+    }
+    example "Nothing new since the last read" @"AIS reads" +edge {
+      given "no booking after ent-2026-09-02-01"
+      when "entryReferenceFrom=ent-2026-09-02-01 is called"
+      then "the answer is 200 with booked: []"
+    }
+    example "An unknown entry reference is refused" @"AIS reads" +error {
+      given "no entry ent-nope"
+      when "entryReferenceFrom=ent-nope is called"
+      then "the answer is 400 FORMAT_ERROR naming entryReferenceFrom"
+    }
+    example "An entry reference of another account is refused" @"AIS reads" +error {
+      given "ent-2026-08-28-01 belongs to Main Account"
+      when "it is used on the Savings resourceId"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "A pending entry has no entry reference to continue from" @"AIS reads" +edge {
+      given "a pending entry"
+      when "the report is built"
+      then "the pending entry carries no entryReference and delta reads stay on booked entries"
+    }
+  }
+
+  rule "deltaList returns everything that changed since the last delta read of this consent" +"spec 6.5.4" {
+    example "New bookings and status changes since the last delta read" @"AIS reads" +nominal {
+      given "the last delta read for consent 123cons456 on Main Account was at 2026-09-06T09:00Z"
+      given "one booking was added and one pending entry became booked since"
+      when "the TPP calls with bookingStatus=both&deltaList=true"
+      then "the answer holds the new booking and the entry that changed status"
+    }
+    example "The first delta read has no starting point" @"AIS reads" +edge {
+      given "no earlier delta read for this consent and account"
+      when "deltaList=true is called"
+      then "the answer is 400 FORMAT_ERROR with text 'no previous delta read'"
+    }
+    example "The delta cursor is kept per consent and account" @"AIS reads" +edge {
+      given "the TPP read a delta for Main Account and never for Savings"
+      when "a delta read is made on Savings"
+      then "the answer is 400 FORMAT_ERROR, and the Main Account cursor is untouched"
+    }
+  }
+
+  rule "The delta parameters replace the period and are mutually exclusive" +"spec 6.5.4" {
+    example "entryReferenceFrom together with dateFrom is refused" @"AIS reads" +error {
+      given "entryReferenceFrom=ent-2026-08-15-01 and dateFrom=2026-08-01"
+      when "the call is made"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "entryReferenceFrom together with deltaList is refused" @"AIS reads" +error {
+      given "both delta parameters"
+      when "the call is made"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "A delta read alone needs no period" @"AIS reads" +nominal {
+      given "entryReferenceFrom only"
+      when "the call is made"
+      then "the answer is 200"
+    }
+  }
+
+  rule "Delta access does not widen what the consent allows" +security {
+    example "The ninety-day limit still applies without the PSU" @"AIS reads" +error {
+      given "the named entry is older than ninety days and no PSU-IP-Address"
+      when "the delta read is made"
+      then "the answer is 401 CONSENT_INVALID with text 'transactions older than 90 days require PSU presence'"
+    }
+    example "A delta read counts against the frequency" @"AIS reads" +nominal {
+      given "the counter for Main Account is 3 of 4 and no PSU-IP-Address"
+      when "the delta read is made"
+      then "the answer is 200 and the counter is 4"
+    }
+  }
+}

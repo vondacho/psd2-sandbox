@@ -1,8 +1,9 @@
 # Example maps of the PSU account-list journey
 
-One `.examplemap` file per story of the story map
-[`../storymap/psu-account-list-journey.storymap`](../storymap/psu-account-list-journey.storymap),
-grouped in one directory per story-map activity. The grammar is the
+One `.examplemap` file per story of the three story maps in
+[`../storymap/`](../storymap/), grouped in one directory per story-map activity:
+the PSU account-list journey, the Bank's payment services, and what the
+interface owes every TPP whatever the service. The grammar is the
 example-mapping DSL documented at [doc-em.obya.ch/dsl](https://doc-em.obya.ch/dsl);
 the practice is described at
 [dev-portal.obya.ch/doc/practices/example-mapping](https://dev-portal.obya.ch/doc/practices/example-mapping/).
@@ -21,12 +22,15 @@ example to `Scenario:`; questions are not exported.
   map. The `as`/`want`/`so` clauses and the `+tags` of the story are copied from
   the story map, including the `+"spec x.y"` references to the NextGenPSD2 XS2A
   Implementation Guidelines v1.3.16.
-- **Deliveries.** Every map declares the three releases of the story map
-  (`Walking skeleton`, `MVP`, `Hardening`) and the story ships (`@`) in the
-  same release as in the story map. Examples of a Walking-skeleton story ship
-  their nominal cases in the walking skeleton and their edge and error cases in
-  the MVP, because the skeleton is the thinnest end-to-end path. Examples of MVP
-  and Hardening stories ship with their story. Stories the story map has not
+- **Deliveries.** A map declares the delivery bands it uses and the story
+  ships (`@`) in the band its story map gives it. The account journey was
+  sliced into `Walking skeleton`, `MVP` and `Hardening`: there, examples of a
+  Walking-skeleton story ship their nominal cases in the skeleton and their
+  edge and error cases in the MVP, because the skeleton is the thinnest
+  end-to-end path. The compliance work is sliced into one band per increment
+  (`AIS reads`, `Consent models`, `Authorisation resources`, `PIS core`,
+  `PIS cancellation`, `Access rules`, `Conformance`): there, a story and all
+  its examples ship together in its increment. Stories the story maps have not
   committed carry no `@`, and neither do their examples.
 - **Example tags.** Every example carries exactly one of `+nominal` (the rule
   satisfied in the ordinary case), `+edge` (a boundary, a rare but legitimate
@@ -68,9 +72,17 @@ different maps can share step definitions.
 | Consents | `123cons456` the consent of the journey (authorisation `123auth567`, validUntil 2026-12-05, frequencyPerDay 4, recurring); `111cons222` an older recurring consent of the TPP for Anna; `333cons444` a consent of C for Anna; `555cons666` a consent of the TPP for Ben or an accounts-only consent; `777cons888` a one-off consent; `900cons001` a corporate consent; `999cons000` never exists |
 | OAuth2 values | state `S8NJ7…`, PKCE verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk` and challenge `E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM` (RFC 7636 test vector), code `SplxlOBeZQQYbYS6WxSbIA`, refresh tokens `R1`, `R2`, access token `T1`, grant `g1`, pairwise subject `8f6c2b1e-…`, certificate thumbprint `bwcK0…` |
 | SCA | challenge `chl-01J8` (also `chl-01`, `chl-02`, `chl-03` for retries), nonce `m3A9…`, dynamic-link hash `H1` (another consent: `H2`), lifetime 180 s, at most 3 challenges per session and 3 invalid signatures per challenge |
-| Sandbox parameters | validity cap 180 days, frequency cap 4 per day, access-token lifetime 600 s, authorization code lifetime 60 s, login session inactivity 10 min, abandoned consent rejected after 30 min, `confirmationRequired` and `requestSigningRequired` switchable |
+| Payments | `pay001` the payment of the journey (sepa-credit-transfers, EUR 12.50 from Main Account to Payee X `DE12 5001 0517 0648 4898 90`, remittance "Invoice 42", authorisation `pay001auth1`, dynamic-link hash `P1`); `pay002` accepted and still cancellable (cancellation authorisation `pay002cancauth1`); `pay003` already settled or belonging to TPP C; `pay999` never exists |
+| Transactions | On Main Account: `tx-3001` Rent EUR -950.00 to Landlord GmbH on 2026-08-28 (entry reference `ent-2026-08-28-01`), Salary EUR +3200.00 from Employer AG on 2026-08-15, REWE EUR -45.20 on 2026-08-03, a pending card reservation of EUR -70.00; `tx-3002` a collective booking with entry details; `tx-3003` booked through an exchange rate; `tx-2001` booked more than ninety days ago; `tx-4001` belongs to Savings |
+| Sandbox parameters | validity cap 180 days, frequency cap 4 per day, access-token lifetime 600 s, authorization code lifetime 60 s, login session inactivity 10 min, abandoned consent rejected after 30 min, `confirmationRequired` and `requestSigningRequired` switchable, transaction page size 200 with a one-hour paging cursor, `cancellationScaRequired` switchable, per-payment limit EUR 10000.00, notifications switchable, offered payment services and products configurable |
 
 ## Index
+
+Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open questions.
+
+## PSU account-list journey
+
+[`psu-account-list-journey.storymap`](../storymap/psu-account-list-journey.storymap). 90 stories, 316 rules, 1188 examples, 79 open questions.
 
 ### Enrol a device at the Bank
 
@@ -87,7 +99,7 @@ different maps can share step definitions.
 
 ### Connect the Bank from the TPP
 
-19 stories, 72 rules, 282 examples, 20 open questions.
+23 stories, 85 rules, 324 examples, 24 open questions.
 
 | Story | Delivery | Status | Rules | Examples | Questions |
 |---|---|---|---|---|---|
@@ -103,6 +115,10 @@ different maps can share step definitions.
 | [Return a confirmation link](2-connect-the-bank-from-the-tpp/return-a-confirmation-link.examplemap) | MVP | ready | 4 | 10 | 0 |
 | [Sign requests with the QSEAL](2-connect-the-bank-from-the-tpp/sign-requests-with-the-qseal.examplemap) | Hardening | analysing | 4 | 18 | 2 |
 | [Expire the previous recurring consent](2-connect-the-bank-from-the-tpp/expire-the-previous-recurring-consent.examplemap) | MVP | analysing | 4 | 12 | 2 |
+| [Accept a consent on dedicated accounts](2-connect-the-bank-from-the-tpp/accept-a-consent-on-dedicated-accounts.examplemap) | Consent models | analysing | 3 | 11 | 1 |
+| [Accept a consent on all available accounts](2-connect-the-bank-from-the-tpp/accept-a-consent-on-all-available-accounts.examplemap) | Consent models | analysing | 4 | 12 | 1 |
+| [Accept a global consent](2-connect-the-bank-from-the-tpp/accept-a-global-consent.examplemap) | Consent models | analysing | 3 | 10 | 1 |
+| [Serve the owner name and additional information](2-connect-the-bank-from-the-tpp/serve-the-owner-name-and-additional-information.examplemap) | Consent models | analysing | 3 | 9 | 1 |
 | [Read the OIDC-provider's metadata from the scaOAuth link](2-connect-the-bank-from-the-tpp/read-the-oidc-providers-metadata-from-the-scaoauth-link.examplemap) | Walking skeleton | analysing | 4 | 17 | 1 |
 | [Redirect with state and PKCE](2-connect-the-bank-from-the-tpp/redirect-with-state-and-pkce.examplemap) | Walking skeleton | ready | 4 | 13 | 0 |
 | [Register the TPP client at the OIDC-provider](2-connect-the-bank-from-the-tpp/register-the-tpp-client-at-the-oidc-provider.examplemap) | Walking skeleton | analysing | 4 | 16 | 1 |
@@ -160,7 +176,7 @@ different maps can share step definitions.
 
 ### View my accounts
 
-10 stories, 37 rules, 139 examples, 5 open questions.
+15 stories, 53 rules, 202 examples, 11 open questions.
 
 | Story | Delivery | Status | Rules | Examples | Questions |
 |---|---|---|---|---|---|
@@ -174,16 +190,24 @@ different maps can share step definitions.
 | [Refuse accounts outside the consent](5-view-my-accounts/refuse-accounts-outside-the-consent.examplemap) | MVP | analysing | 3 | 10 | 1 |
 | [Render the account details](5-view-my-accounts/render-the-account-details.examplemap) | MVP | ready | 3 | 10 | 0 |
 | [Read balances and transactions](5-view-my-accounts/read-balances-and-transactions.examplemap) | — | analysing | 5 | 20 | 2 |
+| [Serve the balances of an account](5-view-my-accounts/serve-the-balances-of-an-account.examplemap) | AIS reads | analysing | 3 | 13 | 1 |
+| [Serve the transaction list for a period](5-view-my-accounts/serve-the-transaction-list-for-a-period.examplemap) | AIS reads | analysing | 3 | 17 | 2 |
+| [Serve delta access on the transaction list](5-view-my-accounts/serve-delta-access-on-the-transaction-list.examplemap) | AIS reads | analysing | 4 | 13 | 2 |
+| [Serve one transaction's details](5-view-my-accounts/serve-one-transactions-details.examplemap) | AIS reads | ready | 3 | 10 | 0 |
+| [Page a long transaction list](5-view-my-accounts/page-a-long-transaction-list.examplemap) | AIS reads | analysing | 3 | 10 | 1 |
 
 ### Come back later
 
-10 stories, 32 rules, 122 examples, 10 open questions.
+13 stories, 41 rules, 157 examples, 13 open questions.
 
 | Story | Delivery | Status | Rules | Examples | Questions |
 |---|---|---|---|---|---|
 | [Refresh an expired access token](6-come-back-later/refresh-an-expired-access-token.examplemap) | MVP | ready | 4 | 11 | 0 |
 | [Count accesses without PSU presence](6-come-back-later/count-accesses-without-psu-presence.examplemap) | MVP | analysing | 4 | 15 | 1 |
 | [Handle TOKEN_EXPIRED and CONSENT_EXPIRED](6-come-back-later/handle-token-expired-and-consent-expired.examplemap) | MVP | ready | 3 | 16 | 0 |
+| [Count balance and transaction reads against the frequency](6-come-back-later/count-balance-and-transaction-reads-against-the-frequency.examplemap) | Access rules | analysing | 3 | 13 | 1 |
+| [Limit the transaction history without a fresh SCA](6-come-back-later/limit-the-transaction-history-without-a-fresh-sca.examplemap) | Access rules | analysing | 3 | 11 | 1 |
+| [Renew the consent when its access period ends](6-come-back-later/renew-the-consent-when-its-access-period-ends.examplemap) | Access rules | analysing | 3 | 11 | 1 |
 | [Revoke a consent at the Bank](6-come-back-later/revoke-a-consent-at-the-bank.examplemap) | MVP | analysing | 3 | 13 | 2 |
 | [Revoke the tokens of a revoked consent](6-come-back-later/revoke-the-tokens-of-a-revoked-consent.examplemap) | MVP | ready | 3 | 12 | 0 |
 | [Delete a consent from the TPP](6-come-back-later/delete-a-consent-from-the-tpp.examplemap) | MVP | analysing | 3 | 12 | 1 |
@@ -191,3 +215,89 @@ different maps can share step definitions.
 | [Notify the TPP of consent status changes](6-come-back-later/notify-the-tpp-of-consent-status-changes.examplemap) | — | analysing | 3 | 10 | 1 |
 | [Multilevel SCA for corporate accounts](6-come-back-later/multilevel-sca-for-corporate-accounts.examplemap) | — | analysing | 3 | 9 | 3 |
 | [Initiate a payment with the same infrastructure](6-come-back-later/initiate-a-payment-with-the-same-infrastructure.examplemap) | Hardening | analysing | 3 | 13 | 2 |
+
+## ASPSP payment services (increments 4 and 5)
+
+[`aspsp-payment-services.storymap`](../storymap/aspsp-payment-services.storymap). 20 stories, 62 rules, 227 examples, 9 open questions.
+
+### Create the payment
+
+5 stories, 15 rules, 59 examples, 2 open questions.
+
+| Story | Delivery | Status | Rules | Examples | Questions |
+|---|---|---|---|---|---|
+| [Serve POST /v1/payments/{payment-product}](7-create-the-payment/serve-post-v1-payments-payment-product.examplemap) | PIS core | analysing | 3 | 13 | 1 |
+| [Validate the payment instruction](7-create-the-payment/validate-the-payment-instruction.examplemap) | PIS core | analysing | 3 | 16 | 1 |
+| [Create the payment authorisation implicitly](7-create-the-payment/create-the-payment-authorisation-implicitly.examplemap) | PIS core | ready | 3 | 9 | 0 |
+| [Return the payment steering links](7-create-the-payment/return-the-payment-steering-links.examplemap) | PIS core | ready | 3 | 11 | 0 |
+| [Refuse a payment product the Bank does not offer](7-create-the-payment/refuse-a-payment-product-the-bank-does-not-offer.examplemap) | PIS core | ready | 3 | 10 | 0 |
+
+### Approve the payment at the Bank
+
+5 stories, 17 rules, 60 examples, 2 open questions.
+
+| Story | Delivery | Status | Rules | Examples | Questions |
+|---|---|---|---|---|---|
+| [Show the payment on the Bank's review screen](8-approve-the-payment-at-the-bank/show-the-payment-on-the-banks-review-screen.examplemap) | PIS core | analysing | 3 | 11 | 1 |
+| [Validate the PIS scope against the payment](8-approve-the-payment-at-the-bank/validate-the-pis-scope-against-the-payment.examplemap) | PIS core | ready | 4 | 14 | 0 |
+| [Cover amount and payee in the dynamic link](8-approve-the-payment-at-the-bank/cover-amount-and-payee-in-the-dynamic-link.examplemap) | PIS core | ready | 3 | 11 | 0 |
+| [Record the approved payment authorisation](8-approve-the-payment-at-the-bank/record-the-approved-payment-authorisation.examplemap) | PIS core | analysing | 3 | 11 | 1 |
+| [Confirm the payment authorisation](8-approve-the-payment-at-the-bank/confirm-the-payment-authorisation.examplemap) | PIS core | ready | 4 | 13 | 0 |
+
+### Follow the payment
+
+4 stories, 12 rules, 49 examples, 3 open questions.
+
+| Story | Delivery | Status | Rules | Examples | Questions |
+|---|---|---|---|---|---|
+| [Serve the transaction status](9-follow-the-payment/serve-the-transaction-status.examplemap) | PIS core | ready | 3 | 15 | 0 |
+| [Serve the payment resource](9-follow-the-payment/serve-the-payment-resource.examplemap) | PIS core | analysing | 3 | 10 | 1 |
+| [Move the transaction status through its lifecycle](9-follow-the-payment/move-the-transaction-status-through-its-lifecycle.examplemap) | PIS core | analysing | 3 | 13 | 1 |
+| [Execute the payment at the core banking](9-follow-the-payment/execute-the-payment-at-the-core-banking.examplemap) | PIS core | analysing | 3 | 11 | 1 |
+
+### Cancel the payment
+
+6 stories, 18 rules, 59 examples, 2 open questions.
+
+| Story | Delivery | Status | Rules | Examples | Questions |
+|---|---|---|---|---|---|
+| [Cancel a payment that needs no authorisation](10-cancel-the-payment/cancel-a-payment-that-needs-no-authorisation.examplemap) | PIS cancellation | analysing | 3 | 11 | 1 |
+| [Refuse to cancel a payment that is already settled](10-cancel-the-payment/refuse-to-cancel-a-payment-that-is-already-settled.examplemap) | PIS cancellation | ready | 3 | 8 | 0 |
+| [Require an authorisation for a cancellation](10-cancel-the-payment/require-an-authorisation-for-a-cancellation.examplemap) | PIS cancellation | analysing | 3 | 10 | 1 |
+| [Serve the cancellation authorisation sub-resources](10-cancel-the-payment/serve-the-cancellation-authorisation-sub-resources.examplemap) | PIS cancellation | ready | 3 | 10 | 0 |
+| [Issue a Cancel-PIS scoped token](10-cancel-the-payment/issue-a-cancel-pis-scoped-token.examplemap) | PIS cancellation | ready | 3 | 11 | 0 |
+| [Finish the cancellation with CANC](10-cancel-the-payment/finish-the-cancellation-with-canc.examplemap) | PIS cancellation | ready | 3 | 9 | 0 |
+
+## ASPSP interface conformance (increments 3 and 7)
+
+[`aspsp-interface-conformance.storymap`](../storymap/aspsp-interface-conformance.storymap). 16 stories, 48 rules, 179 examples, 12 open questions.
+
+### Drive the authorisation explicitly
+
+8 stories, 24 rules, 87 examples, 6 open questions.
+
+| Story | Delivery | Status | Rules | Examples | Questions |
+|---|---|---|---|---|---|
+| [Serve an explicit start of the authorisation process](11-drive-the-authorisation-explicitly/serve-an-explicit-start-of-the-authorisation-process.examplemap) | Authorisation resources | analysing | 3 | 11 | 1 |
+| [Serve the list of authorisation sub-resources](11-drive-the-authorisation-explicitly/serve-the-list-of-authorisation-sub-resources.examplemap) | Authorisation resources | ready | 3 | 10 | 0 |
+| [Serve the SCA status of an authorisation](11-drive-the-authorisation-explicitly/serve-the-sca-status-of-an-authorisation.examplemap) | Authorisation resources | ready | 3 | 13 | 0 |
+| [Announce the SCA approach on every resource](11-drive-the-authorisation-explicitly/announce-the-sca-approach-on-every-resource.examplemap) | Authorisation resources | analysing | 3 | 11 | 1 |
+| [Update PSU data for identification](11-drive-the-authorisation-explicitly/update-psu-data-for-identification.examplemap) | Authorisation resources | analysing | 3 | 11 | 1 |
+| [Update PSU data for authentication](11-drive-the-authorisation-explicitly/update-psu-data-for-authentication.examplemap) | Authorisation resources | analysing | 3 | 11 | 1 |
+| [Offer the SCA methods and record the selection](11-drive-the-authorisation-explicitly/offer-the-sca-methods-and-record-the-selection.examplemap) | Authorisation resources | analysing | 3 | 11 | 1 |
+| [Serve challenge data for the selected method](11-drive-the-authorisation-explicitly/serve-challenge-data-for-the-selected-method.examplemap) | Authorisation resources | analysing | 3 | 9 | 1 |
+
+### Answer like the specification says
+
+8 stories, 24 rules, 92 examples, 6 open questions.
+
+| Story | Delivery | Status | Rules | Examples | Questions |
+|---|---|---|---|---|---|
+| [Serve the message codes of each service](12-answer-like-the-specification-says/serve-the-message-codes-of-each-service.examplemap) | Conformance | analysing | 3 | 12 | 1 |
+| [Map failures to the right HTTP response codes](12-answer-like-the-specification-says/map-failures-to-the-right-http-response-codes.examplemap) | Conformance | ready | 3 | 15 | 0 |
+| [Report status information consistently](12-answer-like-the-specification-says/report-status-information-consistently.examplemap) | Conformance | ready | 3 | 10 | 0 |
+| [Steer every state with hyperlinks](12-answer-like-the-specification-says/steer-every-state-with-hyperlinks.examplemap) | Conformance | analysing | 3 | 12 | 1 |
+| [Accept data extensions without breaking](12-answer-like-the-specification-says/accept-data-extensions-without-breaking.examplemap) | Conformance | analysing | 3 | 10 | 1 |
+| [Announce notification support and accept a notification URI](12-answer-like-the-specification-says/announce-notification-support-and-accept-a-notification-uri.examplemap) | Conformance | analysing | 3 | 11 | 1 |
+| [Notify the TPP of payment status changes](12-answer-like-the-specification-says/notify-the-tpp-of-payment-status-changes.examplemap) | Conformance | analysing | 3 | 11 | 1 |
+| [Serve one TPP identity from the certificate](12-answer-like-the-specification-says/serve-one-tpp-identity-from-the-certificate.examplemap) | Conformance | analysing | 3 | 11 | 1 |

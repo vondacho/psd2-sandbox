@@ -1,0 +1,112 @@
+// Example map for the story "Serve the transaction list for a period" (activity
+// "View my accounts", step "See balances and transactions"). Increment 1.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the transaction list for a period" {
+  product "berlin-psd2-sandbox"
+
+  delivery "AIS reads" release
+
+  story "Serve the transaction list for a period" ~analysing @"AIS reads" +bank-xs2a +"spec 6.5.4" +"spec 14.25" {
+    as "PSU"
+    want "booked, pending or both over the dates I ask for"
+    so "I see the bookings I am looking for and no others"
+    question "Does the sandbox also offer the camt.052/053 XML report, or JSON only?" +"ask bank" +"spec 6.5.4"
+    question "Is the period bounded by booking date or by value date when the two differ?" +"ask bank"
+  }
+
+  rule "bookingStatus and a period are mandatory, and each status returns its own array" +"spec 6.5.4" {
+    example "Booked transactions of August" @"AIS reads" +nominal {
+      given "consent 123cons456 grants transactions on Main Account"
+      given "the ledger holds bookings on 2026-08-03 REWE -45.20, 2026-08-15 Salary +3200.00 and 2026-08-28 Rent -950.00"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/transactions?bookingStatus=booked&dateFrom=2026-08-01&dateTo=2026-08-31"
+      then "the answer is 200 with transactions.booked holding those three entries and no pending array"
+    }
+    example "Pending only" @"AIS reads" +nominal {
+      given "one card reservation of -70.00 EUR is pending"
+      when "bookingStatus=pending&dateFrom=2026-09-01 is called"
+      then "transactions.pending holds one entry and there is no booked array"
+    }
+    example "Both statuses in one report" @"AIS reads" +edge {
+      given "the same data"
+      when "bookingStatus=both&dateFrom=2026-08-01 is called"
+      then "both arrays are present"
+    }
+    example "A period with no bookings returns an empty array" @"AIS reads" +edge {
+      given "no bookings in January 2020"
+      when "dateFrom=2020-01-01&dateTo=2020-01-31 is called"
+      then "the answer is 200 with booked: []"
+    }
+    example "A missing bookingStatus is refused" @"AIS reads" +error {
+      given "a call without bookingStatus"
+      when "it is made"
+      then "the answer is 400 FORMAT_ERROR naming bookingStatus"
+    }
+    example "An unknown bookingStatus is refused" @"AIS reads" +error {
+      given "bookingStatus=maybe"
+      when "the call is made"
+      then "the answer is 400 FORMAT_ERROR naming bookingStatus"
+    }
+    example "A missing dateFrom without a delta parameter is refused" @"AIS reads" +error {
+      given "bookingStatus=booked and no dateFrom, entryReferenceFrom or deltaList"
+      when "the call is made"
+      then "the answer is 400 FORMAT_ERROR naming dateFrom"
+    }
+    example "dateFrom after dateTo is refused" @"AIS reads" +error {
+      given "dateFrom=2026-09-01 and dateTo=2026-08-01"
+      when "the call is made"
+      then "the answer is 400 PERIOD_INVALID"
+    }
+    example "dateTo defaults to today" @"AIS reads" +edge {
+      given "dateFrom=2026-08-01 and no dateTo, today 2026-09-07"
+      when "the call is made"
+      then "bookings up to 2026-09-07 are returned"
+    }
+    example "The period boundaries are inclusive" @"AIS reads" +edge {
+      given "a booking on 2026-08-31"
+      when "dateFrom=2026-08-01&dateTo=2026-08-31 is called"
+      then "that booking is in the report"
+    }
+  }
+
+  rule "Every entry carries what the specification requires of a transaction" +"spec 14.25" {
+    example "A debit entry" @"AIS reads" +nominal {
+      given "the Rent booking of 2026-08-28"
+      when "the entry is inspected"
+      then "it has transactionId tx-3001, entryReference ent-2026-08-28-01, bookingDate 2026-08-28, valueDate 2026-08-28, transactionAmount {currency: EUR, amount: '-950.00'}, creditorName 'Landlord GmbH' and remittanceInformationUnstructured 'Rent September'"
+    }
+    example "A credit entry names the debtor instead of the creditor" @"AIS reads" +nominal {
+      given "the Salary booking of 2026-08-15"
+      when "the entry is inspected"
+      then "it has debtorName 'Employer AG' and amount '3200.00'"
+    }
+    example "The report carries the account reference and a balance when asked" @"AIS reads" +edge {
+      given "withBalance=true on a consent that grants balances"
+      when "the report is built"
+      then "it carries the account reference and the balances of the account"
+    }
+    example "Entries are ordered most recent first" @"AIS reads" +nominal {
+      given "the three August bookings"
+      when "the report is read"
+      then "the order is 2026-08-28, 2026-08-15, 2026-08-03"
+    }
+  }
+
+  rule "Transactions are served only for an account whose consent grants them" +security {
+    example "An accounts and balances consent is refused" @"AIS reads" +error {
+      given "consent 123cons456 grants accounts and balances only"
+      when "the transactions endpoint is called"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "An account outside the consent is refused" @"AIS reads" +error {
+      given "Savings is not accessible under this consent"
+      when "its transactions are read"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "A background read counts once for the account" @"AIS reads" +nominal {
+      given "the counter for Main Account is 0 and no PSU-IP-Address"
+      when "the transactions are read"
+      then "the counter is 1"
+    }
+  }
+}

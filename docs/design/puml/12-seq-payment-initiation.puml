@@ -1,0 +1,57 @@
+@startuml 12-seq-payment-initiation
+title Payment initiation and approval (increment 4)
+autonumber
+actor PSU
+participant "PSU browser" as Br
+participant "TPP back end" as TPP
+participant "Bank XS2A API" as XS2A
+participant "Bank payment mgmt" as PM
+participant "OIDC provider" as OIDC
+participant "Bank CIAM" as CIAM
+participant "SCA engine" as SCA
+participant "Bank app (registered device)" as App
+participant "Core banking" as Core
+
+PSU -> Br : pay 12.50 EUR to Payee X
+Br -> TPP : POST /pay
+TPP -> XS2A : POST /v1/payments/sepa-credit-transfers (mTLS QWAC)\namount, debtor, creditor, remittance, TPP-Redirect-URI
+XS2A -> XS2A : validate QWAC (PISP role), instruction syntax and semantics
+XS2A -> PM : create payment (RCVD) + authorisation (received)
+XS2A --> TPP : 201 paymentId, transactionStatus RCVD,\nASPSP-SCA-Approach: REDIRECT, _links: scaOAuth, scaStatus, self, status
+TPP --> Br : 302 OIDC/authorize?scope=PIS:{paymentId}&state&code_challenge
+Br -> OIDC : GET /authorize
+OIDC -> PM : is payment {paymentId} owned by this client and RCVD?
+PM --> OIDC : yes
+OIDC --> Br : 302 Bank CIAM /authorize (broker)
+PSU -> CIAM : PSU-ID + password
+CIAM -> PM : authorisation scaStatus = psuAuthenticated
+CIAM --> Br : payment review screen (payee, amount, debtor account)
+PSU -> Br : approve
+Br -> CIAM : POST /payment/{paymentId}/review
+CIAM -> SCA : create challenge (dynamic link: paymentId, TPP, amount, payee, debtor)
+SCA --> CIAM : challengeId, QR payload, expiry
+CIAM --> Br : QR page (polls the challenge status)
+PSU -> App : scan the QR
+App -> SCA : GET /sca/challenges/{id} (device-authenticated)
+SCA --> App : "Pay EUR 12.50 to Payee X from Main Account"
+PSU -> App : approve (biometric or PIN)
+App -> SCA : POST /sca/challenges/{id}/response {signature, deviceId}
+SCA -> SCA : verify the signature against the registered key
+SCA -> PM : authorisation unconfirmed (or finalised), payment stays RCVD
+CIAM --> Br : 302 OIDC broker callback
+OIDC --> Br : 302 TPP redirect_uri?code&state
+Br -> TPP : GET /callback?code&state
+TPP -> OIDC : POST /token (mTLS QWAC, PKCE)
+OIDC --> TPP : access_token (scope PIS:{paymentId}, cnf)
+TPP -> XS2A : PUT /v1/payments/sepa-credit-transfers/{id}/authorisations/{authId}
+XS2A -> PM : token.paymentId == id and client == creator ? finalised, payment ACTC
+XS2A --> TPP : 200 {scaStatus: finalised}
+TPP -> XS2A : GET /v1/payments/sepa-credit-transfers/{id}/status
+XS2A --> TPP : 200 {transactionStatus: ACTC}
+PM -> Core : execute the payment
+Core -> Core : check funds and limits, book
+Core --> PM : booked
+PM -> PM : transactionStatus = ACSC
+TPP -> XS2A : GET .../status
+XS2A --> TPP : 200 {transactionStatus: ACSC}
+@enduml

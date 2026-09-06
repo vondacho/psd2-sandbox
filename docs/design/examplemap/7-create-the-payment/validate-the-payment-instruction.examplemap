@@ -1,0 +1,105 @@
+// Example map for the story "Validate the payment instruction" (activity
+// "Create the payment", step "Serve the payment initiation request").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Validate the payment instruction" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Validate the payment instruction" ~analysing @"PIS core" +bank-xs2a +"spec 5.3.1" {
+    as "Bank security officer"
+    want "amount, currency, debtor and creditor accounts and the remittance checked before a resource exists"
+    so "a malformed instruction never reaches the core banking"
+    question "Does the sandbox validate the creditor IBAN's country against the payment product, for instance refusing a non-SEPA IBAN on sepa-credit-transfers?" +"ask bank"
+  }
+
+  rule "The mandatory fields of a single payment must be present and well formed" +"spec 5.3.1" {
+    example "A missing instructedAmount is refused" @"PIS core" +error {
+      given "a body without instructedAmount"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming instructedAmount"
+    }
+    example "A missing creditorAccount is refused" @"PIS core" +error {
+      given "a body without creditorAccount"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming creditorAccount"
+    }
+    example "A missing creditorName is refused" @"PIS core" +error {
+      given "a body without creditorName"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming creditorName"
+    }
+    example "A malformed IBAN is refused" @"PIS core" +error {
+      given "creditorAccount {iban: DE00000000000000000000}"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming creditorAccount.iban"
+    }
+    example "A body that is not JSON is refused" @"PIS core" +error {
+      given "the body 'pay please'"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "A creditor name longer than seventy characters is refused" @"PIS core" +error {
+      given "a creditorName of 71 characters"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming creditorName"
+    }
+    example "An unstructured remittance longer than 140 characters is refused" @"PIS core" +error {
+      given "remittanceInformationUnstructured of 141 characters"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+  }
+
+  rule "The amount must be positive, in the currency the product allows, with two decimals" +"spec 14.3" {
+    example "A zero amount is refused" @"PIS core" +error {
+      given "amount '0.00'"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming instructedAmount.amount"
+    }
+    example "A negative amount is refused" @"PIS core" +error {
+      given "amount '-5.00'"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "Three decimals are refused for EUR" @"PIS core" +error {
+      given "amount '12.505'"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "An amount without decimals is accepted" @"PIS core" +edge {
+      given "amount '12'"
+      when "the payment is initiated"
+      then "the answer is 201 and the stored amount is 12.00"
+    }
+    example "A currency the product does not carry is refused" @"PIS core" +error {
+      given "currency USD on sepa-credit-transfers"
+      when "the payment is initiated"
+      then "the answer is 400 FORMAT_ERROR naming instructedAmount.currency"
+    }
+    example "An amount above the Bank's per-payment limit is refused" @"PIS core" +edge {
+      given "the sandbox limit is 10000.00 EUR and the amount is 10000.01"
+      when "the payment is initiated"
+      then "the answer is 400 PAYMENT_FAILED with text 'amount above the limit'"
+    }
+  }
+
+  rule "Validation happens before any resource exists, and reports every field it can at once" +"spec 4.13" {
+    example "No payment resource is created on a refusal" @"PIS core" +nominal {
+      given "an invalid body"
+      when "the payment is refused"
+      then "no paymentId is returned and nothing is stored"
+    }
+    example "Several bad fields are reported together" @"PIS core" +edge {
+      given "a body with a zero amount and no creditorName"
+      when "the payment is refused"
+      then "tppMessages holds one entry per faulty field, each with its path"
+    }
+    example "The error body follows the standard shape" @"PIS core" +nominal {
+      given "any refusal"
+      when "the body is inspected"
+      then "it is {tppMessages: [{category: ERROR, code: FORMAT_ERROR, path: …, text: …}]}"
+    }
+  }
+}

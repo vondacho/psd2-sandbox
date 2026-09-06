@@ -1,0 +1,90 @@
+// Example map for the story "Move the transaction status through its lifecycle"
+// (activity "Follow the payment", step "Execute the payment"). Increment 4.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Move the transaction status through its lifecycle" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Move the transaction status through its lifecycle" ~analysing @"PIS core" +bank-xs2a +"spec 14.13" {
+    as "Bank product owner"
+    want "RCVD, ACTC, ACSC and RJCT reached only through the allowed transitions"
+    so "a status never moves backwards or skips a step"
+    question "Should the sandbox also expose ACCP and ACSP, or is the shorter ladder enough to exercise a TPP?" +"ask product" +"spec 14.13"
+  }
+
+  rule "A payment starts at RCVD and reaches a final status through the allowed steps only" +"spec 14.13" {
+    example "The nominal ladder" @"PIS core" +nominal {
+      given "pay001 created"
+      when "the SCA is finalised and the core books the payment"
+      then "the status went RCVD, then ACTC, then ACSC"
+    }
+    example "A rejection before acceptance" @"PIS core" +nominal {
+      given "pay001 at RCVD"
+      when "the PSU denies the challenge"
+      then "the status is RJCT"
+    }
+    example "A rejection by the core after acceptance" @"PIS core" +nominal {
+      given "pay001 at ACTC"
+      when "the core refuses it for insufficient funds"
+      then "the status is RJCT"
+    }
+    example "A cancellation after acceptance" @"PIS core" +edge {
+      given "pay002 at ACTC and not yet settled"
+      when "the cancellation is authorised"
+      then "the status is CANC"
+    }
+    example "ACSC is final" @"PIS core" +edge {
+      given "pay001 at ACSC"
+      when "any later event arrives"
+      then "the status stays ACSC"
+    }
+    example "RJCT is final" @"PIS core" +edge {
+      given "pay001 at RJCT"
+      when "an approval outcome arrives late"
+      then "the status stays RJCT"
+    }
+    example "A status never moves backwards" @"PIS core" +error {
+      given "pay001 at ACTC"
+      when "an internal call tries to set RCVD"
+      then "the call is refused and the change is logged as rejected"
+    }
+    example "A skipped step is refused" @"PIS core" +error {
+      given "pay001 at RCVD"
+      when "an internal call tries to set ACSC"
+      then "the call is refused"
+    }
+  }
+
+  rule "Every status change is timestamped and readable through the interface" {
+    example "The change is visible to the TPP at once" @"PIS core" +nominal {
+      given "the core booked pay001 at 09:20:00Z"
+      when "the TPP reads the status at 09:20:01Z"
+      then "the answer is ACSC"
+    }
+    example "The history is kept for audit" @"PIS core" +nominal {
+      given "pay001 at ACSC"
+      when "the audit trail is read"
+      then "it holds RCVD, ACTC and ACSC with their timestamps and their causes"
+    }
+    example "A notification is sent when the payment reaches a final status" @"PIS core" +edge {
+      given "the TPP registered a notification URI"
+      when "pay001 reaches ACSC"
+      then "a notification is posted for that payment"
+    }
+  }
+
+  rule "The status vocabulary is the one of the specification, not a bank dialect" +"spec 14.13" {
+    example "Only defined codes are served" @"PIS core" +nominal {
+      given "every status the sandbox can return"
+      when "they are listed"
+      then "each is one of RCVD, ACTC, ACSC, RJCT and CANC"
+    }
+    example "An internal state does not leak" @"PIS core" +edge {
+      given "the payment is queued inside the core"
+      when "the status is read"
+      then "the answer is ACTC, not an internal queue state"
+    }
+  }
+}

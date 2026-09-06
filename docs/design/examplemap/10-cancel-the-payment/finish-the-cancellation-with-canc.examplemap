@@ -1,0 +1,71 @@
+// Example map for the story "Finish the cancellation with CANC" (activity
+// "Cancel the payment", step "Cancel with its own SCA"). Increment 5.
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Finish the cancellation with CANC" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS cancellation" release
+
+  story "Finish the cancellation with CANC" ~ready @"PIS cancellation" +bank-xs2a +"spec 14.13" {
+    as "PSU"
+    want "the payment set to CANC once the cancellation is authorised"
+    so "everyone sees that the payment will not be executed"
+  }
+
+  rule "An authorised cancellation cancels the payment and stops its execution" +"spec 14.13" {
+    example "The payment reaches CANC" @"PIS cancellation" +nominal {
+      given "pay002 is ACTC and its cancellation authorisation is finalised"
+      when "the outcome is recorded"
+      then "the transaction status is CANC"
+      then "the execution job never hands the payment to the core"
+    }
+    example "The TPP reads the new status" @"PIS cancellation" +nominal {
+      given "the cancelled payment"
+      when "the status endpoint is called"
+      then "the answer is {transactionStatus: CANC}"
+    }
+    example "CANC is final" @"PIS cancellation" +edge {
+      given "pay002 is CANC"
+      when "a late execution message arrives from the core"
+      then "the status stays CANC and the message is logged as ignored"
+    }
+    example "The PSU sees the cancellation at the Bank" @"PIS cancellation" +edge {
+      given "the cancelled payment"
+      when "Anna opens her payments in online banking"
+      then "the payment is shown as cancelled with its date"
+    }
+  }
+
+  rule "A refused or abandoned cancellation leaves the payment on its way" {
+    example "The PSU denies the cancellation challenge" @"PIS cancellation" +nominal {
+      given "the cancellation challenge for pay002"
+      when "Anna rejects it on her device"
+      then "the cancellation authorisation is failed and the payment stays ACTC"
+      then "the execution continues"
+    }
+    example "The cancellation challenge expires" @"PIS cancellation" +edge {
+      given "the last cancellation challenge expired"
+      when "the expiry is processed"
+      then "the cancellation is failed and the payment stays ACTC"
+    }
+    example "A new cancellation can be started after a failed one" @"PIS cancellation" +edge {
+      given "a failed cancellation authorisation and a payment still at ACTC"
+      when "the TPP calls DELETE again"
+      then "a new cancellation authorisation is created"
+    }
+  }
+
+  rule "The cancellation is recorded so both sides can prove what happened" {
+    example "The audit trail holds the cancellation" @"PIS cancellation" +nominal {
+      given "the cancelled payment"
+      when "the audit trail is read"
+      then "it holds who requested the cancellation, the challenge that authorised it and the time of each step"
+    }
+    example "A notification tells the TPP" @"PIS cancellation" +edge {
+      given "the TPP registered a notification URI"
+      when "the payment reaches CANC"
+      then "a notification is posted for that payment"
+    }
+  }
+}

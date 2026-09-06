@@ -1,0 +1,81 @@
+// Example map for the story "Record the approved payment authorisation"
+// (activity "Approve the payment at the Bank", step "Sign the payment on my device").
+// Increment 4. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Record the approved payment authorisation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS core" release
+
+  story "Record the approved payment authorisation" ~analysing @"PIS core" +bank-xs2a +"spec 14.16" +"spec 14.13" {
+    as "Bank product owner"
+    want "the authorisation finalised and the payment moved to ACTC"
+    so "the payment is accepted for execution only after SCA"
+    question "Does the sandbox move to ACTC directly, or through ACCP first as some banks do?" +"ask bank" +"spec 14.13"
+  }
+
+  rule "A verified challenge finalises the authorisation and accepts the payment" +"spec 14.16" {
+    example "Without a confirmation step" @"PIS core" +nominal {
+      given "the sandbox runs with confirmationRequired false and Anna's device approved the challenge for pay001"
+      when "the outcome is recorded"
+      then "the authorisation pay001auth1 is finalised with finalisedAt set"
+      then "the transaction status of pay001 is ACTC"
+    }
+    example "With a confirmation step the payment waits" @"PIS core" +nominal {
+      given "confirmationRequired true and the challenge approved"
+      when "the outcome is recorded"
+      then "the authorisation is unconfirmed and the status stays RCVD"
+    }
+    example "The PSU is recorded on the payment" @"PIS core" +nominal {
+      given "Anna approved pay001"
+      when "the payment is read internally"
+      then "its psuId is anna.mueller"
+    }
+    example "The chosen debtor account is recorded when it was missing" @"PIS core" +edge {
+      given "pay002 was initiated without a debtor account and Anna chose Main Account"
+      when "the outcome is recorded"
+      then "the payment carries debtorAccount DE23100100100123456789"
+    }
+  }
+
+  rule "A denied, expired or failed challenge rejects the payment" +"spec 14.13" {
+    example "Denied on the device" @"PIS core" +nominal {
+      given "Anna rejected the challenge for pay001"
+      when "the outcome is recorded"
+      then "the authorisation is failed and the payment status is RJCT"
+    }
+    example "The last challenge expired" @"PIS core" +nominal {
+      given "the third challenge for pay001 expired"
+      when "the expiry is processed"
+      then "the authorisation is failed and the payment is RJCT"
+    }
+    example "The risk engine refused the session" @"PIS core" +edge {
+      given "the risk decision was refuse"
+      when "the refusal is recorded"
+      then "the authorisation is failed and the payment is RJCT"
+    }
+    example "RJCT is terminal for the payment" @"PIS core" +edge {
+      given "pay001 is RJCT"
+      when "a late approval outcome arrives"
+      then "it is refused with 409 and the status stays RJCT"
+    }
+  }
+
+  rule "The outcome is accepted once, for the right challenge, and cannot be replayed" +security {
+    example "A duplicate outcome changes nothing" @"PIS core" +edge {
+      given "the outcome for the challenge of pay001 was recorded"
+      when "the same outcome is posted again"
+      then "the answer is 200 and the payment is unchanged"
+    }
+    example "An outcome for a pending challenge is refused" @"PIS core" +error {
+      given "the challenge is still pending"
+      when "an outcome is posted"
+      then "the answer is 409 'challenge not approved'"
+    }
+    example "An outcome naming another payment's challenge is refused" @"PIS core" +error {
+      given "a challenge that belongs to pay002"
+      when "an outcome for it is posted to pay001"
+      then "the answer is 409"
+    }
+  }
+}

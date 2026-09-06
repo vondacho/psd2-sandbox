@@ -1,0 +1,74 @@
+// Example map for the story "Serve the cancellation authorisation
+// sub-resources" (activity "Cancel the payment", step "Cancel with its own SCA").
+// Increment 5. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve the cancellation authorisation sub-resources" {
+  product "berlin-psd2-sandbox"
+
+  delivery "PIS cancellation" release
+
+  story "Serve the cancellation authorisation sub-resources" ~ready @"PIS cancellation" +bank-xs2a +"spec 5.8" {
+    as "TPP operator"
+    want "the cancellation authorisations listed and their SCA status readable"
+    so "the client can steer the cancellation like any other authorisation"
+  }
+
+  rule "The cancellation authorisations of a payment are listed and read under their own endpoint" +"spec 5.8" {
+    example "The list after a cancellation was started" @"PIS cancellation" +nominal {
+      given "pay002 has the cancellation authorisation pay002cancauth1"
+      when "the TPP calls GET /v1/payments/sepa-credit-transfers/pay002/cancellation-authorisations"
+      then "the answer is 200 {cancellationIds: [pay002cancauth1]}"
+    }
+    example "The SCA status of one cancellation authorisation" @"PIS cancellation" +nominal {
+      given "the cancellation challenge was issued"
+      when "GET on that cancellation authorisation is called"
+      then "the answer is 200 {scaStatus: started}"
+    }
+    example "An empty list before any cancellation was started" @"PIS cancellation" +edge {
+      given "pay001 with no cancellation"
+      when "the list is read"
+      then "the answer is 200 {cancellationIds: []}"
+    }
+    example "The payment authorisations and the cancellation authorisations are different lists" @"PIS cancellation" +nominal {
+      given "pay002 with both kinds"
+      when "both endpoints are read"
+      then "the authorisations list holds pay002auth1 and the cancellation list holds pay002cancauth1"
+    }
+    example "A cancellation authorisation of another payment is not found" @"PIS cancellation" +error {
+      given "pay002cancauth1 belongs to pay002"
+      when "it is read under pay001"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+  }
+
+  rule "The status ladder of a cancellation authorisation is the SCA ladder" +"spec 14.16" {
+    example "From received to finalised" @"PIS cancellation" +nominal {
+      given "the cancellation authorisation"
+      when "the PSU authenticates and approves on the device"
+      then "the status went received, psuAuthenticated, started, finalised"
+    }
+    example "A denied cancellation fails its authorisation" @"PIS cancellation" +nominal {
+      given "the PSU rejects the cancellation challenge"
+      when "the outcome is recorded"
+      then "the scaStatus is failed and the payment keeps its status"
+    }
+    example "Polling the status while the PSU approves" @"PIS cancellation" +edge {
+      given "the client polls every two seconds"
+      when "the PSU approves"
+      then "the next poll answers finalised"
+    }
+  }
+
+  rule "Only the creating TPP reads the cancellation authorisations" +security {
+    example "Another TPP is refused" @"PIS cancellation" +error {
+      given "the other TPP's certificate"
+      when "the cancellation list of pay002 is read"
+      then "the answer is 403 RESOURCE_UNKNOWN"
+    }
+    example "The status carries no PSU data" @"PIS cancellation" +nominal {
+      given "any cancellation authorisation answer"
+      when "its fields are listed"
+      then "it holds the SCA status and links only"
+    }
+  }
+}
