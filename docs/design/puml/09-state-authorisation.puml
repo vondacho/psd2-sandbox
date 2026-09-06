@@ -1,0 +1,14 @@
+@startuml 09-state-authorisation
+title Authorisation sub-resource (scaStatus, spec 14.16)
+[*] --> received : created implicitly with the consent
+received --> psuIdentified : PSU-ID entered at CIAM
+psuIdentified --> psuAuthenticated : password verified
+psuAuthenticated --> started : QR challenge issued\n(method implicitly selected)
+started --> unconfirmed : device signature verified,\nconfirmation link was returned
+started --> finalised : device signature verified,\nno confirmation step
+unconfirmed --> finalised : PUT .../authorisations/{id}\nwith bearer token
+started --> failed : challenge denied / expired /\ntoo many attempts
+psuAuthenticated --> failed : risk engine refuses
+finalised --> [*]
+failed --> [*]
+@enduml

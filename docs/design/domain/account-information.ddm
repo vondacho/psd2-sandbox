@@ -1,0 +1,72 @@
+// The inside of "Account information" from psd2-access-to-account.ddd.
+// Aggregate: AccountResource. Vocabulary: NextGenPSD2 XS2A 1.3.16,
+// sections 6.5, 14.20, 14.22, 14.23.
+
+context "Account information" {
+
+  value "Amount" {
+    attribute "currency" : "CurrencyCode"
+    attribute "amount"   : "Decimal"
+  }
+
+  enum "BalanceType" {
+    "closingBooked" "expected" "openingBooked" "interimAvailable"
+    "interimBooked" "forwardAvailable" "nonInvoiced"
+  }
+
+  enum "AccountStatus" {
+    "enabled" "deleted" "blocked"
+  }
+
+  enum "Usage" {
+    "PRIV" "ORGA"
+  }
+
+  value "Balance" {
+    embeds    "BalanceType" one
+    embeds    "Amount" one
+    attribute "creditLimitIncluded" : "Boolean"
+    attribute "lastChangeDateTime"  : "Instant"
+    attribute "referenceDate"       : "Date"
+  }
+
+  value "Hyperlinks" {
+    attribute "balances"     : "URI"
+    attribute "transactions" : "URI"
+  }
+
+  aggregate "AccountResource" {
+    intent "One payment account as the XS2A interface presents it to a TPP:
+            an opaque resource id that is stable for the life of a consent,
+            the account identifiers, product data, and the balances the
+            consent allows. A projection of the ledger, never the ledger."
+
+    invariant "The resource id reveals neither IBAN nor PAN."
+    invariant "The resource id is constant throughout the lifecycle of the
+               consent it was issued for."
+    invariant "Balances are delivered only when the consent grants balances
+               for this account."
+    invariant "Hyperlinks to balances or transactions are delivered only when
+               the corresponding access type is granted."
+    invariant "A multicurrency aggregation account carries currency XXX."
+
+    root entity "AccountResource" {
+      id        "ResourceId"
+      attribute "consentId"       : "ConsentId"
+      attribute "iban"            : "IBAN"
+      attribute "bban"            : "BBAN"
+      attribute "msisdn"          : "Max35Text"
+      attribute "currency"        : "CurrencyCode"
+      attribute "ownerName"       : "Max140Text"
+      attribute "name"            : "Max70Text"
+      attribute "displayName"     : "Max70Text"
+      attribute "product"         : "Max35Text"
+      attribute "cashAccountType" : "ExternalCashAccountType1Code"
+      attribute "bic"             : "BICFI"
+      embeds    "AccountStatus" optional
+      embeds    "Usage" optional
+      embeds    "Balance" many
+      embeds    "Hyperlinks" one
+    }
+  }
+}

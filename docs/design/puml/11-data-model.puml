@@ -1,0 +1,100 @@
+@startuml 11-data-model
+title Data model (Bank B consent management, CIAM, F tokens)
+hide circle
+skinparam linetype ortho
+
+entity TPP {
+  * tppId : organizationIdentifier from QWAC
+  --
+  legalName
+  roles : AISP PISP PIISP
+  redirectUris
+}
+entity PSU {
+  * psuId
+  --
+  psuIdType
+  credentialHash
+  status
+}
+entity CONSENT {
+  * consentId
+  --
+  tppId
+  psuId (set during SCA)
+  access : accounts balances transactions availableAccounts allPsd2
+  recurringIndicator
+  validUntil
+  frequencyPerDay
+  combinedServiceIndicator
+  consentStatus : received valid rejected expired revokedByPsu terminatedByTpp
+  lastActionDate
+}
+entity AUTHORISATION {
+  * authorisationId
+  --
+  consentId
+  scaStatus : received psuIdentified psuAuthenticated started unconfirmed finalised failed
+  challengeId
+  finalisedAt
+}
+entity CONSENT_ACCOUNT {
+  consentId
+  resourceId (opaque, per consent)
+  iban
+  currency
+  accessTypes : accounts balances transactions
+}
+entity USAGE_COUNTER {
+  consentId
+  resourceId
+  day
+  count
+}
+entity DEVICE {
+  * deviceId
+  --
+  psuId
+  name
+  platform
+  appInstanceId
+  publicKey : P-256
+  attestation
+  pushToken
+  status : active blocked
+  enrolledAt
+}
+entity SCA_CHALLENGE {
+  * challengeId
+  --
+  psuId
+  subjectType : AIS_CONSENT PIS_PAYMENT
+  subjectId
+  dynamicLinkHash
+  nonce
+  expiresAt
+  status : pending approved denied expired
+  deviceId
+  signature
+}
+entity TOKEN {
+  * jti
+  --
+  consentId
+  clientId
+  cnfThumbprint
+  type : access refresh
+  expiresAt
+  revoked
+}
+
+TPP ||--o{ CONSENT : creates
+PSU ||--o{ CONSENT : authorises
+CONSENT ||--o{ AUTHORISATION : has
+CONSENT ||--o{ CONSENT_ACCOUNT : accessible accounts
+CONSENT ||--o{ USAGE_COUNTER : per account per day
+PSU ||--o{ DEVICE : enrols
+AUTHORISATION ||--o| SCA_CHALLENGE : authorised by
+DEVICE ||--o{ SCA_CHALLENGE : answers
+CONSENT ||--o{ TOKEN : scoped to
+@enduml

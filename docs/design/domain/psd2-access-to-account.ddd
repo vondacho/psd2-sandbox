@@ -1,0 +1,275 @@
+// Context map for the PSU account-list journey: Bank B (ASPSP), the OpenID
+// Connect provider F, and TPP application A.
+//
+// Direction is about the model, not the network: upstream is whoever's model
+// the other has to accommodate. The NextGenPSD2 XS2A Implementation
+// Guidelines v1.3.16 are the published language between Bank B and any TPP.
+
+map "PSD2 access to account" {
+
+  domain "Access to account (Bank B, ASPSP)" {
+    intent "Let a licensed third party read a customer's payment accounts, or
+            initiate a payment from them, exactly as far as the customer
+            consented and after the customer proved it was them with two
+            independent factors. Everything else in the estate exists to make
+            that safe, auditable and repeatable."
+
+    // ---- core: the reason the sandbox exists ------------------------------
+
+    subdomain core "Consent and account access" {
+      intent "Turning a consent given at the bank into an enforceable access
+              right on the XS2A interface, and serving account data no wider
+              than that right."
+      owner  "Product owner, open banking"
+
+      context "Consent management" {
+        intent    "Where a request from a TPP becomes a Consent with a status,
+                   an authorisation trail and a list of accessible accounts.
+                   A Consent here is the resource of NextGenPSD2 section 6.3:
+                   access rights, recurrence, validity, frequency."
+        language  "Consent" "Consent status" "Authorisation sub-resource"
+                  "SCA status" "Account access" "Accessible account"
+                  "Available account" "Bank-offered consent"
+                  "Recurring indicator" "Valid until" "Frequency per day"
+                  "Usage counter" "Confirmation"
+        aggregate "Consent" "Authorisation"
+        owner     "Product owner, open banking"
+        status    modelled
+      }
+
+      context "Account information" {
+        intent    "Where the /accounts endpoints answer a TPP. An Account here
+                   is a resource with an opaque resourceId, projected from the
+                   ledger and filtered by one consent; never the ledger's
+                   account."
+        language  "Account resource" "Resource id" "Balance" "Balance type"
+                  "Transaction report" "Booking status" "With balance"
+                  "PSU present" "Hyperlink"
+        aggregate "AccountResource"
+        owner     "Product owner, open banking"
+        status    modelled
+      }
+
+      context "Payment initiation" {
+        intent    "Where a payment posted by a PISP becomes a Payment with a
+                   transaction status and its own authorisation trail. Shares
+                   the authorisation model with consents on purpose."
+        language  "Payment" "Payment product" "Transaction status"
+                  "Authorisation sub-resource" "Cancellation" "Signing basket"
+        aggregate "Payment" "PaymentAuthorisation"
+        owner     "Product owner, payments"
+        status    drafted
+      }
+    }
+
+    subdomain core "Customer identity and strong customer authentication" {
+      intent "Knowing who the customer is, which devices are theirs, and
+              proving with two independent elements, dynamically linked to
+              what is being approved, that the customer is present."
+      owner  "Head of customer identity (CIAM)"
+
+      context "Customer identity and SCA" {
+        intent    "The CIAM. A PSU here is a customer identity with credentials
+                   and enrolled devices; a Challenge is what the customer
+                   approves on one of those devices; an Authentication session
+                   is one journey from login to a signed approval. Also the
+                   OpenID Provider that F brokers to."
+        language  "PSU" "PSU-ID" "Credential" "First factor" "Second factor"
+                  "Registered device" "Device key" "Attestation" "Enrolment"
+                  "SCA challenge" "Dynamic link" "QR code" "Push"
+                  "Approval" "Authentication session" "Risk assessment"
+                  "Consent screen" "Account selection"
+        aggregate "PsuIdentity" "RegisteredDevice" "ScaChallenge"
+                  "AuthenticationSession"
+        owner     "Head of customer identity (CIAM)"
+        status    modelled
+      }
+    }
+
+    // ---- supporting: necessary, ours, not a differentiator -----------------
+
+    subdomain supporting "Third-party identification" {
+      intent "Knowing which licensed party is calling, from its eIDAS
+              certificate, and which PSD2 roles it holds."
+      owner  "Security officer, open banking"
+
+      context "TPP identification" {
+        intent    "Where a QWAC or QSEAL presented on a connection becomes a
+                   TPP identity with roles, or a refusal. Consumed by the XS2A
+                   gateway and by F's client registry."
+        language  "TPP" "QWAC" "QSEAL" "Organization identifier"
+                  "PSD2 role" "AISP" "PISP" "PIISP" "Qualified trust
+                  service provider" "Revocation" "Request signature"
+        aggregate "TppIdentity"
+        owner     "Security officer, open banking"
+        status    drafted
+      }
+    }
+
+    // ---- generic: bought or already there, wrapped, not modelled here ------
+
+    subdomain generic "Core banking" {
+      intent "The ledger: accounts, balances, bookings."
+      owner  "Core banking platform manager"
+
+      context "Accounts ledger" {
+        intent   "Existing system, wrapped. Nothing inside this boundary is our
+                  model; the account information context translates it."
+        language "Account" "IBAN" "Booking" "Ledger balance"
+        owner    "Core banking platform manager"
+        status   unmodelled
+      }
+    }
+
+    subdomain generic "Push notifications" {
+      intent "Delivering a notification to a mobile device."
+      owner  "Mobile platform team"
+      // No context: a delivery channel, not a model.
+    }
+  }
+
+  domain "Authorization (OpenID Connect provider F)" {
+    intent "Issue tokens a resource server can trust, for exactly the resource
+            the customer authorised, to exactly the client that asked."
+
+    subdomain supporting "Authorization server" {
+      intent "The OAuth2 authorization server of NextGenPSD2 section 13: code
+              flow with PKCE, mTLS client authentication, certificate-bound
+              tokens, refresh tokens, metadata."
+      owner  "Platform team, identity"
+
+      context "Token issuance" {
+        intent    "Where an authorization request with scope AIS:<consentId>
+                   becomes, after Bank B has authenticated the customer, a
+                   certificate-bound access token and a refresh token. A
+                   Client here is a TPP registered by its organization
+                   identifier."
+        language  "Client" "Client id" "Authorization request" "Scope"
+                  "State" "PKCE" "Authorization code" "Access token"
+                  "Refresh token" "Certificate binding" "Subject"
+                  "Identity broker" "ID token" "ACR" "AMR" "Metadata"
+        aggregate "ClientRegistration" "AuthorizationRequest" "TokenGrant"
+        owner     "Platform team, identity"
+        status    modelled
+      }
+    }
+  }
+
+  domain "Account aggregation (TPP application A)" {
+    intent "Show a person all their accounts in one place, with as few
+            authentications as the law allows."
+
+    subdomain supporting "Bank connections" {
+      intent "Establishing and keeping alive the link between one user of A
+              and one bank, through that bank's consent and token lifecycle."
+      owner  "Product owner, TPP application A"
+
+      context "Bank connection" {
+        intent    "Where a user's choice of a bank becomes a Bank connection
+                   that holds the consent, the authorisation attempt and the
+                   tokens, and knows when it needs re-consent. The XS2A and
+                   OAuth2 vocabularies are consumed, never redefined."
+        language  "Bank" "Bank registry" "Bank connection" "Connection state"
+                  "Authorization attempt" "Token set" "Re-consent"
+                  "Account view"
+        aggregate "BankConnection" "BankRegistryEntry" "AuthorizationAttempt"
+        owner     "Product owner, TPP application A"
+        status    modelled
+      }
+    }
+  }
+
+  // ---- the context map ----------------------------------------------------
+
+  "TPP identification" -> "Consent management" : open-host-service {
+    exchange "A validated TPP identity: organization identifier, legal name,
+              PSD2 roles, certificate validity."
+    because  "Every XS2A endpoint and F's client registry need the same answer;
+              one service is cheaper than three certificate parsers."
+  }
+
+  "TPP identification" -> "Token issuance" : open-host-service {
+    exchange "The same validated TPP identity, used to authenticate the client
+              at the token endpoint and to bind the token to its certificate."
+    because  "Client id and certificate subject must mean the same thing at
+              the bank and at F."
+  }
+
+  "Consent management" -> "Account information" : customer-supplier {
+    exchange "Consent status, accessible accounts with their access types,
+              and the per-account daily usage counters."
+    because  "Same product owner, so account information can ask for a change
+              in the consent model and get it. Account information serves
+              nothing the consent does not cover."
+  }
+
+  "Consent management" <-> "Payment initiation" : shared-kernel {
+    exchange "The authorisation sub-resource and its SCA status vocabulary
+              (NextGenPSD2 section 7)."
+    because  "The specification defines one authorisation process for AIS and
+              PIS. Two copies would drift; neither context can be downstream
+              of the other."
+  }
+
+  "Consent management" -> "Customer identity and SCA" : customer-supplier {
+    exchange "The consent to display on the consent screen, and the outcome to
+              record: SCA status, accessible accounts, PSU-ID."
+    because  "The CIAM speaks the consent's language when it shows and updates
+              it; both teams sit inside Bank B and negotiate the contract."
+  }
+
+  "Consent management" -> "Token issuance" : open-host-service / anticorruption-layer {
+    exchange "Existence, owner and status of the consent named in a scope;
+              revocation of every token of a consent."
+    because  "F must never learn the consent model beyond existence and
+              status. A thin layer at F keeps AIS:<consentId> an opaque
+              handle."
+  }
+
+  "Customer identity and SCA" -> "Token issuance" : open-host-service / conformist {
+    exchange "An OpenID Connect ID token with subject, acr, amr and the
+              consent id that was authorised."
+    because  "The CIAM is an OpenID Provider; F brokers to it like to any
+              other and accepts the claims as given."
+  }
+
+  "Token issuance" -> "Account information" : published-language {
+    exchange "A JWT access token with audience, scope AIS:<consentId>,
+              certificate thumbprint and expiry, verifiable with F's JWKS."
+    because  "Read by the XS2A gateway, by the payment endpoints and by
+              auditors. RFC 7519 and RFC 8705 are the schema."
+  }
+
+  "Accounts ledger" -> "Account information" : anticorruption-layer {
+    exchange "Accounts, balances and bookings of one customer."
+    because  "The ledger's account is not the XS2A account: resource ids are
+              tokenised, balances typed, sub-accounts split by currency. The
+              layer exists so the ledger vocabulary never reaches a TPP."
+  }
+
+  "Accounts ledger" -> "Customer identity and SCA" : conformist {
+    exchange "The list of a customer's payment accounts, for account
+              selection on the consent screen."
+    because  "A read-only list; not worth a translation layer of its own."
+  }
+
+  "Consent management" -> "Bank connection" : published-language {
+    exchange "The consent, authorisation and status resources of the XS2A
+              interface, with their steering hyperlinks."
+    because  "NextGenPSD2 XS2A is read by every TPP in the market. The
+              interchange format is the asset, not either side's model."
+  }
+
+  "Account information" -> "Bank connection" : published-language {
+    exchange "The account list, account details, balances and transaction
+              reports of the XS2A interface."
+    because  "Same specification, same reason."
+  }
+
+  "Token issuance" -> "Bank connection" : published-language {
+    exchange "OAuth2 authorization-server metadata, authorization and token
+              endpoints, token responses."
+    because  "RFC 6749, 7636, 8414 and 8705 are read by every OAuth2 client;
+              A conforms to them, not to F."
+  }
+}

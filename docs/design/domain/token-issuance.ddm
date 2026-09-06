@@ -1,0 +1,145 @@
+// The inside of "Token issuance" (OpenID Connect provider F) from
+// psd2-access-to-account.ddd. Aggregates: ClientRegistration,
+// AuthorizationRequest, TokenGrant. Vocabulary: NextGenPSD2 XS2A 1.3.16
+// section 13, RFC 6749, RFC 7636, RFC 8414, RFC 8705.
+
+context "Token issuance" {
+
+  enum "ScopeKind" {
+    "AIS" "PIS" "PIIS" "Cancel-PIS" "offline_access"
+  }
+
+  enum "RequestStatus" {
+    "received" "brokered" "authenticated" "codeIssued" "redeemed" "denied"
+    "expired"
+  }
+
+  enum "TokenType" {
+    "access" "refresh"
+  }
+
+  enum "Psd2Role" {
+    "AISP" "PISP" "PIISP"
+  }
+
+  // One scope entry: kind plus the resource it names (section 13.1).
+  value "ScopeTarget" {
+    embeds    "ScopeKind" one
+    attribute "resourceId" : "String"
+  }
+
+  value "CertificateBinding" {
+    attribute "subjectDn"   : "DistinguishedName"
+    attribute "thumbprint"  : "Sha256Thumbprint"
+  }
+
+  value "PkceChallenge" {
+    attribute "codeChallenge" : "String"
+    attribute "method"        : "String"
+  }
+
+  // The claims of a brokered ID token that F relies on.
+  value "BrokeredIdentity" {
+    attribute "subject"       : "String"
+    attribute "acr"           : "String"
+    attribute "amr"           : "String[]"
+    attribute "consentId"     : "String"
+    attribute "consentStatus" : "String"
+    attribute "issuedAt"      : "Instant"
+  }
+
+  // ---- ClientRegistration --------------------------------------------------
+
+  aggregate "ClientRegistration" {
+    intent "A TPP as an OAuth2 client: identified by the organization
+            identifier of its QWAC, authenticated by mTLS, allowed to
+            redirect only inside its certificate's domain."
+
+    invariant "The client id equals the organization identifier of the bound
+               certificate."
+    invariant "Every redirect URI lies in a domain named by the certificate."
+    invariant "A scope of kind AIS requires the AISP role; PIS and Cancel-PIS
+               require PISP; PIIS requires PIISP."
+
+    root entity "ClientRegistration" {
+      id        "ClientId"
+      attribute "legalName" : "String"
+      attribute "brandName" : "String"
+      embeds    "CertificateBinding" at-least-one
+      embeds    "Psd2Role" at-least-one
+      contains  "RedirectUri" at-least-one
+    }
+
+    entity "RedirectUri" {
+      id        "RedirectUriId"
+      attribute "uri"    : "URI"
+      attribute "isNok"  : "Boolean"
+    }
+  }
+
+  // ---- AuthorizationRequest ------------------------------------------------
+
+  aggregate "AuthorizationRequest" {
+    intent "One authorization-code request from a client for one resource,
+            from arrival to a redeemed code or a refusal."
+
+    invariant "The scope names exactly one AIS, PIS, PIIS or Cancel-PIS
+               resource, optionally with offline_access."
+    invariant "The named resource exists, is in status received, and was
+               created by the requesting client."
+    invariant "A code is issued only after the brokered identity carries the
+               required acr and a consent id equal to the requested resource."
+    invariant "A code is redeemed at most once, with the code verifier that
+               matches the challenge, by the same client, over mTLS."
+
+    root entity "AuthorizationRequest" {
+      id         "AuthorizationRequestId"
+      attribute  "state"        : "String"
+      attribute  "redirectUri"  : "URI"
+      attribute  "code"         : "String"
+      attribute  "codeExpiresAt": "Instant"
+      attribute  "receivedAt"   : "Instant"
+      embeds     "ScopeTarget" at-least-one
+      embeds     "PkceChallenge" one
+      embeds     "RequestStatus" one
+      embeds     "BrokeredIdentity" optional
+      references "ClientRegistration" one
+    }
+  }
+
+  // ---- TokenGrant ----------------------------------------------------------
+
+  aggregate "TokenGrant" {
+    intent "What a redeemed authorization gave a client: the access tokens
+            and the refresh token for one consent or payment, all bound to
+            the client's certificate, all revocable together."
+
+    invariant "Every token of a grant carries the same scope, subject and
+               certificate thumbprint."
+    invariant "An access token lives at most ten minutes."
+    invariant "A refresh token never outlives the validUntil of the consent it
+               is scoped to."
+    invariant "Revoking the grant revokes every token in it."
+
+    root entity "TokenGrant" {
+      id         "GrantId"
+      attribute  "subject"     : "PairwiseSubject"
+      attribute  "consentId"   : "String"
+      attribute  "grantedAt"   : "Instant"
+      attribute  "revokedAt"   : "Instant"
+      embeds     "ScopeTarget" at-least-one
+      embeds     "CertificateBinding" one
+      contains   "IssuedToken" at-least-one
+      references "ClientRegistration" one
+      references "AuthorizationRequest" one
+    }
+
+    entity "IssuedToken" {
+      id        "TokenId"
+      attribute "issuedAt"  : "Instant"
+      attribute "expiresAt" : "Instant"
+      attribute "revoked"   : "Boolean"
+      embeds    "TokenType" one
+    }
+  }
+}

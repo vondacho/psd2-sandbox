@@ -1,0 +1,17 @@
+@startuml 03-seq-device-enrolment
+title Device enrolment (prerequisite, Bank B channel only)
+autonumber
+actor PSU
+participant "Bank B app\n(new device)" as App
+participant "Bank B CIAM" as CIAM
+database "Device registry" as Reg
+
+PSU -> App : install, "activate this device"
+App -> App : generate P-256 key pair in secure hardware,\nobtain platform attestation
+App -> CIAM : POST /devices {publicKey, attestation, appInstanceId, pushToken}\n(PSU logged in with online-banking credentials)
+CIAM --> PSU : existing SCA (activation code by letter, or current device)
+PSU -> App : enter activation code
+App -> CIAM : POST /devices/{id}/activate {code}
+CIAM -> Reg : store device (status active, enrolledAt)
+CIAM --> App : 201 device active
+@enduml

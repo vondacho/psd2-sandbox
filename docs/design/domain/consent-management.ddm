@@ -1,0 +1,129 @@
+// The inside of "Consent management" from psd2-access-to-account.ddd.
+// Aggregates: Consent, Authorisation. Vocabulary: NextGenPSD2 XS2A 1.3.16,
+// sections 6.3, 7, 14.15, 14.16, 14.17, 14.19.
+
+context "Consent management" {
+
+  // ---- shared values and enumerations -------------------------------------
+
+  value "AccountReference" {
+    attribute "iban"      : "IBAN"
+    attribute "bban"      : "BBAN"
+    attribute "pan"       : "Max35Text"
+    attribute "maskedPan" : "Max35Text"
+    attribute "msisdn"    : "Max35Text"
+    attribute "currency"  : "CurrencyCode"
+  }
+
+  // The "access" object of the consent request (section 14.17). Empty arrays
+  // mean bank-offered consent; availableAccounts / allPsd2 carry a code.
+  value "AccountAccess" {
+    embeds    "AccountReference" many
+    attribute "accounts"                    : "AccountReference[]"
+    attribute "balances"                    : "AccountReference[]"
+    attribute "transactions"                : "AccountReference[]"
+    attribute "availableAccounts"           : "AllAccountsCode"
+    attribute "availableAccountsWithBalance": "AllAccountsCode"
+    attribute "allPsd2"                     : "AllAccountsCode"
+    attribute "ownerNameRequested"          : "AccountReference[]"
+  }
+
+  enum "ConsentStatus" {
+    "received" "rejected" "partiallyAuthorised" "valid"
+    "expired" "revokedByPsu" "terminatedByTpp"
+  }
+
+  enum "ScaStatus" {
+    "received" "psuIdentified" "psuAuthenticated" "scaMethodSelected"
+    "started" "unconfirmed" "finalised" "failed" "exempted"
+  }
+
+  enum "AccessType" {
+    "accounts" "balances" "transactions" "ownerName"
+  }
+
+  enum "ScaApproach" {
+    "REDIRECT" "DECOUPLED" "EMBEDDED"
+  }
+
+  // ---- Consent -------------------------------------------------------------
+
+  aggregate "Consent" {
+    intent "A TPP's request to access a PSU's account information, from the
+            moment it is received until it is valid, rejected, expired,
+            revoked or terminated. The consistency boundary for access rights
+            and access frequency."
+
+    invariant "A consent becomes valid only after every mandated authorisation
+               is finalised."
+    invariant "validUntil never exceeds the maximum the bank allows for
+               renewal of SCA on account information."
+    invariant "frequencyPerDay is at least 1, and 1 when recurringIndicator is
+               false."
+    invariant "An accessible account may only carry access types that the
+               requested access asked for."
+    invariant "Account data is served only while the status is valid and the
+               calling TPP is the creator."
+    invariant "A call without PSU presence is refused once the usage counter of
+               that account for the day reaches frequencyPerDay."
+    invariant "When a new recurring consent of the same TPP for the same PSU
+               becomes valid, the former recurring consent is terminated."
+
+    root entity "Consent" {
+      id        "ConsentId"
+      attribute "tppId"                    : "OrganizationIdentifier"
+      attribute "psuId"                    : "PsuId"
+      attribute "recurringIndicator"       : "Boolean"
+      attribute "validUntil"               : "Date"
+      attribute "frequencyPerDay"          : "Integer"
+      attribute "combinedServiceIndicator" : "Boolean"
+      attribute "createdAt"                : "Instant"
+      attribute "lastActionDate"           : "Date"
+      attribute "tppRedirectUri"           : "URI"
+      attribute "tppNokRedirectUri"        : "URI"
+      embeds    "AccountAccess" one
+      embeds    "ConsentStatus" one
+      embeds    "ScaApproach" one
+      contains  "AccessibleAccount" many
+      contains  "UsageCounter" many
+    }
+
+    entity "AccessibleAccount" {
+      id        "ResourceId"
+      attribute "currency"    : "CurrencyCode"
+      embeds    "AccountReference" one
+      embeds    "AccessType" at-least-one
+    }
+
+    entity "UsageCounter" {
+      id        "UsageCounterId"
+      attribute "resourceId" : "ResourceId"
+      attribute "day"        : "Date"
+      attribute "count"      : "Integer"
+    }
+  }
+
+  // ---- Authorisation -------------------------------------------------------
+
+  aggregate "Authorisation" {
+    intent "One authorisation sub-resource of a consent (section 7): the
+            trail of one PSU's SCA, from received to finalised or failed."
+
+    invariant "scaStatus moves forward only; finalised, failed and exempted are
+               terminal."
+    invariant "finalised requires a verified challenge, and a confirmation by
+               the TPP when a confirmation link was returned."
+    invariant "An authorisation belongs to exactly one consent."
+
+    root entity "Authorisation" {
+      id         "AuthorisationId"
+      attribute  "psuId"        : "PsuId"
+      attribute  "challengeId"  : "ChallengeId"
+      attribute  "startedAt"    : "Instant"
+      attribute  "finalisedAt"  : "Instant"
+      attribute  "confirmationRequired" : "Boolean"
+      embeds     "ScaStatus" one
+      references "Consent" one
+    }
+  }
+}

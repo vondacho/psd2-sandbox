@@ -1,0 +1,22 @@
+@startuml 07-seq-later-access
+title Later access and token refresh (step 17)
+autonumber
+participant "TPP A back end" as A
+participant "OIDC provider F" as F
+participant "Bank B XS2A API" as XS2A
+participant "Bank B consent mgmt" as CM
+
+A -> XS2A : GET /v1/accounts (expired access token)
+XS2A --> A : 401 TOKEN_EXPIRED
+A -> F : POST /token (mTLS) grant_type=refresh_token
+F -> CM : consent still valid?
+CM --> F : valid
+F --> A : new access_token (+ rotated refresh_token)
+A -> XS2A : GET /v1/accounts (new token, no PSU-IP-Address)
+XS2A -> CM : usage today per account < frequencyPerDay?
+alt within frequency
+  XS2A --> A : 200 accounts
+else exceeded
+  XS2A --> A : 429 ACCESS_EXCEEDED
+end
+@enduml

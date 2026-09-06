@@ -1,0 +1,186 @@
+// The inside of "Customer identity and SCA" from psd2-access-to-account.ddd.
+// Aggregates: PsuIdentity, RegisteredDevice, ScaChallenge, AuthenticationSession.
+// Bank B is a CIAM: an identity carries the devices that can approve for it.
+
+context "Customer identity and SCA" {
+
+  // ---- shared values and enumerations -------------------------------------
+
+  enum "IdentityStatus" {
+    "active" "locked" "closed"
+  }
+
+  enum "DeviceStatus" {
+    "pending" "active" "blocked" "removed"
+  }
+
+  enum "ChallengeStatus" {
+    "pending" "approved" "denied" "expired"
+  }
+
+  enum "ChallengeSubjectKind" {
+    "AIS_CONSENT" "PIS_PAYMENT" "PIIS_CONSENT" "DEVICE_ENROLMENT"
+  }
+
+  enum "SessionStep" {
+    "identified" "firstFactorVerified" "riskAssessed" "accountsSelected"
+    "challengeIssued" "approved" "refused" "completed"
+  }
+
+  enum "AuthenticationMethod" {
+    "pwd" "hwk" "otp" "pin" "face" "fpt"
+  }
+
+  value "Credential" {
+    attribute "kind"        : "CredentialKind"
+    attribute "secretHash"  : "Hash"
+    attribute "rotatedAt"   : "Instant"
+    attribute "failedTries" : "Integer"
+  }
+
+  value "DeviceKey" {
+    attribute "algorithm"  : "KeyAlgorithm"
+    attribute "publicKey"  : "PublicKey"
+    attribute "attestation": "AttestationStatement"
+    attribute "hardwareBacked" : "Boolean"
+  }
+
+  // What the customer sees and what the signature covers (RTS art. 5).
+  value "DynamicLink" {
+    attribute "subjectId"   : "String"
+    attribute "tppName"     : "String"
+    attribute "summary"     : "String"
+    attribute "hash"        : "Hash"
+  }
+
+  value "RiskAssessment" {
+    attribute "score"       : "Integer"
+    attribute "psuIpAddress": "IPAddress"
+    attribute "psuUserAgent": "String"
+    attribute "psuDeviceId" : "UUID"
+    attribute "decision"    : "RiskDecision"
+  }
+
+  // ---- PsuIdentity ---------------------------------------------------------
+
+  aggregate "PsuIdentity" {
+    intent "A customer as the bank knows them for authentication: an
+            identifier, credentials, a status, and the devices enrolled
+            against it."
+
+    invariant "A locked or closed identity cannot start an authentication
+               session."
+    invariant "A credential is locked after the configured number of failed
+               tries."
+
+    root entity "PsuIdentity" {
+      id        "PsuId"
+      attribute "psuIdType"    : "String"
+      attribute "displayName"  : "Max140Text"
+      attribute "corporateId"  : "String"
+      embeds    "IdentityStatus" one
+      embeds    "Credential" at-least-one
+      references "RegisteredDevice" many
+    }
+  }
+
+  // ---- RegisteredDevice ----------------------------------------------------
+
+  aggregate "RegisteredDevice" {
+    intent "A device a customer enrolled through the bank's own channel: the
+            possession element of SCA, proven by a signature with a
+            hardware-backed key that never leaves the device."
+
+    invariant "A device is active only after the enrolment was confirmed with
+               an existing SCA."
+    invariant "A device belongs to exactly one identity."
+    invariant "A blocked or removed device cannot answer a challenge."
+    invariant "The public key of an active device is never replaced; a new key
+               is a new device."
+
+    root entity "RegisteredDevice" {
+      id        "DeviceId"
+      attribute "psuId"          : "PsuId"
+      attribute "name"           : "Max70Text"
+      attribute "platform"       : "String"
+      attribute "appInstanceId"  : "UUID"
+      attribute "pushToken"      : "String"
+      attribute "enrolledAt"     : "Instant"
+      attribute "lastUsedAt"     : "Instant"
+      embeds    "DeviceKey" one
+      embeds    "DeviceStatus" one
+    }
+  }
+
+  // ---- ScaChallenge --------------------------------------------------------
+
+  aggregate "ScaChallenge" {
+    intent "One thing the customer is asked to approve on a registered
+            device: what it is about, how long it is valid, which device
+            answered, and the signature that proves it."
+
+    invariant "A challenge expires three minutes after creation and is then
+               unanswerable."
+    invariant "A challenge is answered at most once."
+    invariant "An approval is accepted only if the signature verifies against
+               the key of an active device of the identity the challenge was
+               issued for."
+    invariant "The signed hash equals the dynamic link hash, so an approval
+               cannot be replayed for another subject."
+
+    root entity "ScaChallenge" {
+      id         "ChallengeId"
+      attribute  "psuId"      : "PsuId"
+      attribute  "subjectId"  : "String"
+      attribute  "nonce"      : "Nonce"
+      attribute  "createdAt"  : "Instant"
+      attribute  "expiresAt"  : "Instant"
+      attribute  "answeredAt" : "Instant"
+      attribute  "signature"  : "Signature"
+      embeds     "ChallengeSubjectKind" one
+      embeds     "DynamicLink" one
+      embeds     "ChallengeStatus" one
+      contains   "QrPayload" one
+      references "RegisteredDevice" optional
+    }
+
+    entity "QrPayload" {
+      id        "QrPayloadId"
+      attribute "version"   : "Integer"
+      attribute "endpoint"  : "URI"
+      attribute "encoded"   : "Base64Url"
+      attribute "serverSignature" : "Signature"
+    }
+  }
+
+  // ---- AuthenticationSession ---------------------------------------------
+
+  aggregate "AuthenticationSession" {
+    intent "One journey of one customer from the login page to a signed
+            approval (or a refusal), started by F's brokered authorization
+            request and ending with an ID token for F."
+
+    invariant "The second factor is offered only after the first factor was
+               verified and the risk assessment did not refuse."
+    invariant "The challenge is issued only after the accounts were selected,
+               so the dynamic link covers the selection."
+    invariant "An ID token is produced only for a session whose challenge was
+               approved."
+    invariant "A session names exactly one subject (consent or payment)."
+
+    root entity "AuthenticationSession" {
+      id         "SessionId"
+      attribute  "brokerRequestId"  : "String"
+      attribute  "subjectId"        : "String"
+      attribute  "acr"              : "String"
+      attribute  "startedAt"        : "Instant"
+      attribute  "completedAt"      : "Instant"
+      attribute  "selectedAccounts" : "AccountReference[]"
+      embeds     "SessionStep" one
+      embeds     "RiskAssessment" optional
+      embeds     "AuthenticationMethod" many
+      references "PsuIdentity" optional
+      references "ScaChallenge" optional
+    }
+  }
+}

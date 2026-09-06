@@ -1,0 +1,69 @@
+@startuml 02-containers
+' Containers of the three systems (C4 level 2)
+!include <C4/C4_Container>
+
+title Containers: TPP application A, OIDC provider F, Bank B
+
+Person(psu, "PSU")
+System_Ext(app, "Bank B mobile app", "registered device, hardware-backed key")
+
+System_Boundary(a, "TPP application A") {
+  Container(afe, "Web front end", "SPA / SSR", "Bank picker, account list, account details, SCA waiting page")
+  Container(abe, "Back end", "service", "Consent orchestrator, OAuth2 client (PKCE, state, mTLS), XS2A client")
+  ContainerDb(registry, "Bank registry", "config", "ASPSP id, XS2A base URL, OAuth metadata URL, consent models")
+  ContainerDb(vault, "Token vault", "encrypted store", "access / refresh tokens per (PSU, bank, consent)")
+  Container(keys, "Key material", "HSM / KMS", "QWAC and QSEAL private keys")
+}
+
+System_Boundary(f, "OpenID Connect provider F") {
+  Container(meta, "Metadata and JWKS", "RFC 8414", "/.well-known/oauth-authorization-server, /jwks")
+  Container(authz, "Authorization endpoint", "/authorize", "client, redirect_uri, PKCE checks; scope handler AIS:/PIS:/PIIS:")
+  Container(broker, "Identity broker", "OIDC RP", "Delegates to Bank B CIAM, requires acr urn:bank-b:psd2:sca")
+  Container(token, "Token service", "/token /revoke /introspect", "JWT access tokens with cnf, refresh tokens capped by validUntil")
+  ContainerDb(clients, "Client registry", "db", "client_id = QWAC organizationIdentifier, cert binding, redirect URIs, roles")
+}
+
+System_Boundary(b, "Bank B") {
+  Container(gw, "XS2A gateway", "reverse proxy", "mTLS termination, QWAC validation, signature check, JWT validation, rate limit")
+  Container(xs2a, "XS2A service", "REST", "consents, accounts, balances, transactions, payments; _links steering")
+  Container(cm, "Consent management", "service + db", "consent state machine, authorisations, accessible accounts, usage counters")
+  Container(orch, "CIAM authentication orchestration", "OpenID Provider", "identify > password > risk > accounts + consent > SCA")
+  Container(sca, "SCA engine", "service", "challenge with dynamic linking, QR, push, signature verification, expiry")
+  ContainerDb(idstore, "Identity store", "db", "PSU-ID, credentials, status")
+  ContainerDb(devices, "Device registry", "db", "device id, public key, attestation, push token, status")
+  Container(risk, "Risk engine", "service", "PSU context headers, device signals")
+  Container(cui, "Consent UI", "web", "login, account selection, consent summary, QR page")
+  Container(dash, "PSU consent dashboard", "web", "view and revoke consents")
+  Container(core, "Core banking adapter", "service", "accounts, balances, transactions; opaque resourceId")
+}
+
+Rel(psu, afe, "uses")
+Rel(afe, abe, "calls")
+Rel(abe, registry, "reads")
+Rel(abe, vault, "stores tokens")
+Rel(abe, keys, "signs / mTLS")
+Rel(abe, gw, "XS2A calls", "mTLS")
+Rel(abe, token, "token / refresh", "mTLS")
+Rel(abe, meta, "reads metadata")
+Rel(psu, authz, "redirect")
+Rel(authz, clients, "validates client")
+Rel(authz, cm, "validates scope AIS:<consentId>")
+Rel(authz, broker, "starts brokering")
+Rel(broker, orch, "OIDC", "redirect + back channel")
+Rel(psu, cui, "login, select accounts, consent, QR")
+Rel(cui, orch, "journey steps")
+Rel(orch, idstore, "verify credentials")
+Rel(orch, risk, "assess")
+Rel(orch, sca, "issue / check challenge")
+Rel(sca, devices, "public key, push token")
+Rel(app, sca, "fetch challenge, post signature")
+Rel(orch, cm, "authorisation result, accessible accounts")
+Rel(gw, xs2a, "forwards with client cert")
+Rel(gw, meta, "JWKS for JWT validation")
+Rel(xs2a, cm, "check consent, count usage")
+Rel(xs2a, core, "read accounts")
+Rel(dash, cm, "revoke")
+Rel(cm, token, "revoke tokens of consent", "admin API")
+
+SHOW_LEGEND()
+@enduml

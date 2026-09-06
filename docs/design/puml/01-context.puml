@@ -1,0 +1,34 @@
+@startuml 01-context
+' System context: PSU account-list journey (C4 level 1)
+!include <C4/C4_Context>
+
+title System context: PSU reads accounts at Bank B through TPP application A
+
+Person(psu, "PSU", "Payment service user. Holds accounts at Bank B and a registered device with the Bank B app.")
+
+System(tppA, "TPP application A", "AISP / PISP. OAuth2 client authenticated by mTLS with its eIDAS QWAC.")
+System(oidcF, "OpenID Connect provider F", "Authorization server. Issues certificate-bound access tokens scoped to one consent; brokers authentication to Bank B's CIAM.")
+
+System_Boundary(bankB, "Bank B (ASPSP)") {
+  System(xs2a, "XS2A API", "Resource server: /v1/consents, /v1/accounts, /v1/payments (NextGenPSD2 1.3.16).")
+  System(ciam, "CIAM", "Identity provider: identities, device registry, SCA engine (QR / push), consent UI.")
+  System(consent, "Consent management", "Consents, authorisation sub-resources, access rights, frequency.")
+  System(core, "Core banking", "Accounts, balances, transactions.")
+}
+System_Ext(app, "Bank B mobile app", "Registered device. Scans QR, shows approval details, signs the challenge with a device-bound key.")
+
+Rel(psu, tppA, "Uses", "browser")
+Rel(tppA, xs2a, "POST /v1/consents, GET /v1/accounts", "mTLS (QWAC), Bearer token")
+Rel(tppA, oidcF, "POST /token, refresh", "mTLS (QWAC)")
+Rel(psu, oidcF, "Redirected for authorization", "browser")
+Rel(oidcF, ciam, "OIDC identity brokering", "browser redirect + back channel")
+Rel(oidcF, consent, "Validate scope AIS:<consentId>", "internal API")
+Rel(psu, ciam, "Login, account selection, consent, QR page", "browser")
+Rel(psu, app, "Scan QR, approve")
+Rel(app, ciam, "Signed challenge response", "device-authenticated API")
+Rel(ciam, consent, "Authorisation result, accessible accounts", "internal API")
+Rel(xs2a, consent, "Check consent on every call")
+Rel(xs2a, core, "Read accounts")
+
+SHOW_LEGEND()
+@enduml

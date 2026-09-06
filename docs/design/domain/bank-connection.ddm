@@ -1,0 +1,117 @@
+// The inside of "Bank connection" (TPP application A) from
+// psd2-access-to-account.ddd. Aggregates: BankConnection, BankRegistryEntry,
+// AuthorizationAttempt.
+
+context "Bank connection" {
+
+  enum "ConnectionState" {
+    "selected" "consentRequested" "authorizing" "connected" "needsReconsent"
+    "disconnected" "failed"
+  }
+
+  enum "AttemptOutcome" {
+    "pending" "succeeded" "denied" "stateMismatch" "expired"
+  }
+
+  enum "ConsentModel" {
+    "dedicated" "bankOffered" "global" "availableAccounts"
+  }
+
+  value "XsaHyperlinks" {
+    attribute "self"         : "URI"
+    attribute "status"       : "URI"
+    attribute "scaStatus"    : "URI"
+    attribute "scaOAuth"     : "URI"
+    attribute "confirmation" : "URI"
+  }
+
+  value "TokenSet" {
+    attribute "accessTokenRef"  : "VaultReference"
+    attribute "refreshTokenRef" : "VaultReference"
+    attribute "accessExpiresAt" : "Instant"
+    attribute "scope"           : "String"
+  }
+
+  value "AccountView" {
+    attribute "resourceId" : "String"
+    attribute "iban"       : "IBAN"
+    attribute "currency"   : "CurrencyCode"
+    attribute "name"       : "String"
+    attribute "balance"    : "Decimal"
+    attribute "fetchedAt"  : "Instant"
+  }
+
+  // ---- BankRegistryEntry ---------------------------------------------------
+
+  aggregate "BankRegistryEntry" {
+    intent "A bank A can connect to: where its XS2A API and its authorization
+            server live, and what it supports."
+
+    invariant "A registry entry has a unique bank id."
+    invariant "The XS2A base URL and the metadata URL use https."
+
+    root entity "BankRegistryEntry" {
+      id        "BankId"
+      attribute "displayName"      : "String"
+      attribute "xs2aBaseUrl"      : "URI"
+      attribute "oauthMetadataUrl" : "URI"
+      attribute "requiresSignature": "Boolean"
+      attribute "maxValidityDays"  : "Integer"
+      embeds    "ConsentModel" at-least-one
+    }
+  }
+
+  // ---- AuthorizationAttempt ------------------------------------------------
+
+  aggregate "AuthorizationAttempt" {
+    intent "One trip to F and back for one consent: the state and PKCE
+            verifier bound to the user's session, and what came back."
+
+    invariant "state is single-use and bound to one user session."
+    invariant "The code is exchanged only when the returned state equals the
+               stored state."
+    invariant "The code verifier is never sent anywhere but the token
+               endpoint, over mTLS."
+
+    root entity "AuthorizationAttempt" {
+      id         "AttemptId"
+      attribute  "userSessionId" : "String"
+      attribute  "state"         : "String"
+      attribute  "codeVerifier"  : "SecretReference"
+      attribute  "consentId"     : "String"
+      attribute  "startedAt"     : "Instant"
+      attribute  "finishedAt"    : "Instant"
+      embeds     "AttemptOutcome" one
+      references "BankConnection" one
+    }
+  }
+
+  // ---- BankConnection ------------------------------------------------------
+
+  aggregate "BankConnection" {
+    intent "The link between one user of A and one bank: which consent it
+            rests on, which tokens it holds, and whether it still works."
+
+    invariant "One connection per (user, bank)."
+    invariant "A connection is connected only while its consent is valid and
+               it holds a token set."
+    invariant "Account views are shown only from a connected connection."
+    invariant "When the bank answers CONSENT_EXPIRED or CONSENT_INVALID the
+               connection needs re-consent and its token set is discarded."
+
+    root entity "BankConnection" {
+      id         "ConnectionId"
+      attribute  "userId"          : "UserId"
+      attribute  "consentId"       : "String"
+      attribute  "authorisationId" : "String"
+      attribute  "consentStatus"   : "String"
+      attribute  "validUntil"      : "Date"
+      attribute  "connectedAt"     : "Instant"
+      embeds     "ConnectionState" one
+      embeds     "XsaHyperlinks" optional
+      embeds     "TokenSet" optional
+      embeds     "AccountView" many
+      references "BankRegistryEntry" one
+    }
+  }
+}

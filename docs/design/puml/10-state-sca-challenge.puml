@@ -1,0 +1,10 @@
+@startuml 10-state-sca-challenge
+title SCA challenge
+[*] --> pending : created, QR shown, push sent
+pending --> approved : valid signature from an\nactive device of the PSU
+pending --> denied : PSU rejects in app
+pending --> expired : 3 minutes elapsed
+approved --> [*]
+denied --> [*]
+expired --> [*]
+@enduml

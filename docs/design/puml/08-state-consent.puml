@@ -1,0 +1,13 @@
+@startuml 08-state-consent
+title Consent status (consentStatus, spec 14.15)
+[*] --> received : POST /v1/consents
+received --> valid : SCA finalised\n(and confirmation if required)
+received --> rejected : SCA failed / PSU declined /\nchallenge expired
+valid --> expired : validUntil passed,\nor one-off consent used
+valid --> revokedByPsu : PSU revokes at Bank B
+valid --> terminatedByTpp : DELETE /v1/consents/{id}, or replaced by a new\nrecurring consent of the same TPP for the same PSU
+rejected --> [*]
+expired --> [*]
+revokedByPsu --> [*]
+terminatedByTpp --> [*]
+@enduml

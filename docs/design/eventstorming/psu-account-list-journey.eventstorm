@@ -1,0 +1,183 @@
+// Event storm: PSU views the list of accounts held at Bank B from TPP application A.
+// Level: software design (cumulative: big picture + process modelling + software design).
+// Timeline columns are shared by every lane; a column is one moment of the journey.
+// Column map: 1 precondition | 2 bank selection | 3 consent created | 4 authorization requested
+//             5 first factor | 6 account selection | 7 SCA challenge | 8 device approval
+//             9 verification | 10 tokens | 11 confirmation | 12 account list | 13 account details
+//             14 later access, revocation
+// Tags: +pivotal marks the events that separate the phases; +alternative marks branch events;
+//       +"spec x.y" cites the NextGenPSD2 XS2A Implementation Guidelines v1.3.16.
+
+eventstorm "PSU account-list journey" {
+  product "berlin-psd2-sandbox"
+
+  lane "PSU" {
+    actor "PSU" @2
+    readmodel "Registered banks" @2
+    ui "Bank picker" @2
+    command "Select Bank B" @2
+    event "Bank B selected" @2 +pivotal
+
+    actor "PSU" @5
+    actor "PSU" @6
+    actor "PSU" @8
+
+    command "View accounts at Bank B" @12
+    command "Open account details" @13
+
+    command "Revoke consent at Bank B" @14
+    event "Consent revoked by PSU" @14 +alternative +"spec 14.15"
+  }
+
+  lane "TPP application A" {
+    context "Account aggregation (TPP A, AISP)" @1
+    aggregate "Bank connection" @2 {
+      note "One per (PSU, bank). Holds consentId,\
+            authorisationId, hyperlinks, token reference."
+    }
+
+    policy "Whenever a bank is selected, request an account-information consent at that bank" @3
+    command "Create account-information consent" @3 +"spec 6.3.1"
+    event "Consent requested with bank-offered access (accounts [], balances [])" @3 +"spec 6.3.1.2"
+
+    policy "Whenever the consent is received with a scaOAuth link, start the authorization-code flow" @4 +"spec 4.3"
+    command "Start authorization-code flow" @4 +oauth2
+    event "Authorization requested with state and PKCE bound to the session" @4 +"spec 13.1" +"spec 7.6.1"
+
+    command "Validate callback state" @10 +"spec 7.6.3"
+    event "Callback state validated" @10
+    command "Exchange code for tokens" @10 +"spec 13.3"
+
+    policy "Whenever tokens are issued and a confirmation link exists, confirm the authorisation" @11 +"spec 7.6.4"
+    command "Confirm authorisation" @11
+    event "Bank B connected" @11 +pivotal
+    ui "Connection confirmed" @11
+
+    command "Read account list" @12 +"spec 6.5.1"
+    readmodel "Account list" @12
+    ui "Account list" @12
+
+    command "Read account details" @13 +"spec 6.5.2"
+    readmodel "Account details" @13
+    ui "Account details" @13
+
+    policy "Whenever the access token has expired, refresh it with the refresh token" @14 +"spec 13.5"
+    policy "Whenever the consent is no longer valid, ask the PSU to reconnect the bank" @14
+    hotspot "How does A learn that a consent was revoked before its next call fails?" @14 +"ask bank-b" {
+      note "Options: poll consent status, or resource\
+            status notification service (XS2A-RSNS)."
+    }
+  }
+
+  lane "OIDC provider F" {
+    context "Authorization (F, authorization server)" @1
+    aggregate "Authorization request" @4
+    command "Validate client, redirect URI and scope" @4
+    event "Client and redirect URI validated" @4 +"spec 13.1" +"spec 4.10"
+    event "Scope AIS:consentId bound to the consent" @4
+    event "PSU redirected to Bank B CIAM" @4
+    hotspot "F needs a trusted channel to Bank B consent management to validate AIS:<consentId>" @4 +"ask bank-b" +"ask f"
+
+    event "ID token received from Bank B (acr, amr, consent_id)" @9
+    event "Authorization code issued" @9 +"spec 13.2"
+    event "PSU redirected to TPP A" @9
+
+    aggregate "Token" @10
+    command "Issue tokens" @10
+    event "Client authenticated with QWAC (mTLS)" @10 +"spec 13.3"
+    event "Access token issued, scoped to the consent and bound to the certificate" @10 +pivotal +"spec 13.4"
+    event "Refresh token issued" @10 +"spec 13.5"
+
+    event "Access token refreshed" @14
+    event "Tokens of the consent revoked" @14 +alternative
+  }
+
+  lane "Bank B CIAM" {
+    context "Customer identity and SCA (Bank B CIAM)" @1
+
+    aggregate "Authentication session" @5
+    ui "Login page" @5
+    command "Identify and authenticate with password" @5
+    event "PSU identified" @5 +"spec 14.16"
+    event "PSU authenticated with first factor" @5 +"spec 14.16"
+    event "Risk assessed from PSU context data" @5 +"spec 4.8"
+    hotspot "Risk engine refuses: what does the PSU see, and what does A receive?" @5 +"ask bank-b"
+
+    readmodel "Payment accounts of the PSU" @6
+    ui "Account selection and consent summary" @6
+    command "Select accounts to share" @6
+    event "Accounts to share selected" @6
+    event "Consent summary presented (TPP, access, validity, frequency)" @6 {
+      note "Bank-offered consent: the ASPSP agrees the\
+            accounts directly with the PSU (spec 6.3.1.2)."
+    }
+
+    policy "Whenever accounts are selected, issue an SCA challenge with dynamic linking" @7
+    aggregate "SCA challenge" @7
+    command "Issue SCA challenge" @7 +sca
+    event "SCA challenge issued (dynamic link over consentId, TPP, accounts, validUntil)" @7 +sca +"RTS art. 5"
+    ui "QR page" @7
+    system "Push notification service" @7
+    event "Push notification sent to active devices" @7
+    opportunity "App-to-app redirect on a mobile browser instead of scanning a QR" @7 +"spec 4.8"
+
+    command "Verify challenge response" @9 +sca
+    event "Challenge response verified against the registered device key" @9 +pivotal
+    policy "Whenever a challenge is verified, record the authorisation and complete the OIDC flow towards F" @9
+    event "Challenge expired" @9 +alternative
+    event "Challenge denied by PSU" @9 +alternative
+  }
+
+  lane "Bank B mobile app" {
+    context "Device authenticator (Bank B app)" @1
+    aggregate "Registered device" @1
+    event "Device enrolled at Bank B" @1 +pivotal {
+      note "Precondition. Done in Bank B's own channel\
+            with an existing SCA; never through the TPP."
+    }
+
+    actor "PSU with registered device" @8
+    command "Scan QR code" @8
+    event "QR code scanned" @8
+    readmodel "Challenge details (TPP, accounts, validity)" @8
+    ui "Approval screen" @8
+    command "Approve challenge" @8
+    event "Challenge approved with biometric or PIN" @8
+    event "Challenge signed with the device key" @8 +sca
+    hotspot "PSU has no active device: fallback SCA method or abort?" @8 +"ask bank-b"
+  }
+
+  lane "Bank B consent and accounts" {
+    context "Consent and account information (Bank B XS2A)" @1
+
+    aggregate "Consent" @3
+    aggregate "Authorisation sub-resource" @3
+    event "Consent created with status received" @3 +pivotal +"spec 14.15"
+    event "Authorisation sub-resource created implicitly" @3 +"spec 4.6"
+    event "scaOAuth, scaStatus and confirmation links returned" @3 +"spec 6.3.1.1"
+
+    event "Authorisation status psuAuthenticated" @5 +"spec 14.16"
+
+    event "Authorisation status started" @7 +"spec 14.16"
+
+    event "Accessible accounts recorded on the consent" @9
+    event "Authorisation status unconfirmed" @9 +"spec 14.16"
+
+    event "Authorisation finalised" @11 +"spec 7.6.4"
+    event "Consent valid" @11 +pivotal +"spec 14.15"
+
+    policy "Whenever an account-data request arrives, check certificate, token and consent before serving" @12
+    command "Serve account list" @12
+    event "Certificate, token and consent checked" @12 +security
+    system "Core banking" @12
+    event "Account list read" @12 +"spec 6.5.1"
+
+    command "Serve account details" @13
+    event "Account details read" @13 +"spec 6.5.2"
+
+    policy "Whenever the PSU is not present, count the access against frequencyPerDay" @14
+    event "Access frequency exceeded" @14 +alternative +"spec 14.11.3"
+    event "Consent expired" @14 +alternative +"spec 14.15"
+    policy "Whenever a consent is revoked or expires, revoke its tokens at F" @14
+  }
+}
