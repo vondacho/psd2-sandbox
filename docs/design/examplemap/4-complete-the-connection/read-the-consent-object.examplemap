@@ -1,0 +1,76 @@
+// Example map for the story "Read the consent object" (activity "Complete the
+// connection", step "Confirm the authorisation").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Read the consent object" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Read the consent object" ~ready @MVP +tpp-a +bank-b-xs2a +"spec 6.3.3" {
+    as "TPP operator"
+    want "GET /v1/consents/{id} to return the access finally granted"
+    so "A knows which accounts and access types were approved at the bank"
+  }
+
+  rule "After authorisation, the consent object shows the access as granted: the selected accounts under each granted access type, the stored validity and frequency, the status and lastActionDate" +"spec 6.3.3" {
+    example "The valid consent on two accounts" @MVP +nominal {
+      given "consent 123cons456 valid with Main Account and Savings, accounts and balances"
+      when "A calls GET /v1/consents/123cons456"
+      then "the body is {access: {accounts: [{iban: DE23100100100123456789, currency: EUR}, {iban: DE89370400440532013000, currency: EUR}], balances: [the same two]}, recurringIndicator: true, validUntil: 2026-12-05, frequencyPerDay: 4, lastActionDate: 2026-09-06, consentStatus: valid, _links: {…}}"
+    }
+    example "Before the SCA the access is as requested" @MVP +edge {
+      given "consent 123cons456 received"
+      when "A reads it"
+      then "access is {accounts: [], balances: []} and consentStatus received"
+    }
+    example "A shortened validity is shown" @MVP +edge {
+      given "the bank stored 2027-03-05"
+      when "A reads the consent"
+      then "validUntil is 2027-03-05"
+    }
+    example "A multicurrency selection shows one entry per currency" @MVP +edge {
+      given "the multicurrency account with EUR and USD selected"
+      when "A reads the consent"
+      then "accounts holds two entries with the same IBAN and currencies EUR and USD"
+    }
+    example "No transactions array when transactions were not granted" @MVP +nominal {
+      given "the accounts+balances consent"
+      when "A reads it"
+      then "access has no transactions field"
+    }
+  }
+
+  rule "Only the creating TPP reads the consent object" +security {
+    example "C reads A's consent" @MVP +error {
+      given "C's QWAC"
+      when "GET /v1/consents/123cons456 is called"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+    example "A reads a terminated consent" @MVP +edge {
+      given "consent 111cons222 terminatedByTpp"
+      when "A reads it"
+      then "the answer is 200 with consentStatus terminatedByTpp and the access as it was"
+    }
+  }
+
+  rule "A updates its connection from the consent object" {
+    example "The granted accounts are stored" @MVP +nominal {
+      given "the consent object with two accounts"
+      when "A processes it"
+      then "the connection shows '2 accounts shared' and validUntil 2026-12-05"
+    }
+    example "A validity shorter than requested is shown to the PSU" @MVP +edge {
+      given "A requested 2026-12-05 and the object says 2026-10-06"
+      when "A processes it"
+      then "the connection page says 'Connected until 6 Oct 2026'"
+    }
+    example "The IBANs in the consent object are not used as resource ids" @MVP +nominal {
+      given "the consent object"
+      when "A builds its account views"
+      then "it waits for GET /v1/accounts to learn the resourceIds and never puts an IBAN in a path"
+    }
+  }
+}

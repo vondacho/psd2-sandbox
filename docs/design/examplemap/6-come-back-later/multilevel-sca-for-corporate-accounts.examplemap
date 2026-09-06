@@ -1,0 +1,76 @@
+// Example map for the story "Multilevel SCA for corporate accounts" (activity
+// "Come back later", step "Revoke or renew the consent"). Not committed to a
+// delivery. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Multilevel SCA for corporate accounts" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Multilevel SCA for corporate accounts" ~analysing +bank-b-xs2a +bank-b-ciam +"spec 6.3.4" +"spec 7" {
+    as "PSU"
+    want "a consent on a corporate account authorised by every required signer"
+    so "company accounts can be connected too"
+    question "How does the second signer learn that a consent waits for them: a push, an entry in online banking, or does the TPP have to start the second authorisation explicitly?" +"ask bank-b"
+    question "How long may a consent stay partiallyAuthorised before it is rejected?" +"ask bank-b" +"spec 14.15"
+    question "Is the OAuth2 code flow run once per signer, each with a scope AIS:<consentId>, and does the TPP get one token or one per signer?" +"ask f" +"spec 13"
+  }
+
+  rule "A corporate account that needs two signers makes the consent partiallyAuthorised after the first SCA and valid after the second" +"spec 6.3.4" {
+    example "Two signers" +nominal {
+      given "the corporate account DE44… of Muster GmbH needs signers Anna and Ben, and consent 900cons001 by A with PSU-Corporate-ID muster-gmbh"
+      when "Anna completes her SCA"
+      then "authorisation auth-1 is finalised and the consent is partiallyAuthorised"
+      when "Ben completes his SCA on a second authorisation auth-2"
+      then "the consent is valid"
+    }
+    example "The same signer twice does not count" +error {
+      given "Anna finalised auth-1"
+      when "Anna starts and completes auth-2"
+      then "auth-2 is failed with 'already signed by this PSU' and the consent stays partiallyAuthorised"
+    }
+    example "A PSU who is not a signer" +error {
+      given "Carla is not a signer of Muster GmbH"
+      when "she completes an authorisation for 900cons001"
+      then "the authorisation is failed and the consent stays partiallyAuthorised"
+    }
+    example "The authorisation list shows both" +nominal {
+      given "auth-1 and auth-2 exist"
+      when "A calls GET /v1/consents/900cons001/authorisations"
+      then "the answer is {authorisationIds: [auth-1, auth-2]}"
+    }
+    example "A second authorisation is started explicitly" +nominal {
+      given "the consent is partiallyAuthorised"
+      when "A calls POST /v1/consents/900cons001/authorisations"
+      then "the answer is 201 with a new authorisationId and a scaOAuth link"
+    }
+  }
+
+  rule "While partiallyAuthorised, the consent serves nothing and A shows who is missing" +"spec 14.15" {
+    example "GET /v1/accounts while partiallyAuthorised" +error {
+      given "one of two signatures"
+      when "A calls GET /v1/accounts"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "A shows the waiting state" +nominal {
+      given "GET status answers partiallyAuthorised"
+      when "the connection page renders"
+      then "it says 'Waiting for another authorised signer of Muster GmbH'"
+    }
+  }
+
+  rule "The corporate identifier must be known and the PSU must belong to it" +"spec 14.11" {
+    example "Unknown corporate id" +error {
+      given "PSU-Corporate-ID nobody-gmbh"
+      when "POST /v1/consents is called"
+      then "the answer is 400 CORPORATE_ID_INVALID"
+    }
+    example "A private customer on a corporate consent" +error {
+      given "consent 900cons001 for muster-gmbh"
+      when "Ben's private identity logs in for it"
+      then "the CIAM shows 'This request is for a company account you cannot sign for'"
+    }
+  }
+}

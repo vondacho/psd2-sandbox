@@ -1,0 +1,88 @@
+// Example map for the story "Delete a consent from A" (activity "Come back
+// later", step "Revoke or renew the consent"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Delete a consent from A" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Delete a consent from A" ~analysing @MVP +tpp-a +bank-b-xs2a +"spec 6.4" {
+    as "PSU"
+    want "to disconnect Bank B inside A"
+    so "the consent is terminated by the TPP at the bank"
+    question "What does DELETE answer on a consent that is already revokedByPsu or expired: 204 (idempotent) or 409 STATUS_INVALID as assumed here?" +"ask bank-b" +"spec 6.4"
+  }
+
+  rule "Disconnect calls DELETE /v1/consents/{id}; Bank B sets terminatedByTpp, revokes the tokens at F, and A deletes its token set and disconnects" +"spec 6.4" {
+    example "The nominal disconnect" @MVP +nominal {
+      given "Anna's connection to bank-b connected on consent 123cons456"
+      when "she clicks 'Disconnect Bank B' and confirms"
+      then "A calls DELETE /v1/consents/123cons456 with its QWAC and X-Request-ID"
+      then "Bank B answers 204, the consent is terminatedByTpp and the revocation is posted to F"
+      then "A deletes the vault row, the connection is disconnected and the page says 'Bank B disconnected'"
+    }
+    example "GET status afterwards" @MVP +nominal {
+      given "the deletion"
+      when "A calls GET /v1/consents/123cons456/status"
+      then "the answer is terminatedByTpp"
+    }
+    example "A pending consent can be deleted" @MVP +edge {
+      given "consent 123cons456 received (Anna abandoned the SCA)"
+      when "A deletes it"
+      then "the answer is 204, the consent is terminatedByTpp and the authorisation failed"
+    }
+    example "Deleting a consent also removes it from Bank B's dashboard actions" @MVP +edge {
+      given "the deletion"
+      when "Anna opens 'Connected apps' at Bank B"
+      then "App A's row says 'ended by the app' with no Revoke button"
+    }
+  }
+
+  rule "Only the creating TPP may delete, and terminal consents are not deleted again" +security {
+    example "C deletes A's consent" @MVP +error {
+      given "C's QWAC"
+      when "DELETE /v1/consents/123cons456 is called"
+      then "the answer is 403 CONSENT_UNKNOWN and the consent stays valid"
+    }
+    example "Delete twice" @MVP +edge {
+      given "123cons456 already terminatedByTpp"
+      when "A deletes it again"
+      then "the answer is 204"
+    }
+    example "Delete a revoked consent" @MVP +edge {
+      given "123cons456 revokedByPsu"
+      when "A deletes it"
+      then "the answer is 409 STATUS_INVALID and the status stays revokedByPsu"
+    }
+    example "Delete an expired consent" @MVP +edge {
+      given "123cons456 expired"
+      when "A deletes it"
+      then "the answer is 409 STATUS_INVALID"
+    }
+    example "Delete an unknown consent" @MVP +error {
+      given "no consent 999cons000"
+      when "A deletes it"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+  }
+
+  rule "A cleans up locally whatever Bank B answers, except when Bank B is unreachable" {
+    example "409 still disconnects locally" @MVP +edge {
+      given "Bank B answers 409 STATUS_INVALID"
+      when "A handles it"
+      then "the vault row is deleted and the connection is disconnected"
+    }
+    example "403 disconnects locally and alerts" @MVP +edge {
+      given "Bank B answers 403 CONSENT_UNKNOWN"
+      when "A handles it"
+      then "the connection is disconnected and an alert is raised"
+    }
+    example "Bank B unreachable" @MVP +error {
+      given "the DELETE times out"
+      when "A handles it"
+      then "the connection stays connected, the page says 'Bank B did not answer, try again' and nothing is deleted"
+    }
+  }
+}

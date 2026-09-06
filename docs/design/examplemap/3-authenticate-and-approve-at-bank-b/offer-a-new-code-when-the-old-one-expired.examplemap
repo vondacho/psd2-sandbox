@@ -1,0 +1,83 @@
+// Example map for the story "Offer a new code when the old one expired"
+// (activity "Authenticate and approve at Bank B", step "Receive the SCA
+// challenge"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Offer a new code when the old one expired" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Offer a new code when the old one expired" ~ready @MVP +bank-b-ciam {
+    as "PSU"
+    want "to request a fresh QR without starting over"
+    so "a slow scan does not cost me the whole journey"
+  }
+
+  rule "After expiry the page offers a new code that creates a new challenge with the same dynamic link" {
+    example "New code after expiry" @MVP +nominal {
+      given "chl-01 for Main Account until 2026-12-05 expired at 09:15:00"
+      when "Anna clicks 'New code'"
+      then "chl-02 is created with the same dynamic-link hash H1, a new nonce and expiresAt 09:18:xx"
+      then "the QR page shows the new QR and the countdown restarts"
+    }
+    example "The old QR is useless after the new code" @MVP +edge {
+      given "chl-02 replaced chl-01"
+      when "the app scans the old QR of chl-01"
+      then "the app shows 'This code was replaced, scan the new one'"
+    }
+    example "The scaStatus stays started" @MVP +nominal {
+      given "chl-02 was created"
+      when "A reads the scaStatus"
+      then "the answer is started"
+    }
+    example "The account selection is not asked again" @MVP +nominal {
+      given "Anna clicks 'New code'"
+      when "the page renders"
+      then "no selection or summary page is shown in between"
+    }
+  }
+
+  rule "New code is offered only when the current challenge is over, and at most twice" {
+    example "No button while the code is live" @MVP +nominal {
+      given "chl-01 pending with 2:10 left"
+      when "the page renders"
+      then "there is no 'New code' button"
+    }
+    example "A second new code is still offered" @MVP +edge {
+      given "chl-01 and chl-02 expired"
+      when "the page renders"
+      then "'New code' is shown with 'last attempt'"
+    }
+    example "After the third expiry the journey ends" @MVP +error {
+      given "chl-01, chl-02 and chl-03 expired"
+      when "the page renders"
+      then "it shows 'The approval was not completed in time. Start again from App A.' and no 'New code'"
+      then "the authorisation is failed and the consent rejected"
+    }
+    example "A denied challenge does not offer a new code" @MVP +edge {
+      given "chl-01 denied"
+      when "the page renders"
+      then "there is no 'New code' and the refusal is shown"
+    }
+  }
+
+  rule "The session must still be alive and its PSU must still have an active device" {
+    example "New code after the session timed out" @MVP +error {
+      given "the session has been inactive for eleven minutes"
+      when "Anna clicks 'New code'"
+      then "the page shows 'Your session expired. Start again from App A.'"
+    }
+    example "New code when the last device was blocked meanwhile" @MVP +error {
+      given "Anna blocked her only active device while chl-01 was pending"
+      when "she clicks 'New code'"
+      then "the page shows 'You have no registered device to approve with' and the consent is rejected"
+    }
+    example "A direct POST to the new-code endpoint for another session is refused" @MVP +error {
+      given "session sess-1"
+      when "a browser without sess-1's cookie posts /challenge/new for sess-1"
+      then "the answer is 404"
+    }
+  }
+}

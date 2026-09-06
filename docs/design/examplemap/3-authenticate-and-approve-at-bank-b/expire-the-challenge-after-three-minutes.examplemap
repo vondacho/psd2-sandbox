@@ -1,0 +1,100 @@
+// Example map for the story "Expire the challenge after three minutes"
+// (activity "Authenticate and approve at Bank B", step "Receive the SCA
+// challenge"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Expire the challenge after three minutes" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Expire the challenge after three minutes" ~analysing @MVP +bank-b-ciam +sca +security +"RTS art. 4" {
+    as "Bank B security officer"
+    want "a challenge unusable after its lifetime and after a retry limit"
+    so "a stale QR cannot be approved later"
+    question "Is three minutes the lifetime for both AIS consents and payments, or shorter for payments?" +"ask bank-b"
+  }
+
+  rule "A challenge expires exactly 180 seconds after creation, by the server's clock" +"RTS art. 4" {
+    example "A response at 179 seconds is accepted" @MVP +nominal {
+      given "chl-01 created at 09:12:00.000Z"
+      when "a valid signature arrives at 09:14:59.000Z"
+      then "the challenge is approved"
+    }
+    example "A response at 181 seconds is refused" @MVP +error {
+      given "chl-01 created at 09:12:00.000Z"
+      when "a valid signature arrives at 09:15:01.000Z"
+      then "the SCA engine answers 410 'challenge expired'"
+      then "the status is expired"
+    }
+    example "A response at exactly 180 seconds is refused" @MVP +edge {
+      given "chl-01 created at 09:12:00.000Z"
+      when "a valid signature arrives at 09:15:00.000Z"
+      then "the SCA engine answers 410"
+    }
+    example "The device's clock does not matter" @MVP +edge {
+      given "the phone's clock is 10 minutes behind"
+      when "a signature arrives 30 seconds after creation by the server's clock"
+      then "the challenge is approved"
+    }
+    example "Expiry is applied even if nothing polled" @MVP +edge {
+      given "chl-01 created at 09:12:00 with no page polling and no app fetch"
+      when "GET /sca/challenges/chl-01 is called at 09:20:00"
+      then "the status returned is expired"
+    }
+  }
+
+  rule "A challenge is answered at most once" {
+    example "A second valid signature is refused" @MVP +error {
+      given "chl-01 is approved"
+      when "another valid signature arrives"
+      then "the SCA engine answers 409 'already answered'"
+      then "the status stays approved and the stored signature is unchanged"
+    }
+    example "An approval after a denial is refused" @MVP +error {
+      given "chl-01 is denied"
+      when "a valid signature arrives"
+      then "the SCA engine answers 409"
+      then "the status stays denied"
+    }
+  }
+
+  rule "Three invalid signatures end the challenge, and three challenges end the authorisation" +security {
+    example "Three bad signatures expire the challenge" @MVP +error {
+      given "chl-01 pending"
+      when "three signatures that do not verify arrive"
+      then "after the third the status is expired with reason 'too many attempts'"
+      then "the QR page offers 'New code'"
+    }
+    example "The third challenge of a session is the last" @MVP +error {
+      given "chl-01 and chl-02 expired for session sess-1 and chl-03 is pending"
+      when "chl-03 expires"
+      then "no 'New code' is offered, the authorisation is failed and the consent rejected"
+    }
+    example "A good signature after two bad ones is accepted" @MVP +edge {
+      given "two invalid signatures for chl-01"
+      when "a valid signature arrives"
+      then "the challenge is approved"
+    }
+    example "Invalid signatures from another PSU's device do not count against Anna" @MVP +edge {
+      given "chl-01 for Anna"
+      when "Ben's device posts three signatures"
+      then "each answers 403 and chl-01 is still pending with attempt count 0"
+    }
+  }
+
+  rule "An expired or ended challenge cannot be fetched for approval by the app" {
+    example "Fetching an expired challenge tells the app so" @MVP +error {
+      given "chl-01 expired"
+      when "the app calls GET /sca/challenges/chl-01"
+      then "the answer is 410 with status expired"
+      then "the app shows 'Code expired, request a new one on the Bank B page'"
+    }
+    example "Fetching an approved challenge tells the app so" @MVP +edge {
+      given "chl-01 approved"
+      when "the app calls GET /sca/challenges/chl-01"
+      then "the answer is 200 with status approved and no approve button is shown"
+    }
+  }
+}

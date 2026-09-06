@@ -1,0 +1,105 @@
+// Example map for the story "Verify platform attestation at enrolment"
+// (activity "Enrol a device at Bank B"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Verify platform attestation at enrolment" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Verify platform attestation at enrolment" ~analysing @Hardening +bank-b-ciam +security {
+    as "Bank B security officer"
+    want "the key attested by the platform before the device is activated"
+    so "software-only keys are refused"
+    question "Are rooted or jailbroken devices refused, and from which signal?" +"ask bank-b"
+    question "How is the Apple App Attest receipt refreshed and what happens if the refresh fails?" +"ask bank-b"
+  }
+
+  rule "The attestation statement must chain to the platform vendor's attestation root" {
+    example "A valid Apple App Attest statement is accepted" @Hardening +nominal {
+      given "a registration with an App Attest statement chaining to the Apple App Attestation Root CA"
+      when "the CIAM verifies the attestation"
+      then "the device is stored with hardwareBacked = true and attestation = apple-app-attest"
+    }
+    example "A valid Android key attestation chain is accepted" @Hardening +nominal {
+      given "a registration with a key attestation certificate chain ending at the Google hardware attestation root"
+      when "the CIAM verifies the attestation"
+      then "the device is stored with hardwareBacked = true and attestation = android-key-attestation"
+    }
+    example "A registration without attestation is refused" @Hardening +error {
+      given "a registration with no attestation field"
+      when "the CIAM verifies it"
+      then "it answers 400 'attestation required'"
+      then "no device record is created"
+    }
+    example "An attestation chaining to an unknown root is refused" @Hardening +error {
+      given "an attestation chain whose root is a self-signed test certificate"
+      when "the CIAM verifies it"
+      then "it answers 400 'attestation not trusted'"
+    }
+    example "An attestation for a different public key is refused" @Hardening +error {
+      given "an attestation that certifies key K9 while the registration presents key K1"
+      when "the CIAM verifies it"
+      then "it answers 400 'attestation does not match key'"
+      then "the event is logged as a security event"
+    }
+  }
+
+  rule "Only keys attested as hardware-backed are accepted" +"RTS art. 7" {
+    example "Android attestation with securityLevel StrongBox is accepted" @Hardening +nominal {
+      given "an attestation whose keymaster securityLevel is StrongBox"
+      when "the CIAM verifies it"
+      then "the device may be activated"
+    }
+    example "Android attestation with securityLevel TrustedEnvironment is accepted" @Hardening +edge {
+      given "an attestation whose keymaster securityLevel is TrustedEnvironment"
+      when "the CIAM verifies it"
+      then "the device may be activated"
+    }
+    example "Android attestation with securityLevel Software is refused" @Hardening +error {
+      given "an attestation whose keymaster securityLevel is Software"
+      when "the CIAM verifies it"
+      then "it answers 400 'device not supported: software key'"
+      then "the app shows 'This phone cannot be used to approve'"
+    }
+    example "A registration claiming hardwareBacked true without a matching attestation is refused" @Hardening +error {
+      given "hardwareBacked = true in the request and an attestation saying Software"
+      when "the CIAM verifies it"
+      then "the attestation wins and the registration is refused"
+    }
+  }
+
+  rule "The attestation must be fresh: it covers a nonce the CIAM issued for this registration" +security {
+    example "An attestation over the issued nonce is accepted" @Hardening +nominal {
+      given "the CIAM issued nonce n-5521 for Anna's registration 30 seconds ago"
+      when "the attestation's client data hash covers n-5521"
+      then "the attestation is accepted"
+    }
+    example "A replayed attestation is refused" @Hardening +error {
+      given "an attestation over nonce n-1000 that was already used for another registration"
+      when "it is presented again"
+      then "the CIAM answers 400 'attestation replayed'"
+    }
+    example "An attestation over a nonce older than five minutes is refused" @Hardening +error {
+      given "nonce n-5521 was issued six minutes ago"
+      when "the attestation arrives"
+      then "the CIAM answers 400 'attestation nonce expired'"
+      then "the app restarts the registration with a fresh nonce"
+    }
+  }
+
+  rule "The sandbox may accept unattested keys when configured, and marks them" +sandbox {
+    example "With attestation = optional the browser simulator is accepted and flagged" @Hardening +edge {
+      given "the sandbox CIAM runs with attestation = optional"
+      when "the browser device simulator registers a WebCrypto key without attestation"
+      then "the device is stored with hardwareBacked = false and attestation = none"
+      then "the device list shows 'simulator, not attested'"
+    }
+    example "With attestation = required the simulator is refused" @Hardening +error {
+      given "the sandbox CIAM runs with attestation = required"
+      when "the browser device simulator registers without attestation"
+      then "the CIAM answers 400 'attestation required'"
+    }
+  }
+}

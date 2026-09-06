@@ -1,0 +1,144 @@
+// Example map for the story "Validate token and consent on every call"
+// (activity "View my accounts", step "See the account list").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Validate token and consent on every call" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Validate token and consent on every call" ~ready @"Walking skeleton" +bank-b-xs2a +security +"spec 13.6" +"RFC 8705" {
+    as "Bank B security officer"
+    want "the JWT signature, audience, expiry, certificate binding and the Consent-ID match checked before any data leaves"
+    so "a token is necessary but never sufficient"
+  }
+
+  rule "The JWT must be signed by F, issued by F, addressed to Bank B's API, and within its validity" +"spec 13.6" {
+    example "A valid token passes" @"Walking skeleton" +nominal {
+      given "a token signed with F's kid f-2026, iss https://f.sandbox, aud https://api.bank-b.sandbox/psd2, exp in 5 minutes"
+      when "GET /v1/accounts is called"
+      then "the token checks pass"
+    }
+    example "A bad signature" @"Walking skeleton" +error {
+      given "a token whose payload was altered"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "alg none" @MVP +error {
+      given "a token with header alg none"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "An unknown kid" @MVP +error {
+      given "a token with kid unknown"
+      when "the call is made"
+      then "Bank B refetches the JWKS once, then answers 401 TOKEN_INVALID"
+    }
+    example "Expired" @"Walking skeleton" +error {
+      given "a token with exp one second ago"
+      when "the call is made"
+      then "the answer is 401 TOKEN_EXPIRED"
+    }
+    example "Not yet valid" @MVP +error {
+      given "a token with nbf one minute ahead"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "Wrong audience" @MVP +error {
+      given "a token with aud https://api.bank-c.sandbox/psd2"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "Wrong issuer" @MVP +error {
+      given "a token with iss https://evil.example signed with a key of evil.example"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "No Authorization header" @"Walking skeleton" +error {
+      given "no Authorization header"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "Token in the query string" @MVP +error {
+      given "GET /v1/accounts?access_token=eyJ…"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID and the token is not accepted from the URL"
+    }
+  }
+
+  rule "The token's certificate thumbprint and client id must match the presented certificate" +"RFC 8705" {
+    example "A's token over A's certificate" @"Walking skeleton" +nominal {
+      given "cnf.x5t#S256 equals the thumbprint of A's QWAC and client_id equals its organizationIdentifier"
+      when "the call is made"
+      then "the binding checks pass"
+    }
+    example "A's token over C's certificate" @"Walking skeleton" +error {
+      given "A's token presented over a TLS connection with C's QWAC"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "A's old token after a certificate rotation" @MVP +edge {
+      given "A's token bound to the old QWAC and A now presents the new QWAC"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID and A must refresh with the new certificate"
+    }
+    example "A token without cnf" @MVP +error {
+      given "a token with no cnf claim"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "A token whose client_id is not the certificate's organizationIdentifier" @MVP +error {
+      given "a token with client_id PSDDE-BAFIN-654321 bound (impossibly) to A's thumbprint"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+  }
+
+  rule "The AIS scope of the token must name the Consent-ID of the call" +"spec 13.4" {
+    example "Matching scope and header" @"Walking skeleton" +nominal {
+      given "scope AIS:123cons456 and Consent-ID 123cons456"
+      when "the call is made"
+      then "the scope check passes"
+    }
+    example "Mismatch" @"Walking skeleton" +error {
+      given "scope AIS:123cons456 and Consent-ID 111cons222"
+      when "the call is made"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "A PIS token on an AIS endpoint" @MVP +error {
+      given "scope PIS:pay001 and Consent-ID 123cons456"
+      when "GET /v1/accounts is called"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+  }
+
+  rule "The consent must exist for this TPP, be valid and within validUntil; the checks run in a fixed order and only the first failure is reported" +"spec 6" {
+    example "The order: certificate, signature, token, binding, scope, consent" @MVP +nominal {
+      given "a call with a bad token for an unknown consent"
+      when "it is refused"
+      then "the answer is 401 TOKEN_INVALID, not CONSENT_UNKNOWN"
+    }
+    example "A revoked consent with a perfectly valid token" @"Walking skeleton" +error {
+      given "consent 123cons456 revoked one second ago and a valid token"
+      when "the call is made"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Past validUntil with a valid token" @MVP +error {
+      given "validUntil 2026-12-05 and the call on 2026-12-06 00:00:01 Europe/Berlin"
+      when "the call is made"
+      then "the answer is 401 CONSENT_EXPIRED"
+    }
+    example "On validUntil itself the consent serves" @MVP +edge {
+      given "validUntil 2026-12-05 and the call on 2026-12-05 23:59:00 Europe/Berlin"
+      when "the call is made"
+      then "the answer is 200"
+    }
+    example "Every endpoint runs the same chain" @"Walking skeleton" +nominal {
+      given "GET /v1/accounts, GET /v1/accounts/{id}, GET /v1/accounts/{id}/balances, GET /v1/accounts/{id}/transactions"
+      when "each is called with A's token over C's certificate"
+      then "each answers 401 TOKEN_INVALID"
+    }
+  }
+}

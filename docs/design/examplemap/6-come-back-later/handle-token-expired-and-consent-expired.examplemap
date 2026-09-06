@@ -1,0 +1,111 @@
+// Example map for the story "Handle TOKEN_EXPIRED and CONSENT_EXPIRED"
+// (activity "Come back later", step "Reuse the connection").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Handle TOKEN_EXPIRED and CONSENT_EXPIRED" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Handle TOKEN_EXPIRED and CONSENT_EXPIRED" ~ready @MVP +tpp-a +"spec 14.11" {
+    as "TPP operator"
+    want "A to map the XS2A error codes to refresh, re-consent or alert"
+    so "the PSU sees the right next step"
+  }
+
+  rule "Each XS2A error code maps to one action on the connection and one message" +"spec 14.11" {
+    example "401 TOKEN_EXPIRED: refresh and retry" @MVP +nominal {
+      given "Bank B answers 401 TOKEN_EXPIRED"
+      when "A handles it"
+      then "A refreshes and retries once; the PSU sees nothing"
+    }
+    example "401 TOKEN_INVALID: alert" @MVP +error {
+      given "Bank B answers 401 TOKEN_INVALID"
+      when "A handles it"
+      then "the connection is failed, an alert 'token rejected by bank-b: TOKEN_INVALID' is raised"
+      then "the PSU sees 'Something went wrong with Bank B (ref)'"
+    }
+    example "401 CONSENT_EXPIRED: re-consent" @MVP +nominal {
+      given "Bank B answers 401 CONSENT_EXPIRED"
+      when "A handles it"
+      then "the token set is deleted, the connection is needsReconsent with reason expired"
+      then "the PSU sees 'Your connection to Bank B ended. Reconnect.'"
+    }
+    example "401 CONSENT_INVALID: re-consent" @MVP +nominal {
+      given "Bank B answers 401 CONSENT_INVALID"
+      when "A handles it"
+      then "the connection is needsReconsent with reason revoked"
+      then "the PSU sees 'Access was withdrawn at Bank B. Reconnect to share again.'"
+    }
+    example "403 CONSENT_UNKNOWN: re-consent and alert" @MVP +error {
+      given "Bank B answers 403 CONSENT_UNKNOWN"
+      when "A handles it"
+      then "the connection is needsReconsent and an alert 'consent unknown at bank-b' is raised"
+    }
+    example "429 ACCESS_EXCEEDED: back off" @MVP +nominal {
+      given "Bank B answers 429 ACCESS_EXCEEDED on a background call"
+      when "A handles it"
+      then "the scheduler skips this connection until the next day"
+      then "PSU-present calls remain allowed"
+    }
+    example "401 CERTIFICATE_REVOKED: pause the bank" @MVP +error {
+      given "Bank B answers 401 CERTIFICATE_REVOKED"
+      when "A handles it"
+      then "every background call to bank-b is paused and a critical alert is raised"
+      then "PSUs see 'Bank B is temporarily unavailable'"
+    }
+    example "401 ROLE_INVALID: alert" @MVP +error {
+      given "Bank B answers 401 ROLE_INVALID"
+      when "A handles it"
+      then "a critical alert is raised and the call is not retried"
+    }
+    example "400 FORMAT_ERROR: bug" @MVP +error {
+      given "Bank B answers 400 FORMAT_ERROR with path withBalance"
+      when "A handles it"
+      then "an alert with the path is raised and the call is not retried"
+    }
+    example "503: retry with backoff" @MVP +error {
+      given "Bank B answers 503 three times"
+      when "A handles it"
+      then "A retries after 1, 2 and 4 seconds, then shows 'Bank B is temporarily unavailable'"
+    }
+    example "An unknown code" @MVP +edge {
+      given "Bank B answers 401 with code SOMETHING_NEW"
+      when "A handles it"
+      then "A treats it like TOKEN_INVALID and the alert names SOMETHING_NEW"
+    }
+  }
+
+  rule "The error body is parsed as tppMessages; a malformed body is treated by status code" +"spec 4.13" {
+    example "A well-formed body" @MVP +nominal {
+      given "{tppMessages: [{category: ERROR, code: CONSENT_EXPIRED, text: 'consent expired'}]}"
+      when "A parses it"
+      then "the code is CONSENT_EXPIRED and the text is logged"
+    }
+    example "An HTML body with 502" @MVP +edge {
+      given "a 502 with an HTML body"
+      when "A parses it"
+      then "A treats it as a transient failure"
+    }
+    example "Two messages: the first ERROR wins" @MVP +edge {
+      given "tppMessages with a WARNING then an ERROR CONSENT_INVALID"
+      when "A parses it"
+      then "the action is re-consent"
+    }
+  }
+
+  rule "A never loops: one refresh, one retry, then a decision" {
+    example "TOKEN_EXPIRED twice" @MVP +edge {
+      given "TOKEN_EXPIRED after a successful refresh"
+      when "A handles the second"
+      then "no second refresh; the connection is failed with an alert"
+    }
+    example "A 503 during the retry of a TOKEN_EXPIRED" @MVP +edge {
+      given "the retried call answers 503"
+      when "A handles it"
+      then "the 503 backoff applies once, then the failure is shown"
+    }
+  }
+}

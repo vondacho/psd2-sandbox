@@ -1,0 +1,96 @@
+// Example map for the story "Initiate a payment with the same infrastructure"
+// (activity "Come back later", step "Revoke or renew the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Initiate a payment with the same infrastructure" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Initiate a payment with the same infrastructure" ~analysing @Hardening +tpp-a +bank-b-xs2a +oidc-f +pis +"spec 5.1.5" {
+    as "PSU"
+    want "to pay from a connected account with the same QR approval"
+    so "Bank B is PISP compliant with one SCA journey"
+    question "In a combined AIS+PIS session, for how long after the consent SCA may the payment skip the first factor?" +"ask bank-b" +"spec 9"
+    question "Which payment products does the sandbox offer beyond sepa-credit-transfers: instant-sepa-credit-transfers?" +"ask product"
+  }
+
+  rule "POST /v1/payments/{product} with a PISP certificate creates a payment in status RCVD with an implicit authorisation and a scaOAuth link" +"spec 5.1.5" {
+    example "A SEPA credit transfer" @Hardening +nominal {
+      given "A's QWAC with PSP_PI and the body {instructedAmount: {currency: EUR, amount: '12.50'}, debtorAccount: {iban: DE23100100100123456789}, creditorName: 'Payee X', creditorAccount: {iban: DE89370400440532013000}, remittanceInformationUnstructured: 'Invoice 42'}"
+      when "A calls POST /v1/payments/sepa-credit-transfers"
+      then "the answer is 201 {transactionStatus: RCVD, paymentId: pay001, _links: {scaOAuth, scaStatus, self, status}} with ASPSP-SCA-Approach REDIRECT"
+    }
+    example "An AISP-only certificate" @Hardening +error {
+      given "a QWAC with PSP_AI only"
+      when "the payment is posted"
+      then "the answer is 401 ROLE_INVALID"
+    }
+    example "An unknown product" @Hardening +error {
+      given "POST /v1/payments/space-credit-transfers"
+      when "it is called"
+      then "the answer is 404 PRODUCT_UNKNOWN"
+    }
+    example "A zero amount" @Hardening +error {
+      given "amount '0.00'"
+      when "the payment is posted"
+      then "the answer is 400 FORMAT_ERROR with path instructedAmount.amount"
+    }
+    example "A negative amount" @Hardening +error {
+      given "amount '-5.00'"
+      when "the payment is posted"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "An invalid debtor IBAN" @Hardening +error {
+      given "debtorAccount.iban DE00000000000000000000"
+      when "the payment is posted"
+      then "the answer is 400 FORMAT_ERROR with path debtorAccount.iban"
+    }
+  }
+
+  rule "The same OAuth2 and SCA journey runs with scope PIS:<paymentId>; the CIAM and the app show the payment, and the dynamic link covers amount, payee and payment id" +"RTS art. 5" {
+    example "The payment journey" @Hardening +nominal {
+      given "payment pay001"
+      when "A redirects to F with scope PIS:pay001 and Anna logs in at Bank B"
+      then "the CIAM shows 'App A wants to pay 12.50 EUR to Payee X from Main Account'"
+      then "the challenge hash covers 'pay001|PSDDE-BAFIN-123456|12.50 EUR|DE89370400440532013000|Payee X'"
+      then "the app shows 'Pay 12.50 EUR to Payee X from Main Account' and Anna approves with Face ID"
+      then "F issues a token with scope PIS:pay001 and the payment moves to ACCP"
+    }
+    example "An AIS approval cannot be replayed for a payment" @Hardening +error {
+      given "a valid signature over an AIS challenge of Anna"
+      when "it is posted for the payment challenge"
+      then "the SCA engine answers 400 'signature invalid'"
+    }
+    example "F validates the PIS scope against the payment" @Hardening +error {
+      given "scope PIS:pay999 for an unknown payment"
+      when "A requests it"
+      then "F redirects with error=invalid_scope"
+    }
+    example "The payment status" @Hardening +nominal {
+      given "the approved payment"
+      when "A calls GET /v1/payments/sepa-credit-transfers/pay001/status with the PIS token"
+      then "the answer is {transactionStatus: ACCP}"
+    }
+    example "A denied payment" @Hardening +error {
+      given "Anna rejects in the app"
+      when "A reads the status"
+      then "the answer is {transactionStatus: RJCT}"
+    }
+  }
+
+  rule "A combined service session reuses the consent's first factor" +"spec 9" {
+    example "Payment right after the consent" @Hardening +edge {
+      given "consent 123cons456 created with combinedServiceIndicator true and authorised two minutes ago"
+      when "A posts a payment with Consent-ID 123cons456 and starts the PIS authorization"
+      then "the CIAM skips the login and goes straight to the payment summary and the QR"
+    }
+    example "Without the indicator the login is asked again" @Hardening +nominal {
+      given "a consent with combinedServiceIndicator false"
+      when "A starts a payment"
+      then "the CIAM asks for the password again"
+    }
+  }
+}

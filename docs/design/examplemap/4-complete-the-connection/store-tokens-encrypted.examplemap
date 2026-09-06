@@ -1,0 +1,97 @@
+// Example map for the story "Store tokens encrypted" (activity "Complete the
+// connection", step "Exchange the code for tokens").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Store tokens encrypted" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Store tokens encrypted" ~analysing @MVP +tpp-a +security {
+    as "TPP operator"
+    want "tokens encrypted at rest and keyed by PSU, bank and consent"
+    so "a database leak does not expose bank access"
+    question "Which KMS does the sandbox use: a local software KMS container, or a cloud KMS emulator?" +"ask sandbox"
+  }
+
+  rule "Tokens are encrypted with a KMS-managed key (AES-256-GCM, envelope) and stored under (user, bank, consent)" {
+    example "A stored token set" @MVP +nominal {
+      given "the token response for anna, bank-b, 123cons456"
+      when "A stores it"
+      then "the vault row has key (anna, bank-b, 123cons456), a ciphertext, a wrapped data key, the KMS key id kms-tokens-1 and accessExpiresAt"
+      then "the row contains neither 'eyJ' nor the refresh token in clear"
+    }
+    example "A database dump shows ciphertext only" @MVP +nominal {
+      given "the vault table"
+      when "it is dumped with pg_dump"
+      then "no line contains an access or refresh token in clear"
+    }
+    example "Reading through the vault returns the tokens" @MVP +nominal {
+      given "the stored row"
+      when "the XS2A client asks the vault for (anna, bank-b, 123cons456)"
+      then "it receives the access token and the refresh token in clear, in memory only"
+    }
+    example "A tampered ciphertext is refused" @MVP +error {
+      given "one byte of the ciphertext flipped in the database"
+      when "the vault reads the row"
+      then "decryption fails with an integrity error and the connection is marked needsReconsent"
+    }
+  }
+
+  rule "Tokens never appear in logs, sessions, cookies or error messages" +security {
+    example "Logs redact tokens" @MVP +nominal {
+      given "a debug log of an XS2A call"
+      when "the log line is inspected"
+      then "the Authorization header reads 'Bearer [redacted]'"
+    }
+    example "An exception message does not carry the token" @MVP +edge {
+      given "F answers 500 during a refresh"
+      when "the error is logged"
+      then "the log holds the status and the request id, not the refresh token"
+    }
+    example "The browser session holds a vault reference only" @MVP +nominal {
+      given "Anna's session at A"
+      when "the session store is inspected"
+      then "it holds no token, only connection ids"
+    }
+  }
+
+  rule "One token set per connection; a new set replaces the old and the old refresh token is revoked at F" {
+    example "A reconnect replaces the set" @MVP +nominal {
+      given "the vault holds R1 for (anna, bank-b, 111cons222)"
+      when "the reconnect stores R2 for (anna, bank-b, 123cons456)"
+      then "the row for 111cons222 is deleted and A calls POST https://f.sandbox/revoke with R1"
+    }
+    example "A refresh updates the set in place" @MVP +nominal {
+      given "the vault holds R1"
+      when "a refresh returns R2"
+      then "the row holds R2 and R1 is gone"
+    }
+  }
+
+  rule "Tokens are deleted when the consent ends, and the KMS being down fails closed" {
+    example "CONSENT_EXPIRED deletes the set" @MVP +nominal {
+      given "Bank B answered 401 CONSENT_EXPIRED"
+      when "A processes it"
+      then "the vault row for (anna, bank-b, 123cons456) is deleted"
+    }
+    example "Disconnect deletes the set" @MVP +nominal {
+      given "Anna disconnects Bank B"
+      when "A processes it"
+      then "the vault row is deleted"
+    }
+    example "KMS unavailable" @MVP +error {
+      given "the KMS answers 503"
+      when "the vault is asked to store a token set"
+      then "the store fails with 503 and nothing is written in clear"
+      then "Anna sees 'Please try again in a moment'"
+    }
+    example "Key rotation re-encrypts lazily" @MVP +edge {
+      given "the KMS key rotated to kms-tokens-2"
+      when "a row encrypted under kms-tokens-1 is read"
+      then "it decrypts, and on the next write it is stored under kms-tokens-2"
+    }
+  }
+}

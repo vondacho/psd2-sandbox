@@ -1,0 +1,82 @@
+// Example map for the story "Use a pairwise subject" (activity "Complete the
+// connection", step "Exchange the code for tokens").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Use a pairwise subject" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Use a pairwise subject" ~analysing @MVP +oidc-f +security +"OIDC Core 8" {
+    as "PSU"
+    want "F to give A a pseudonymous identifier instead of my bank customer id"
+    so "A cannot correlate me across banks"
+    question "If a TPP registers two clients (two brands) with the same QWAC, do they share a sector identifier and therefore the same sub?" +"ask f"
+  }
+
+  rule "The subject is a keyed hash of the sector identifier of the client and the bank's PSU identifier, stable per client and different per client" +"OIDC Core 8" {
+    example "Anna through A" @MVP +nominal {
+      given "client A with sector identifier a.tpp.sandbox and Anna's bank subject anna.mueller"
+      when "F issues a token"
+      then "sub is 8f6c2b1e-…"
+    }
+    example "Anna through A again, months later" @MVP +nominal {
+      given "the same client and PSU"
+      when "F issues a token for a new consent"
+      then "sub is again 8f6c2b1e-…"
+    }
+    example "Anna through C" @MVP +nominal {
+      given "client C with sector identifier c.tpp.sandbox"
+      when "F issues a token for Anna"
+      then "sub differs from 8f6c2b1e-…"
+    }
+    example "Ben through A" @MVP +nominal {
+      given "client A and ben.weber"
+      when "F issues a token"
+      then "sub differs from Anna's"
+    }
+    example "The salt is secret and rotates never" @MVP +edge {
+      given "the pairwise salt"
+      when "it is inspected"
+      then "it is a 256-bit value held in F's KMS, and rotating it is documented as breaking every stored sub"
+    }
+  }
+
+  rule "The bank PSU-ID never reaches the TPP" +security {
+    example "Not in the access token" @MVP +nominal {
+      given "the access token"
+      when "its claims are listed"
+      then "none equals anna.mueller"
+    }
+    example "Not in the token response" @MVP +nominal {
+      given "the token response body"
+      when "it is inspected"
+      then "it holds no psu_id or id_token"
+    }
+    example "Not at /userinfo" @MVP +edge {
+      given "A calls GET https://f.sandbox/userinfo with the access token"
+      when "F answers"
+      then "the body is {sub: 8f6c2b1e-…} only"
+    }
+    example "Not in an error" @MVP +edge {
+      given "a failing refresh"
+      when "F answers invalid_grant"
+      then "error_description names no PSU"
+    }
+  }
+
+  rule "Bank B serves data from the consent, not from the subject" {
+    example "The XS2A API finds the PSU through the consent" @MVP +nominal {
+      given "GET /v1/accounts with a token whose sub is 8f6c2b1e-… and Consent-ID 123cons456"
+      when "Bank B resolves the accounts"
+      then "it uses consent 123cons456's psuId anna.mueller and never maps sub back"
+    }
+    example "A token with a forged sub changes nothing" @MVP +error {
+      given "a token whose sub was altered (and therefore fails signature)"
+      when "GET /v1/accounts is called"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+  }
+}

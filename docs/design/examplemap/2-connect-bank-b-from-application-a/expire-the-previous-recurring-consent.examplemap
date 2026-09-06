@@ -1,0 +1,94 @@
+// Example map for the story "Expire the previous recurring consent" (activity
+// "Connect Bank B from application A", step "Request the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Expire the previous recurring consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Expire the previous recurring consent" ~analysing @MVP +bank-b-xs2a +"spec 6.3.1.1" {
+    as "PSU"
+    want "an older recurring consent from the same TPP to expire when the new one is authorised"
+    so "I never have two live consents for the same app"
+    question "The story says expire, the state machine of the design says terminatedByTpp: which status does the replaced consent get, and what does the spec's wording in 6.3.1.1 require?" +"ask bank-b" +"spec 6.3.1.1" +"spec 14.15"
+    question "Is a consent replaced only when its access is the same kind (both bank-offered), or any recurring consent of that TPP for that PSU?" +"ask bank-b"
+  }
+
+  rule "When a new recurring consent of the same TPP for the same PSU becomes valid, the former valid recurring consent is terminated" +"spec 6.3.1.1" {
+    example "The old consent is terminated the moment the new one turns valid" @MVP +nominal {
+      given "consent 111cons222 of A for Anna is valid until 2026-10-01"
+      given "consent 123cons456 of A for Anna is received and Anna completes SCA"
+      when "123cons456 becomes valid"
+      then "111cons222 has status terminatedByTpp"
+      then "GET /v1/accounts with Consent-ID 111cons222 answers 401 CONSENT_INVALID"
+      then "the tokens of 111cons222 are revoked at F"
+    }
+    example "A new consent that is rejected leaves the old one untouched" @MVP +edge {
+      given "111cons222 is valid and 123cons456 is received"
+      when "Anna denies the challenge for 123cons456"
+      then "123cons456 is rejected and 111cons222 is still valid"
+    }
+    example "While the new consent is only received, both exist" @MVP +edge {
+      given "111cons222 is valid"
+      when "123cons456 is created and not yet authorised"
+      then "111cons222 is still valid and 123cons456 is received"
+    }
+    example "The PSU is only known after login, so replacement is decided at that moment" @MVP +edge {
+      given "111cons222 belongs to Anna and 123cons456 was created without PSU-ID"
+      when "Ben logs in and authorises 123cons456"
+      then "123cons456 belongs to Ben and 111cons222 of Anna is untouched"
+    }
+  }
+
+  rule "Only consents of the same TPP and the same PSU are affected" {
+    example "C's consent for Anna survives A's new consent" @MVP +nominal {
+      given "consent 333cons444 of C for Anna is valid"
+      when "A's 123cons456 for Anna becomes valid"
+      then "333cons444 is still valid"
+    }
+    example "A's consent for Ben survives A's new consent for Anna" @MVP +nominal {
+      given "consent 555cons666 of A for Ben is valid"
+      when "A's 123cons456 for Anna becomes valid"
+      then "555cons666 is still valid"
+    }
+    example "Two valid recurring consents of A for Anna never coexist" @MVP +nominal {
+      given "A's 123cons456 for Anna became valid"
+      when "consent management lists A's valid consents for Anna"
+      then "exactly one is returned"
+    }
+  }
+
+  rule "One-off consents neither replace nor are replaced" {
+    example "A new one-off consent leaves the recurring one valid" @MVP +edge {
+      given "111cons222 recurring is valid"
+      when "a one-off consent 777cons888 of A for Anna becomes valid"
+      then "111cons222 is still valid"
+    }
+    example "A new recurring consent leaves an unused one-off consent valid" @MVP +edge {
+      given "one-off consent 777cons888 of A for Anna is valid and unused"
+      when "recurring 123cons456 becomes valid"
+      then "777cons888 is still valid"
+    }
+  }
+
+  rule "A learns the replacement from the status of the old consent, and swaps the connection's consent" {
+    example "A stores the new consent on the same connection" @MVP +nominal {
+      given "Anna's connection to bank-b held 111cons222"
+      when "the reconnect with 123cons456 completes"
+      then "the connection holds 123cons456, the token set of 123cons456, and state connected"
+    }
+    example "A revokes its old refresh token at F when swapping" @MVP +edge {
+      given "the connection swapped from 111cons222 to 123cons456"
+      when "A finishes the swap"
+      then "A calls POST /revoke at F for the refresh token of 111cons222"
+    }
+    example "GET status on the old consent answers terminatedByTpp" @MVP +nominal {
+      given "111cons222 was replaced"
+      when "A calls GET /v1/consents/111cons222/status"
+      then "the answer is terminatedByTpp"
+    }
+  }
+}

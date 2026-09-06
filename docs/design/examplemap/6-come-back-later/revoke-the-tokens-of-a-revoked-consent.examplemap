@@ -1,0 +1,88 @@
+// Example map for the story "Revoke the tokens of a revoked consent" (activity
+// "Come back later", step "Revoke or renew the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Revoke the tokens of a revoked consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Revoke the tokens of a revoked consent" ~ready @MVP +bank-b-xs2a +oidc-f {
+    as "Bank B product owner"
+    want "F to revoke the refresh and access tokens when a consent is revoked, expires or is deleted"
+    so "no token outlives its consent"
+  }
+
+  rule "Whenever a consent leaves the valid status, consent management tells F, and F revokes every token of the consent's grant" {
+    example "Revoked by the PSU" @MVP +nominal {
+      given "grant g1 for 123cons456 with refresh token R1 and access token T1"
+      when "the consent becomes revokedByPsu"
+      then "consent management posts /internal/tokens/revoke?consent_id=123cons456"
+      then "F marks g1 revoked; a refresh with R1 answers invalid_grant and introspection of T1 says active false"
+    }
+    example "Expired at midnight" @MVP +nominal {
+      given "validUntil 2026-12-05"
+      when "the expiry job runs at 2026-12-06 00:00 Europe/Berlin"
+      then "the consent is expired and the revocation is posted to F"
+    }
+    example "Deleted by the TPP" @MVP +nominal {
+      given "A calls DELETE /v1/consents/123cons456"
+      when "the consent becomes terminatedByTpp"
+      then "the revocation is posted to F"
+    }
+    example "Replaced by a new recurring consent" @MVP +nominal {
+      given "111cons222 replaced by 123cons456"
+      when "111cons222 becomes terminatedByTpp"
+      then "the revocation for 111cons222 is posted, and g2 of 123cons456 is untouched"
+    }
+    example "Rejected before any token" @MVP +edge {
+      given "consent 123cons456 rejected and no grant"
+      when "the revocation is posted"
+      then "F answers 204 and nothing changes"
+    }
+  }
+
+  rule "Revocation is idempotent and resilient" {
+    example "Posted twice" @MVP +edge {
+      given "g1 already revoked"
+      when "the revocation is posted again"
+      then "F answers 204"
+    }
+    example "F down" @MVP +error {
+      given "F answers 503"
+      when "the revocation is posted"
+      then "consent management queues it and retries with backoff 1, 2, 4, 8 minutes until 200 or 204"
+      then "meanwhile the XS2A API already refuses the consent, so no data leaks"
+    }
+    example "The internal endpoint needs Bank B's client credentials" @MVP +error {
+      given "a revocation posted without credentials"
+      when "F handles it"
+      then "the answer is 401 and nothing is revoked"
+    }
+  }
+
+  rule "A revoked grant is dead in every way" +security {
+    example "Refresh after revocation" @MVP +error {
+      given "g1 revoked"
+      when "A refreshes with R1"
+      then "F answers 400 invalid_grant"
+    }
+    example "Access token still within exp after revocation" @MVP +error {
+      given "T1 with 8 minutes left and the consent revoked"
+      when "A calls GET /v1/accounts with T1"
+      then "the answer is 401 CONSENT_INVALID within one second of the revocation"
+    }
+    example "Introspection" @MVP +nominal {
+      given "T1 after revocation"
+      when "Bank B calls POST https://f.sandbox/introspect with T1"
+      then "the answer is {active: false}"
+    }
+    example "A code not yet redeemed for the revoked consent" @MVP +edge {
+      given "an authorization code issued for 123cons456 seconds before the revocation"
+      when "A redeems it"
+      then "F answers invalid_grant"
+    }
+  }
+}

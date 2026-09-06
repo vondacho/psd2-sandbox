@@ -1,0 +1,100 @@
+// Example map for the story "Render the account list" (activity "View my
+// accounts", step "See the account list"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Render the account list" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Render the account list" ~ready @"Walking skeleton" +tpp-a {
+    as "PSU"
+    want "a list with name, IBAN, currency and balance"
+    so "I can pick an account"
+  }
+
+  rule "Each account is a row with its name, its IBAN in groups of four, its currency and its closingBooked balance when present, linking to its details" {
+    example "Two accounts with balances" @"Walking skeleton" +nominal {
+      given "GET /v1/accounts?withBalance=true returned Main Account DE23100100100123456789 EUR 1250.30 and Savings DE89370400440532013000 EUR 5000.00"
+      when "the list renders"
+      then "row 1 is 'Main Account, DE23 1001 0010 0123 4567 89, EUR 1,250.30' linking to /banks/bank-b/accounts/3dc3d5b3-…"
+      then "row 2 is 'Savings, DE89 3704 0044 0532 0130 00, EUR 5,000.00'"
+    }
+    example "No balance consented" @MVP +edge {
+      given "the answer has no balances"
+      when "the list renders"
+      then "the balance column shows '—' and a note 'balances not shared'"
+    }
+    example "A negative balance" @MVP +edge {
+      given "closingBooked -12.50"
+      when "the list renders"
+      then "the balance reads 'EUR -12.50' in the negative style"
+    }
+    example "displayName preferred over name" @MVP +edge {
+      given "an account with name 'Girokonto' and displayName 'Haushalt'"
+      when "the list renders"
+      then "the row shows 'Haushalt'"
+    }
+    example "A closed account" @MVP +edge {
+      given "an account with status deleted"
+      when "the list renders"
+      then "the row is shown greyed with 'closed' and does not link to details"
+    }
+  }
+
+  rule "The list is fetched with the PSU present, cached as account views with a timestamp, and refreshable" +"spec 4.8" {
+    example "Opening the list calls Bank B with PSU-IP-Address" @"Walking skeleton" +nominal {
+      given "Anna clicks 'View accounts'"
+      when "A calls GET /v1/accounts"
+      then "the call carries PSU-IP-Address"
+      then "the page shows 'as of 09:15'"
+    }
+    example "Refresh re-reads" @MVP +nominal {
+      given "the list shown as of 09:15"
+      when "Anna clicks 'Refresh' at 09:20"
+      then "A calls Bank B again and the page shows 'as of 09:20'"
+    }
+    example "The cached views are shown while Bank B is slow" @MVP +edge {
+      given "views from 09:15 and Bank B taking 8 seconds"
+      when "Anna opens the list"
+      then "the cached rows are shown at once with 'updating…', then replaced"
+    }
+  }
+
+  rule "Errors from Bank B become a message and the right next step" +"spec 14.11" {
+    example "CONSENT_EXPIRED" @MVP +error {
+      given "Bank B answers 401 CONSENT_EXPIRED"
+      when "the list renders"
+      then "it shows 'Your connection to Bank B ended. Reconnect to see your accounts.' with 'Reconnect'"
+    }
+    example "ACCESS_EXCEEDED" @MVP +error {
+      given "Bank B answers 429 ACCESS_EXCEEDED"
+      when "the list renders"
+      then "it shows the cached rows with 'Bank B limits how often we may ask today; try again later'"
+    }
+    example "503" @MVP +error {
+      given "Bank B answers 503"
+      when "the list renders"
+      then "it shows 'Bank B is temporarily unavailable' and the cached rows if any"
+    }
+    example "TOKEN_EXPIRED is invisible to the PSU" @MVP +edge {
+      given "Bank B answers 401 TOKEN_EXPIRED and the refresh succeeds"
+      when "the list renders"
+      then "the rows are shown normally"
+    }
+  }
+
+  rule "Only a connected connection shows accounts" {
+    example "A disconnected bank" @"Walking skeleton" +error {
+      given "the connection to bank-b is disconnected"
+      when "Anna opens /banks/bank-b/accounts"
+      then "the page shows 'Bank B is not connected' with 'Connect'"
+    }
+    example "Another user's connection" @"Walking skeleton" +error {
+      given "Ben opens /banks/bank-b/accounts while only Anna is connected"
+      when "the page renders"
+      then "Ben sees 'Bank B is not connected', never Anna's accounts"
+    }
+  }
+}

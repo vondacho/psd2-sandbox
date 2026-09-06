@@ -1,0 +1,111 @@
+// Example map for the story "Register the TPP client at F" (activity "Connect
+// Bank B from application A", step "Start the authorization at F").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Register the TPP client at F" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Register the TPP client at F" ~analysing @"Walking skeleton" +oidc-f +"spec 13.1" +"RFC 8705" {
+    as "TPP operator"
+    want "a client whose id is the QWAC organizationIdentifier, bound to the certificate and redirect URIs"
+    so "F can authenticate A by mTLS"
+    question "Is registration manual by Bank B's operator, or does F offer dynamic registration authenticated with the QWAC?" +"ask f"
+  }
+
+  rule "The client id is the organizationIdentifier of the QWAC and the client authenticates with tls_client_auth" +"spec 13.1" +"RFC 8705" {
+    example "A is registered and authenticates with its QWAC" @"Walking skeleton" +nominal {
+      given "client PSDDE-BAFIN-123456 registered with tls_client_auth_subject_dn 'organizationIdentifier=PSDDE-BAFIN-123456,O=A Fintech GmbH,C=DE'"
+      when "A calls POST /token over mTLS with its QWAC"
+      then "F authenticates the client as PSDDE-BAFIN-123456"
+    }
+    example "C's certificate cannot act as client A" @"Walking skeleton" +error {
+      given "C presents its QWAC (PSDDE-BAFIN-654321) with client_id PSDDE-BAFIN-123456"
+      when "C calls POST /token"
+      then "F answers 401 invalid_client"
+    }
+    example "An unregistered client id is refused at /authorize" @"Walking skeleton" +error {
+      given "client_id PSDDE-BAFIN-000000 is not registered"
+      when "the browser hits /authorize"
+      then "F shows an error page 'unknown client' and does not redirect"
+    }
+    example "A client id that differs from the certificate's organizationIdentifier is refused" @MVP +error {
+      given "a certificate with organizationIdentifier PSDDE-BAFIN-123456 and a registration attempt with client_id 'app-a'"
+      when "the registration is submitted"
+      then "F refuses with 'client_id must equal the organizationIdentifier'"
+    }
+    example "A token request without client certificate is refused" @"Walking skeleton" +error {
+      given "a POST /token without TLS client certificate"
+      when "F handles it"
+      then "the answer is 401 invalid_client"
+    }
+  }
+
+  rule "Redirect URIs are registered and matched exactly" +"spec 4.10" {
+    example "The registered callback matches" @"Walking skeleton" +nominal {
+      given "registered https://a.tpp.sandbox/xs2a/callback/bank-b and https://a.tpp.sandbox/xs2a/callback/bank-b?outcome=nok"
+      when "/authorize is called with redirect_uri https://a.tpp.sandbox/xs2a/callback/bank-b"
+      then "the request is accepted"
+    }
+    example "A different path is refused without redirect" @"Walking skeleton" +error {
+      given "the same registration"
+      when "/authorize is called with redirect_uri https://a.tpp.sandbox/xs2a/callback/other"
+      then "F shows an error page and does not redirect anywhere"
+    }
+    example "An added query parameter is refused" @MVP +error {
+      given "the same registration"
+      when "/authorize is called with redirect_uri https://a.tpp.sandbox/xs2a/callback/bank-b?x=1"
+      then "F shows an error page"
+    }
+    example "A different scheme is refused" @MVP +error {
+      given "the same registration"
+      when "/authorize is called with redirect_uri http://a.tpp.sandbox/xs2a/callback/bank-b"
+      then "F shows an error page"
+    }
+    example "Case differs in the host only: accepted" @MVP +edge {
+      given "the same registration"
+      when "/authorize is called with redirect_uri https://A.TPP.SANDBOX/xs2a/callback/bank-b"
+      then "the request is accepted, hosts compare case-insensitively"
+    }
+  }
+
+  rule "The client's PSD2 roles come from the QWAC and gate the scope kinds" +"spec 13.1" {
+    example "A with AISP may request AIS scopes" @"Walking skeleton" +nominal {
+      given "client A registered with roles AISP, PISP"
+      when "/authorize is called with scope AIS:123cons456"
+      then "the scope kind is allowed"
+    }
+    example "C with PISP only may not request AIS scopes" @MVP +error {
+      given "client C registered with role PISP"
+      when "/authorize is called with scope AIS:123cons456"
+      then "F redirects with error=invalid_scope"
+    }
+    example "Roles are re-read when the certificate is rotated" @MVP +edge {
+      given "A's new QWAC carries AISP only"
+      when "the binding is updated"
+      then "the client's roles are AISP"
+      then "a PIS scope request is refused"
+    }
+  }
+
+  rule "A client may hold more than one certificate binding so certificates can rotate" {
+    example "A second QWAC with the same organizationIdentifier is added" @MVP +edge {
+      given "client A bound to certificate thumbprint T1"
+      when "the operator adds the new QWAC with thumbprint T2"
+      then "both T1 and T2 authenticate client A"
+    }
+    example "A certificate with another organizationIdentifier cannot be bound" @MVP +error {
+      given "client A"
+      when "the operator tries to bind C's QWAC"
+      then "F refuses with 'organizationIdentifier mismatch'"
+    }
+    example "Removing the old binding stops the old certificate" @MVP +nominal {
+      given "client A bound to T1 and T2"
+      when "T1 is removed"
+      then "a token request with the T1 certificate answers invalid_client"
+    }
+  }
+}

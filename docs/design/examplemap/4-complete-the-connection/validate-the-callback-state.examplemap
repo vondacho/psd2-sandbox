@@ -1,0 +1,100 @@
+// Example map for the story "Validate the callback state" (activity "Complete
+// the connection", step "Exchange the code for tokens").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Validate the callback state" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Validate the callback state" ~ready @"Walking skeleton" +tpp-a +security +"spec 7.6.3" {
+    as "TPP operator"
+    want "A to abort when the returned state does not match the session"
+    so "a fixated session never receives a token"
+  }
+
+  rule "The callback is accepted only if its state names a pending, unexpired attempt bound to the browser session that presents it" +"spec 7.6.3" {
+    example "The nominal callback" @"Walking skeleton" +nominal {
+      given "attempt att-1 with state S8NJ7… bound to session sess-anna, started 2 minutes ago"
+      when "the browser with cookie sess-anna opens /xs2a/callback/bank-b?code=Splx…&state=S8NJ7…"
+      then "the attempt is matched and the code exchange starts"
+    }
+    example "A state that no attempt knows" @"Walking skeleton" +error {
+      given "no attempt with state XXXX"
+      when "the callback arrives with state XXXX"
+      then "A answers 400 'Unknown request' and sends nothing to F"
+    }
+    example "A valid state presented by another browser session" @"Walking skeleton" +error {
+      given "attempt att-1 bound to sess-anna"
+      when "a browser with cookie sess-mallory opens the callback with state S8NJ7… and a code"
+      then "A answers 400 and sends nothing to F"
+      then "the event is logged as a possible session fixation with both session ids"
+    }
+    example "A callback without a session cookie" @MVP +error {
+      given "attempt att-1"
+      when "a browser with no cookie opens the callback with state S8NJ7…"
+      then "A answers 400 and sends nothing to F"
+    }
+    example "A state used a second time" @"Walking skeleton" +error {
+      given "att-1 was already consumed"
+      when "the same callback URL is opened again"
+      then "A shows the current state of the connection and sends nothing to F"
+    }
+    example "A state older than ten minutes" @MVP +error {
+      given "att-1 started 11 minutes ago"
+      when "the callback arrives"
+      then "A answers 'This request expired, please try again' and sends nothing to F"
+    }
+    example "A callback without state" @"Walking skeleton" +error {
+      given "any attempt"
+      when "the callback arrives with a code and no state"
+      then "A answers 400"
+    }
+    example "A callback with an empty code" @MVP +error {
+      given "att-1 pending"
+      when "the callback arrives with state S8NJ7… and code ''"
+      then "A answers 400 and the attempt outcome is denied"
+    }
+  }
+
+  rule "The state is consumed on first use, whatever happens afterwards" {
+    example "A failed token exchange still consumes the state" @MVP +edge {
+      given "att-1 matched and F answered invalid_grant"
+      when "the callback is opened again"
+      then "A does not retry the exchange and shows 'Connection failed'"
+    }
+    example "Two concurrent callbacks with the same state exchange once" @MVP +edge {
+      given "the callback URL opened twice within 100 ms"
+      when "both requests are handled"
+      then "exactly one token request reaches F"
+    }
+  }
+
+  rule "Error callbacks are validated the same way" {
+    example "access_denied with a valid state fails the attempt" @MVP +nominal {
+      given "att-1 pending"
+      when "the callback arrives with error=access_denied&state=S8NJ7…"
+      then "the attempt outcome is denied and no token request is sent"
+    }
+    example "access_denied with an unknown state is ignored" @MVP +error {
+      given "no attempt with state XXXX"
+      when "the callback arrives with error=access_denied&state=XXXX"
+      then "no connection changes"
+    }
+  }
+
+  rule "Codes and states never reach logs or third parties" +security {
+    example "The code is not logged" @"Walking skeleton" +nominal {
+      given "the nominal callback"
+      when "A's access log is inspected"
+      then "the query string is redacted to code=[redacted]&state=[redacted]"
+    }
+    example "The callback page loads no third-party resources" @MVP +nominal {
+      given "the callback response"
+      when "its HTML is inspected"
+      then "it references no external script or image that would leak the URL in a referrer"
+    }
+  }
+}

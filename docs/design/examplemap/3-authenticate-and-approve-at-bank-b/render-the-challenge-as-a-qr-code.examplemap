@@ -1,0 +1,86 @@
+// Example map for the story "Render the challenge as a QR code" (activity
+// "Authenticate and approve at Bank B", step "Receive the SCA challenge").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Render the challenge as a QR code" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Render the challenge as a QR code" ~ready @"Walking skeleton" +bank-b-ciam +sca {
+    as "PSU"
+    want "a QR code on Bank B's page that my app can scan"
+    so "I can approve from my registered device"
+  }
+
+  rule "The QR encodes a signed payload with version, challenge id, nonce, endpoint, expiry and the dynamic-link hash, and nothing else" {
+    example "The decoded payload" @"Walking skeleton" +nominal {
+      given "challenge chl-01J8 with nonce m3A9…, hash H1, expiresAt 1757150180"
+      when "the QR page renders"
+      then "the QR decodes to base64url JSON {v: 1, challengeId: chl-01J8, nonce: m3A9…, endpoint: https://ciam.bank-b.sandbox/sca, exp: 1757150180, dl: H1} followed by a server signature"
+    }
+    example "The payload carries no personal data" @"Walking skeleton" +nominal {
+      given "the decoded payload"
+      when "its fields are listed"
+      then "there is no PSU-ID, IBAN, TPP name or amount"
+    }
+    example "The server signature verifies with the SCA engine's public key" @"Walking skeleton" +nominal {
+      given "the payload and its signature"
+      when "the app verifies with the key published at https://ciam.bank-b.sandbox/sca/keys"
+      then "the verification succeeds"
+    }
+    example "The encoded payload stays under 400 characters so the QR is readable on a phone" @MVP +edge {
+      given "the longest possible challenge id and endpoint"
+      when "the payload is encoded"
+      then "it has at most 400 characters and the QR is version 10 or lower"
+    }
+  }
+
+  rule "The page shows the QR, the same summary as the app will show, a countdown and a copyable text form of the payload" {
+    example "The QR page" @"Walking skeleton" +nominal {
+      given "the challenge for Main Account until 2026-12-05"
+      when "the page renders"
+      then "it shows the QR, 'App A: accounts and balances of DE23 …7 89 until 5 Dec 2026', 'expires in 3:00' and a 'Copy code' button"
+    }
+    example "The countdown reaches zero" @MVP +edge {
+      given "the page opened at 09:12:00"
+      when "the clock reaches 09:15:00"
+      then "the QR is hidden and the page shows 'Code expired'"
+    }
+    example "Copy code yields the exact payload text" @"Walking skeleton" +nominal {
+      given "the page"
+      when "Anna clicks 'Copy code'"
+      then "the clipboard holds the base64url payload with its signature"
+    }
+  }
+
+  rule "The page polls the challenge status and moves on when it changes" {
+    example "Approval redirects to F" @"Walking skeleton" +nominal {
+      given "the page polls GET /challenge/chl-01J8/status every 2 seconds"
+      when "the status becomes approved"
+      then "the next poll answers approved and the browser is redirected to F's broker callback"
+    }
+    example "Denial shows the refusal" @MVP +nominal {
+      given "the page polls"
+      when "the status becomes denied"
+      then "the page shows 'You rejected the request on your device' and 'Back to App A'"
+    }
+    example "A hidden tab catches up when shown again" @MVP +edge {
+      given "the tab was in the background for five minutes"
+      when "it becomes visible"
+      then "the next poll answers expired and the page shows 'Code expired' with 'New code'"
+    }
+    example "The status endpoint is bound to the session" @MVP +error {
+      given "chl-01J8 belongs to session sess-1"
+      when "a browser without sess-1's cookie polls /challenge/chl-01J8/status"
+      then "the answer is 404"
+    }
+    example "Polling stops after the terminal status" @MVP +edge {
+      given "the status became approved"
+      when "the page has redirected"
+      then "no further poll is sent"
+    }
+  }
+}

@@ -1,0 +1,84 @@
+// Example map for the story "Push the challenge to my active devices"
+// (activity "Authenticate and approve at Bank B", step "Receive the SCA
+// challenge"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Push the challenge to my active devices" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Push the challenge to my active devices" ~analysing @Hardening +bank-b-ciam +bank-b-app +sca {
+    as "PSU"
+    want "a notification on my phone so I do not have to scan"
+    so "approval is one tap away"
+    question "Which push providers does the sandbox simulate: a fake APNs/FCM endpoint, or a web push to the browser simulator?" +"ask sandbox"
+  }
+
+  rule "On creation, a push carrying only the challenge id goes to every active device with a push token" {
+    example "Two active devices get two pushes" @Hardening +nominal {
+      given "Anna has dev-anna-1 (token apns-abc) and dev-anna-2 (token fcm-xyz), both active"
+      when "chl-01 is created"
+      then "one push is sent to apns-abc and one to fcm-xyz"
+      then "each payload is {challengeId: chl-01} with the title 'Approve a request from App A'"
+    }
+    example "The push carries no details" @Hardening +nominal {
+      given "the push payload"
+      when "it is inspected"
+      then "it has no accounts, amount, IBAN or hash"
+    }
+    example "A device without token is skipped and the QR still shows" @Hardening +edge {
+      given "Anna's only active device is the browser simulator without token"
+      when "chl-01 is created"
+      then "no push is sent and the QR page renders normally"
+    }
+    example "A blocked device gets no push" @Hardening +nominal {
+      given "dev-anna-0 is blocked with token apns-old"
+      when "chl-01 is created"
+      then "no push goes to apns-old"
+    }
+    example "A pending device gets no push" @Hardening +nominal {
+      given "dev-anna-3 is pending with a token"
+      when "chl-01 is created"
+      then "no push goes to it"
+    }
+  }
+
+  rule "Tapping the push loads the challenge like a scan would" {
+    example "The tap opens the approval screen" @Hardening +nominal {
+      given "the push for chl-01 arrived on dev-anna-1"
+      when "Anna taps it"
+      then "the app calls GET /sca/challenges/chl-01 over the device-authenticated channel and shows the approval screen"
+    }
+    example "A tap after expiry shows the expiry" @Hardening +edge {
+      given "the push for chl-01 arrived and chl-01 expired"
+      when "Anna taps it"
+      then "the app shows 'Code expired, request a new one on the Bank B page'"
+    }
+    example "A tap after approval on the other device shows it is done" @Hardening +edge {
+      given "chl-01 was approved on dev-anna-2"
+      when "Anna taps the push on dev-anna-1"
+      then "the app shows 'Already approved'"
+    }
+  }
+
+  rule "Push delivery never changes the challenge, and push failures never block the journey" {
+    example "A failed push clears the token and the QR path continues" @Hardening +error {
+      given "the push provider answers 'Unregistered' for apns-abc"
+      when "chl-01 is created"
+      then "dev-anna-1's pushToken is cleared and marked 'push disabled'"
+      then "chl-01 is pending and the QR page renders"
+    }
+    example "A push provider outage is logged and ignored" @Hardening +error {
+      given "the push provider times out"
+      when "chl-01 is created"
+      then "the challenge is created and the outage is logged"
+    }
+    example "Delivery receipts do not change the status" @Hardening +nominal {
+      given "the provider reports the push delivered"
+      when "the challenge is read"
+      then "the status is still pending"
+    }
+  }
+}

@@ -1,0 +1,107 @@
+// Example map for the story "Issue a challenge with dynamic linking" (activity
+// "Authenticate and approve at Bank B", step "Receive the SCA challenge").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Issue a challenge with dynamic linking" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Issue a challenge with dynamic linking" ~analysing @"Walking skeleton" +bank-b-ciam +sca +"RTS art. 5" {
+    as "Bank B security officer"
+    want "the challenge hash to cover consentId, TPP, accounts and validity"
+    so "an approval cannot be replayed for a different consent"
+    question "Should the hash also cover the access types (accounts, balances, transactions) and the frequency, which the PSU sees on the summary?" +"ask bank-b" +"RTS art. 5"
+  }
+
+  rule "The dynamic-link hash is SHA-256 over the canonical string consentId|tppId|sorted IBAN+currency list|validUntil" +"RTS art. 5" {
+    example "The hash for Main Account until 2026-12-05" @"Walking skeleton" +nominal {
+      given "consent 123cons456, tppId PSDDE-BAFIN-123456, selection [DE23100100100123456789 EUR], validUntil 2026-12-05"
+      when "the challenge is created"
+      then "the canonical string is '123cons456|PSDDE-BAFIN-123456|DE23100100100123456789:EUR|2026-12-05'"
+      then "the hash is the SHA-256 of that string, hex-encoded, 64 characters"
+    }
+    example "The same inputs always give the same hash" @"Walking skeleton" +nominal {
+      given "two challenges created for the same consent and the same selection"
+      when "their hashes are compared"
+      then "they are equal"
+    }
+    example "A different account changes the hash" @"Walking skeleton" +nominal {
+      given "challenge H1 for Main Account"
+      when "a challenge is created for Savings instead"
+      then "its hash differs from H1"
+    }
+    example "A different validity changes the hash" @"Walking skeleton" +nominal {
+      given "challenge H1 until 2026-12-05"
+      when "a challenge is created until 2026-12-06"
+      then "its hash differs from H1"
+    }
+    example "A different consent id changes the hash even for the same accounts" @"Walking skeleton" +nominal {
+      given "challenge H1 for 123cons456"
+      when "a challenge is created for 111cons222 with the same selection and validity"
+      then "its hash differs from H1"
+    }
+    example "The order of selected accounts does not matter" @MVP +edge {
+      given "selection [Savings, Main Account]"
+      when "the challenge is created"
+      then "the canonical list is sorted and the hash equals the one for [Main Account, Savings]"
+    }
+    example "Two currencies of one IBAN are two list entries" @MVP +edge {
+      given "selection of the multicurrency account with EUR and USD"
+      when "the canonical string is built"
+      then "it contains 'DE11…:EUR,DE11…:USD'"
+    }
+  }
+
+  rule "A challenge is created with an id, a 128-bit nonce, the PSU, the subject and a three-minute expiry, in status pending" {
+    example "The challenge record" @"Walking skeleton" +nominal {
+      given "Anna approved the summary at 2026-09-06T09:12:00Z"
+      when "the challenge is created"
+      then "it has id chl-01J8…, psuId anna.mueller, subject AIS_CONSENT 123cons456, a 22-character base64url nonce, createdAt 09:12:00Z, expiresAt 09:15:00Z, status pending"
+    }
+    example "Two challenges never share a nonce" @"Walking skeleton" +nominal {
+      given "1000 challenges"
+      when "their nonces are compared"
+      then "all are distinct"
+    }
+    example "The dynamic link record keeps a human summary" @"Walking skeleton" +nominal {
+      given "the challenge for Main Account"
+      when "its dynamicLink is read"
+      then "tppName is 'App A (A Fintech GmbH)' and summary is 'accounts and balances of DE23 …7 89 until 2026-12-05'"
+    }
+  }
+
+  rule "A challenge is issued only after the accounts were selected, and only one is pending per session" +"RTS art. 5" {
+    example "No challenge before selection" @"Walking skeleton" +error {
+      given "a session in step firstFactorVerified"
+      when "the SCA engine is asked to create a challenge for it"
+      then "it refuses with 'accounts not selected'"
+    }
+    example "A second challenge supersedes the first" @MVP +edge {
+      given "chl-01 is pending for session sess-1"
+      when "a new challenge chl-02 is created for sess-1"
+      then "chl-01 is expired and chl-02 is pending"
+    }
+    example "The authorisation moves to started" @"Walking skeleton" +nominal {
+      given "the challenge was created"
+      when "A reads the scaStatus of 123auth567"
+      then "the answer is started"
+    }
+  }
+
+  rule "A signature over any other hash is not an approval of this challenge" +security {
+    example "A signature over the hash of another consent is refused" @"Walking skeleton" +error {
+      given "chl-01 for 123cons456 with hash H1, and a valid device signature over H2 (hash of 111cons222)"
+      when "the signature is posted for chl-01"
+      then "the SCA engine answers 400 'signature does not match challenge'"
+      then "chl-01 stays pending"
+    }
+    example "A signature over the hash alone, without the nonce, is refused" @MVP +error {
+      given "a device signature over H1 only"
+      when "it is posted for chl-01"
+      then "the SCA engine answers 400"
+    }
+  }
+}

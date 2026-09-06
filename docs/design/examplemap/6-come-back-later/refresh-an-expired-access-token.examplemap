@@ -1,0 +1,85 @@
+// Example map for the story "Refresh an expired access token" (activity "Come
+// back later", step "Reuse the connection"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Refresh an expired access token" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Refresh an expired access token" ~ready @MVP +tpp-a +oidc-f +"spec 13.5" {
+    as "PSU"
+    want "A to renew its token silently while my consent is valid"
+    so "I am not asked to authenticate on every visit"
+  }
+
+  rule "A refreshes before a call when the access token expires within 60 seconds, or after a 401 TOKEN_EXPIRED, and retries the call once" +"spec 13.5" {
+    example "Reactive refresh" @MVP +nominal {
+      given "the stored access token expired and the refresh token R1 is valid"
+      when "A calls GET /v1/accounts and gets 401 TOKEN_EXPIRED"
+      then "A posts grant_type=refresh_token with R1 over mTLS, stores the new tokens, and repeats GET /v1/accounts once"
+      then "the second call answers 200 and Anna sees her accounts without any prompt"
+    }
+    example "Proactive refresh" @MVP +nominal {
+      given "the access token expires in 30 seconds"
+      when "A prepares GET /v1/accounts"
+      then "A refreshes first and the call is made with the new token"
+    }
+    example "A token that expires in 90 seconds is used as is" @MVP +edge {
+      given "the access token expires in 90 seconds"
+      when "A prepares the call"
+      then "no refresh happens"
+    }
+    example "At most one refresh per call" @MVP +edge {
+      given "the refreshed token is also refused with TOKEN_EXPIRED (clock skew at Bank B)"
+      when "A handles the second 401"
+      then "A does not refresh again, marks the connection failed and raises an alert 'token refused after refresh'"
+    }
+  }
+
+  rule "A refresh that fails because the consent ended puts the connection in re-consent; a transient failure is retried" {
+    example "invalid_grant" @MVP +error {
+      given "F answers 400 invalid_grant"
+      when "A handles it"
+      then "the token set is deleted and the connection is needsReconsent"
+      then "Anna sees 'Your connection to Bank B ended. Reconnect.'"
+    }
+    example "F unavailable" @MVP +error {
+      given "F answers 503"
+      when "A handles it"
+      then "A retries after 2 and 4 seconds, then shows 'Bank B is temporarily unavailable' and keeps the token set"
+    }
+    example "invalid_client" @MVP +error {
+      given "F answers 401 invalid_client"
+      when "A handles it"
+      then "an operational alert is raised and the connection is failed"
+    }
+  }
+
+  rule "Concurrent calls share one refresh" {
+    example "Two requests at once" @MVP +edge {
+      given "Anna opens the list and a detail at the same moment with an expired token"
+      when "both calls hit 401 TOKEN_EXPIRED"
+      then "exactly one refresh request goes to F and both calls retry with the new token"
+    }
+    example "The nightly scheduler and a PSU click" @MVP +edge {
+      given "the scheduler is refreshing when Anna clicks"
+      when "Anna's call needs a token"
+      then "it waits for the running refresh and uses its result"
+    }
+  }
+
+  rule "The refresh is invisible to the PSU and never uses the browser" {
+    example "No redirect during a refresh" @MVP +nominal {
+      given "a reactive refresh"
+      when "the browser traffic is inspected"
+      then "no redirect to F or Bank B happened"
+    }
+    example "The old refresh token is gone after rotation" @MVP +nominal {
+      given "R1 rotated to R2"
+      when "the vault is read"
+      then "only R2 is stored"
+    }
+  }
+}

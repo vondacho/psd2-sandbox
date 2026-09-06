@@ -1,0 +1,110 @@
+// Example map for the story "Validate the scope against the consent" (activity
+// "Connect Bank B from application A", step "Start the authorization at F").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Validate the scope against the consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Validate the scope against the consent" ~analysing @"Walking skeleton" +oidc-f +bank-b-xs2a +"spec 13.1" {
+    as "Bank B security officer"
+    want "F to accept AIS:<consentId> only if the consent exists, is received and belongs to this client"
+    so "a TPP cannot authorise somebody else's consent"
+    question "Over which channel does F call consent management: mTLS with a dedicated F certificate, or a network-level trust inside Bank B?" +"ask bank-b" +"ask f"
+  }
+
+  rule "The scope names exactly one AIS, PIS or PIIS resource, optionally with offline_access" +"spec 13.1" {
+    example "AIS:123cons456 offline_access is accepted" @"Walking skeleton" +nominal {
+      given "scope 'AIS:123cons456 offline_access'"
+      when "F parses it"
+      then "the target is kind AIS, resource 123cons456, with offline_access"
+    }
+    example "AIS:123cons456 alone is accepted" @"Walking skeleton" +edge {
+      given "scope 'AIS:123cons456'"
+      when "F parses it"
+      then "the target is kind AIS, resource 123cons456, without offline_access"
+    }
+    example "Two AIS scopes are refused" @"Walking skeleton" +error {
+      given "scope 'AIS:123cons456 AIS:111cons222'"
+      when "F parses it"
+      then "F redirects to A with error=invalid_scope and the state"
+    }
+    example "An AIS and a PIS scope together are refused" @MVP +error {
+      given "scope 'AIS:123cons456 PIS:pay001'"
+      when "F parses it"
+      then "F redirects with error=invalid_scope"
+    }
+    example "A scope without any resource is refused" @"Walking skeleton" +error {
+      given "scope 'offline_access'"
+      when "F parses it"
+      then "F redirects with error=invalid_scope"
+    }
+    example "An unknown scope word is refused" @MVP +error {
+      given "scope 'AIS:123cons456 admin'"
+      when "F parses it"
+      then "F redirects with error=invalid_scope"
+    }
+    example "An AIS scope with an empty id is refused" @MVP +error {
+      given "scope 'AIS:'"
+      when "F parses it"
+      then "F redirects with error=invalid_scope"
+    }
+  }
+
+  rule "The named consent must exist, be in status received and have been created by the requesting client" {
+    example "A received consent of A is accepted" @"Walking skeleton" +nominal {
+      given "consent 123cons456 exists, status received, tppId PSDDE-BAFIN-123456"
+      when "client PSDDE-BAFIN-123456 requests AIS:123cons456"
+      then "F proceeds to broker the PSU to Bank B"
+    }
+    example "An unknown consent is refused" @"Walking skeleton" +error {
+      given "no consent 999cons000"
+      when "A requests AIS:999cons000"
+      then "F redirects with error=invalid_scope and error_description 'unknown resource'"
+    }
+    example "A consent of another TPP is refused" @"Walking skeleton" +error {
+      given "consent 333cons444 was created by C"
+      when "A requests AIS:333cons444"
+      then "F redirects with error=invalid_scope"
+      then "the refusal is logged with both client ids"
+    }
+    example "An already valid consent cannot be authorised again" @MVP +error {
+      given "consent 123cons456 is valid"
+      when "A requests AIS:123cons456"
+      then "F redirects with error=invalid_scope and error_description 'resource not in status received'"
+    }
+    example "A rejected consent is refused" @MVP +error {
+      given "consent 123cons456 is rejected"
+      when "A requests AIS:123cons456"
+      then "F redirects with error=invalid_scope"
+    }
+    example "A consent whose authorisation is already started is still accepted" @MVP +edge {
+      given "consent 123cons456 is received and its authorisation is psuAuthenticated because Anna abandoned a first attempt"
+      when "A requests AIS:123cons456 again"
+      then "F proceeds"
+    }
+  }
+
+  rule "F sees only existence, owner and status of a consent, through the internal contract" +"anticorruption layer" {
+    example "The internal call carries the consent id and the client id" @"Walking skeleton" +nominal {
+      given "the request for AIS:123cons456 by PSDDE-BAFIN-123456"
+      when "F validates the scope"
+      then "it calls GET /internal/consents/123cons456?client_id=PSDDE-BAFIN-123456"
+      then "the answer is {exists: true, ownedByClient: true, status: received}"
+    }
+    example "F never receives the access object or the PSU" @"Walking skeleton" +nominal {
+      given "the internal answer"
+      when "its fields are listed"
+      then "there is no access, psuId, validUntil or accounts field"
+    }
+    example "Consent management unreachable yields temporarily_unavailable" @MVP +error {
+      given "the internal endpoint times out after 3 seconds"
+      when "F validates the scope"
+      then "F redirects to A with error=temporarily_unavailable and the state"
+      then "A shows 'Bank B is temporarily unavailable'"
+    }
+  }
+}

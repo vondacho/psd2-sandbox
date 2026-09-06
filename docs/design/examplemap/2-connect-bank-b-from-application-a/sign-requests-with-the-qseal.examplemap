@@ -1,0 +1,123 @@
+// Example map for the story "Sign requests with the QSEAL" (activity "Connect
+// Bank B from application A", step "Request the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Sign requests with the QSEAL" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Sign requests with the QSEAL" ~analysing @Hardening +tpp-a +bank-b-xs2a +"spec 4.2" +"spec 12" {
+    as "Bank B security officer"
+    want "Digest, Signature and TPP-Signature-Certificate verified when mandated"
+    so "requests are non-repudiable at application level"
+    question "When signing is not mandated but a Signature header is present and invalid, does Bank B ignore it or refuse the call?" +"ask bank-b" +security
+    question "How much clock skew is tolerated on the Date header: five minutes as assumed here?" +"ask bank-b"
+  }
+
+  rule "When Bank B mandates signing, every request carries Digest, Signature and TPP-Signature-Certificate" +"spec 12.1" {
+    example "A signed consent request is accepted" @Hardening +nominal {
+      given "Bank B runs with requestSigningRequired true and A's registry entry has requiresSignature true"
+      given "A computes Digest SHA-256=… over the body and signs with its QSEAL"
+      when "POST /v1/consents is called with Digest, Signature and TPP-Signature-Certificate"
+      then "the answer is 201"
+    }
+    example "A missing Signature header is refused" @Hardening +error {
+      given "signing is mandated and the request has Digest but no Signature"
+      when "POST /v1/consents is called"
+      then "the answer is 401 SIGNATURE_MISSING"
+    }
+    example "A missing TPP-Signature-Certificate is refused" @Hardening +error {
+      given "signing is mandated and the request has Digest and Signature but no TPP-Signature-Certificate"
+      when "the call is made"
+      then "the answer is 401 SIGNATURE_MISSING"
+    }
+    example "A GET signs the digest of an empty body" @Hardening +edge {
+      given "signing is mandated"
+      when "GET /v1/accounts is called"
+      then "Digest is SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+      then "the answer is 200"
+    }
+  }
+
+  rule "The signature covers digest, x-request-id, date and, when present, psu-id, psu-corporate-id and tpp-redirect-uri" +"spec 12.2" {
+    example "A signature over the mandated headers is accepted" @Hardening +nominal {
+      given "Signature with headers='digest x-request-id date tpp-redirect-uri' and keyId='SN=1A2B,CA=CN=sandbox-ca'"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+    }
+    example "A signature that omits date is refused" @Hardening +error {
+      given "Signature with headers='digest x-request-id'"
+      when "the call is made"
+      then "the answer is 401 SIGNATURE_INVALID with text 'date not covered'"
+    }
+    example "An altered body no longer matches the digest" @Hardening +error {
+      given "a valid signed request whose body was changed in transit to validUntil 2027-12-05"
+      when "Bank B recomputes the digest"
+      then "the answer is 401 SIGNATURE_INVALID"
+    }
+    example "A Date header older than five minutes is refused" @Hardening +error {
+      given "Date is 2026-09-06T09:00:00Z and Bank B's clock says 09:06:00Z"
+      when "the call is made"
+      then "the answer is 401 TIMESTAMP_INVALID"
+    }
+    example "A replayed request with the same x-request-id is refused" @Hardening +error {
+      given "a signed request already processed with X-Request-ID 99391c7e-…"
+      when "the identical request is sent again"
+      then "the answer is 400 FORMAT_ERROR with text 'X-Request-ID already used'"
+    }
+    example "Changing a covered header invalidates the signature" @Hardening +error {
+      given "a valid signed request"
+      when "TPP-Redirect-URI is changed to https://a.tpp.sandbox/other after signing"
+      then "the answer is 401 SIGNATURE_INVALID"
+    }
+  }
+
+  rule "The sealing certificate must be a QSEAL of the same TPP as the QWAC" +"spec 12" {
+    example "A's QSEAL with A's QWAC is accepted" @Hardening +nominal {
+      given "TPP-Signature-Certificate is A's QSEAL with organizationIdentifier PSDDE-BAFIN-123456 and the TLS certificate is A's QWAC"
+      when "the call is made"
+      then "the signature check proceeds"
+    }
+    example "A QWAC used as sealing certificate is refused" @Hardening +error {
+      given "TPP-Signature-Certificate is A's QWAC (QcType web)"
+      when "the call is made"
+      then "the answer is 401 CERTIFICATE_INVALID with text 'not a sealing certificate'"
+    }
+    example "C's QSEAL with A's QWAC is refused" @Hardening +error {
+      given "TPP-Signature-Certificate is C's QSEAL (PSDDE-BAFIN-654321) over A's TLS connection"
+      when "the call is made"
+      then "the answer is 401 CERTIFICATE_INVALID with text 'sealing certificate does not match TLS certificate'"
+    }
+    example "A revoked QSEAL is refused" @Hardening +error {
+      given "A's QSEAL is on the CRL"
+      when "the call is made"
+      then "the answer is 401 CERTIFICATE_REVOKED"
+    }
+    example "A QSEAL from an untrusted CA is refused" @Hardening +error {
+      given "a sealing certificate from an unknown CA"
+      when "the call is made"
+      then "the answer is 401 CERTIFICATE_INVALID"
+    }
+  }
+
+  rule "A decides per bank whether to sign, from the registry" {
+    example "Bank B with requiresSignature true gets signed requests" @Hardening +nominal {
+      given "bank-b.requiresSignature is true"
+      when "A calls Bank B"
+      then "every request carries the three headers"
+    }
+    example "Bank C with requiresSignature false gets unsigned requests" @Hardening +nominal {
+      given "bank-c.requiresSignature is false"
+      when "A calls Bank C"
+      then "no Digest, Signature or TPP-Signature-Certificate header is sent"
+    }
+    example "The QSEAL private key is used through the KMS, never loaded into A's process" @Hardening +edge {
+      given "A signs a request"
+      when "the signing call is traced"
+      then "the signature is produced by the KMS sign API with key id qseal-a"
+    }
+  }
+}

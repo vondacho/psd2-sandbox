@@ -1,0 +1,78 @@
+// Example map for the story "Render the account details" (activity "View my
+// accounts", step "See an account's details"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Render the account details" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Render the account details" ~ready @MVP +tpp-a {
+    as "PSU"
+    want "a detail page with balances and links back to the list"
+    so "I can move between my accounts"
+  }
+
+  rule "The detail page shows the account's name, IBAN, BIC, currency, product, owner and every balance with its type and date, plus navigation" {
+    example "Main Account" @MVP +nominal {
+      given "GET /v1/accounts/3dc3d5b3-…?withBalance=true returned Main Account, DE23…, BANKDEBBXXX, EUR, Girokonto, Anna Müller, closingBooked 1250.30 on 2026-09-05 and interimAvailable 1180.30"
+      when "the page renders"
+      then "it shows 'Main Account', 'DE23 1001 0010 0123 4567 89', 'BANKDEBBXXX', 'Girokonto', 'Anna Müller'"
+      then "it lists 'Booked balance EUR 1,250.30 (5 Sep 2026)' and 'Available EUR 1,180.30'"
+      then "it has 'Back to accounts' and 'Next: Savings'"
+    }
+    example "No balances consented" @MVP +edge {
+      given "the object has no balances"
+      when "the page renders"
+      then "the balances section is hidden and a note says 'balances not shared'"
+    }
+    example "Only one account: no next/previous" @MVP +edge {
+      given "the connection has one account view"
+      when "the page renders"
+      then "only 'Back to accounts' is shown"
+    }
+    example "Owner name absent" @MVP +edge {
+      given "the object has no ownerName"
+      when "the page renders"
+      then "the owner row is omitted"
+    }
+  }
+
+  rule "The page reads only accounts known from the list, with the PSU present" {
+    example "The call carries PSU-IP-Address" @MVP +nominal {
+      given "Anna clicks Main Account"
+      when "A calls GET /v1/accounts/3dc3d5b3-…?withBalance=true"
+      then "the call carries PSU-IP-Address and Consent-ID 123cons456"
+    }
+    example "A resourceId not in the stored views" @MVP +error {
+      given "Anna types /banks/bank-b/accounts/00000000-0000-4000-8000-000000000000"
+      when "the page renders"
+      then "A answers 404 and makes no call to Bank B"
+    }
+    example "Another user's resourceId" @MVP +error {
+      given "Ben types the URL of Anna's Main Account"
+      when "the page renders"
+      then "A answers 404"
+    }
+  }
+
+  rule "Errors are shown with the right next step" +"spec 14.11" {
+    example "CONSENT_INVALID on a detail" @MVP +error {
+      given "Bank B answers 401 CONSENT_INVALID"
+      when "the page renders"
+      then "it says 'This account is no longer shared with App A' and links back to the list"
+      then "the connection is marked needsReconsent"
+    }
+    example "ACCESS_EXCEEDED" @MVP +error {
+      given "Bank B answers 429"
+      when "the page renders"
+      then "it shows the cached view with 'try again later'"
+    }
+    example "RESOURCE_UNKNOWN" @MVP +error {
+      given "Bank B answers 404 RESOURCE_UNKNOWN for a stored view"
+      when "the page renders"
+      then "it says 'This account is no longer available' and the view is removed on the next list refresh"
+    }
+  }
+}

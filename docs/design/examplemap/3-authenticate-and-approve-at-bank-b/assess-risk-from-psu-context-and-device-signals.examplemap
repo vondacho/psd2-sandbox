@@ -1,0 +1,87 @@
+// Example map for the story "Assess risk from PSU context and device signals"
+// (activity "Authenticate and approve at Bank B", step "Identify and enter my
+// password"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Assess risk from PSU context and device signals" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Assess risk from PSU context and device signals" ~analysing @Hardening +bank-b-ciam +security +"spec 4.8" {
+    as "Bank B security officer"
+    want "the session scored before the second factor is offered"
+    so "suspicious sessions are refused or stepped up"
+    question "What are the real thresholds and signals; the numbers below are placeholders for the session with the fraud team." +"ask bank-b" +"ask fraud"
+    question "What does a step-up mean when the journey already has two factors: a shorter validUntil, a confirmation on a second device, or a call-back?" +"ask bank-b"
+  }
+
+  rule "The assessment runs after the first factor and before any challenge, from the forwarded PSU context and the CIAM's own signals" +"spec 4.8" {
+    example "A known address and device give a low score and the journey continues" @Hardening +nominal {
+      given "PSU-IP-Address 192.168.8.78 seen for anna.mueller last week, PSU-Device-ID seen before, user agent unchanged"
+      when "the first factor is verified"
+      then "the assessment has score 10 and decision allow"
+      then "the session step is riskAssessed and account selection is shown"
+    }
+    example "Missing context headers raise the score but allow" @Hardening +edge {
+      given "the TPP forwarded no PSU-IP-Address, PSU-User-Agent or PSU-Device-ID"
+      when "the first factor is verified"
+      then "the score is 30 with reason 'no PSU context' and the decision is allow"
+    }
+    example "A new country steps up" @Hardening +edge {
+      given "PSU-IP-Address geolocates to a country Anna has never used"
+      when "the first factor is verified"
+      then "the decision is step-up"
+      then "the consent validity offered is capped at 30 days and the summary says so"
+    }
+    example "A blocklisted address refuses" @Hardening +error {
+      given "PSU-IP-Address 203.0.113.66 is on the fraud blocklist"
+      when "the first factor is verified"
+      then "the decision is refuse"
+      then "the session step is refused, the authorisation is failed, the consent is rejected"
+      then "Anna sees 'Bank B cannot continue this request' with a reference id and a way back to App A"
+    }
+    example "Ten logins from the same address for ten different customers within a minute refuse" @Hardening +error {
+      given "nine sessions from 203.0.113.9 for nine PSUs in the last 60 seconds"
+      when "a tenth session from 203.0.113.9 verifies its first factor"
+      then "the decision is refuse with reason 'velocity'"
+    }
+    example "A PSU-Geo-Location 8000 km from the last login an hour ago steps up" @Hardening +edge {
+      given "Anna logged in from Berlin an hour ago and PSU-Geo-Location is GEO:35.6762;139.6503"
+      when "the first factor is verified"
+      then "the decision is step-up with reason 'impossible travel'"
+    }
+  }
+
+  rule "A refused session never reaches the second factor" +"RTS art. 4" {
+    example "No challenge is created for a refused session" @Hardening +nominal {
+      given "the decision was refuse"
+      when "the SCA engine is queried for challenges of the session"
+      then "there is none"
+    }
+    example "The QR page cannot be opened by URL after a refusal" @Hardening +error {
+      given "the session was refused"
+      when "the browser opens the QR page URL of that session"
+      then "the CIAM shows the refusal page again"
+    }
+  }
+
+  rule "Every assessment is recorded on the session with its inputs and is auditable" {
+    example "The assessment is stored" @Hardening +nominal {
+      given "a session assessed with score 10"
+      when "the session is read"
+      then "riskAssessment has score 10, psuIpAddress 192.168.8.78, psuUserAgent, psuDeviceId and decision allow"
+    }
+    example "The audit log links the assessment to the consent and the TPP" @Hardening +nominal {
+      given "a refused session for consent 123cons456"
+      when "the audit log is searched for 123cons456"
+      then "one entry shows decision refuse, reason, TPP PSDDE-BAFIN-123456 and the session id"
+    }
+    example "Raw addresses are kept 90 days, then pseudonymised" @Hardening +edge {
+      given "an assessment recorded 91 days ago"
+      when "it is read"
+      then "psuIpAddress is a salted hash"
+    }
+  }
+}

@@ -1,0 +1,109 @@
+// Example map for the story "Serve GET /v1/accounts from the consent"
+// (activity "View my accounts", step "See the account list").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Serve GET /v1/accounts from the consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Serve GET /v1/accounts from the consent" ~ready @"Walking skeleton" +bank-b-xs2a +"spec 6.5.1" {
+    as "PSU"
+    want "A to show the accounts I selected at Bank B"
+    so "I see my accounts inside A"
+  }
+
+  rule "The list contains exactly the accessible accounts of the consent named by Consent-ID, with resourceId, identifiers, product data and links" +"spec 6.5.1" {
+    example "Two selected accounts" @"Walking skeleton" +nominal {
+      given "consent 123cons456 valid with Main Account and Savings, A's token, Consent-ID 123cons456, X-Request-ID, PSU-IP-Address"
+      when "A calls GET /v1/accounts"
+      then "the answer is 200 {accounts: [{resourceId: 3dc3d5b3-…, iban: DE23100100100123456789, currency: EUR, name: Main Account, product: Girokonto, cashAccountType: CACC, _links: {balances: …}}, {resourceId: 7a1f…, iban: DE89370400440532013000, currency: EUR, name: Savings, product: Sparkonto, cashAccountType: SVGS, _links: {balances: …}}]}"
+    }
+    example "One selected account: the other is absent" @"Walking skeleton" +nominal {
+      given "consent 123cons456 with Main Account only"
+      when "A calls GET /v1/accounts"
+      then "the list holds one entry, and DE89… is absent although Anna owns it"
+    }
+    example "No balances without withBalance" @"Walking skeleton" +nominal {
+      given "the call without withBalance"
+      when "the answer is inspected"
+      then "no entry has a balances field"
+    }
+    example "An account closed at the bank since the consent" @MVP +edge {
+      given "Savings was closed in the ledger yesterday"
+      when "A calls GET /v1/accounts"
+      then "the Savings entry is present with status deleted and no balances link"
+    }
+    example "A multicurrency account lists its sub-accounts" @MVP +edge {
+      given "the multicurrency account with EUR and USD in the consent"
+      when "A calls GET /v1/accounts"
+      then "two entries share the IBAN with currencies EUR and USD, each with its own resourceId"
+    }
+    example "X-Request-ID is echoed" @"Walking skeleton" +nominal {
+      given "X-Request-ID 6b2d…"
+      when "the answer arrives"
+      then "its X-Request-ID header is 6b2d…"
+    }
+  }
+
+  rule "Consent-ID is mandatory and must name a valid consent of the calling TPP" +"spec 14.11" {
+    example "Missing Consent-ID" @"Walking skeleton" +error {
+      given "no Consent-ID header"
+      when "A calls GET /v1/accounts"
+      then "the answer is 400 FORMAT_ERROR with path Consent-ID"
+    }
+    example "Unknown Consent-ID" @MVP +error {
+      given "Consent-ID 999cons000 and a token for it (impossible; a token for another consent is used)"
+      when "A calls GET /v1/accounts"
+      then "the answer is 401 TOKEN_INVALID because the token scope does not match"
+    }
+    example "Consent received, not yet valid" @"Walking skeleton" +error {
+      given "consent 123cons456 received"
+      when "A calls with a token for it"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Consent expired" @MVP +error {
+      given "consent 123cons456 expired"
+      when "A calls"
+      then "the answer is 401 CONSENT_EXPIRED"
+    }
+    example "Consent revoked" @MVP +error {
+      given "consent 123cons456 revokedByPsu"
+      when "A calls"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Consent terminated by the TPP" @MVP +error {
+      given "consent 123cons456 terminatedByTpp"
+      when "A calls"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+  }
+
+  rule "The list is served only to the TPP that created the consent" +security {
+    example "C with its own token and A's consent id" @MVP +error {
+      given "C's QWAC, C's token for 333cons444, Consent-ID 123cons456"
+      when "C calls GET /v1/accounts"
+      then "the answer is 401 TOKEN_INVALID"
+    }
+    example "C with A's token" @MVP +error {
+      given "C's QWAC and A's token"
+      when "C calls"
+      then "the answer is 401 TOKEN_INVALID (certificate binding)"
+    }
+  }
+
+  rule "The list reflects the ledger at call time, filtered by the consent" {
+    example "A renamed account shows its new name" @MVP +edge {
+      given "Anna renamed Main Account to Haushalt in online banking"
+      when "A calls GET /v1/accounts"
+      then "the entry's name is Haushalt and its resourceId is unchanged"
+    }
+    example "A new account opened after the consent is not listed" @MVP +edge {
+      given "Anna opened a third account yesterday"
+      when "A calls GET /v1/accounts"
+      then "the list still holds the two consented accounts"
+    }
+  }
+}

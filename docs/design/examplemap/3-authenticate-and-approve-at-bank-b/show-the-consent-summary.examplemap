@@ -1,0 +1,85 @@
+// Example map for the story "Show the consent summary" (activity "Authenticate
+// and approve at Bank B", step "Select accounts and review the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Show the consent summary" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Show the consent summary" ~ready @"Walking skeleton" +bank-b-ciam {
+    as "PSU"
+    want "to see the TPP name, the access types, the accounts, the validity and the frequency before I approve"
+    so "I know exactly what I am granting"
+  }
+
+  rule "The summary states who, what, which accounts, until when and how often, in words" {
+    example "The summary for A's bank-offered consent on Main Account" @"Walking skeleton" +nominal {
+      given "consent 123cons456 by A (brand App A, legal A Fintech GmbH), access accounts and balances, validUntil 2026-12-05, frequencyPerDay 4, recurring, Main Account selected"
+      when "the summary renders"
+      then "it says 'App A (A Fintech GmbH) wants to read the list of your accounts and their balances'"
+      then "it lists 'Main Account, DE23 1001 0010 0123 4567 89, EUR'"
+      then "it says 'until 5 December 2026, up to 4 times a day without you being present'"
+    }
+    example "A one-off consent says once" @MVP +edge {
+      given "recurringIndicator false, frequencyPerDay 1"
+      when "the summary renders"
+      then "it says 'one time only, today'"
+    }
+    example "A validity shortened by the bank shows the shortened date" @MVP +edge {
+      given "the TPP asked for 2027-09-06 and Bank B stored 2027-03-05"
+      when "the summary renders"
+      then "it says 'until 5 March 2027'"
+    }
+    example "A consent with transactions says so" @MVP +edge {
+      given "access accounts, balances and transactions"
+      when "the summary renders"
+      then "it says 'the list of your accounts, their balances and their transactions'"
+    }
+    example "Two selected accounts are both listed" @"Walking skeleton" +nominal {
+      given "Main Account and Savings selected"
+      when "the summary renders"
+      then "both rows appear, in the order of the selection page"
+    }
+  }
+
+  rule "The PSU can change the selection or decline before approving" {
+    example "Back returns to the selection with the ticks kept" @"Walking skeleton" +nominal {
+      given "the summary for Main Account"
+      when "Anna clicks 'Change accounts'"
+      then "the selection page shows Main Account ticked"
+    }
+    example "Changing the selection changes the summary" @"Walking skeleton" +nominal {
+      given "Anna goes back and also ticks Savings"
+      when "the summary renders again"
+      then "both accounts are listed"
+    }
+    example "Decline rejects the consent and goes back to A" @"Walking skeleton" +nominal {
+      given "the summary"
+      when "Anna clicks 'Decline'"
+      then "the session step is refused, the authorisation failed, the consent rejected"
+      then "the browser ends at A's nok URI with error=access_denied"
+    }
+    example "Decline cannot be undone" @MVP +edge {
+      given "Anna declined"
+      when "she presses the browser back button and clicks 'Approve'"
+      then "the page shows 'This request was declined' and nothing is issued"
+    }
+  }
+
+  rule "Approving the summary issues the challenge; nothing is granted by the summary itself" +"RTS art. 5" {
+    example "Approve leads to the QR page" @"Walking skeleton" +nominal {
+      given "the summary"
+      when "Anna clicks 'Approve on my device'"
+      then "a challenge is created and the QR page renders"
+      then "the consent is still received"
+    }
+    example "The summary text and the challenge cover the same facts" @"Walking skeleton" +nominal {
+      given "the summary for Main Account until 2026-12-05"
+      when "the challenge is created"
+      then "its dynamic link summary is 'App A: accounts and balances of DE23 …7 89 until 2026-12-05'"
+    }
+  }
+}

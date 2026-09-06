@@ -1,0 +1,77 @@
+// Example map for the story "Refuse accounts outside the consent" (activity
+// "View my accounts", step "See an account's details").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Refuse accounts outside the consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Refuse accounts outside the consent" ~analysing @MVP +bank-b-xs2a +security {
+    as "Bank B security officer"
+    want "a resourceId not covered by the consent to return CONSENT_INVALID"
+    so "A cannot enumerate other accounts"
+    question "Should Bank B rate-limit a TPP that produces many CONSENT_INVALID answers in a short time, and at what threshold?" +"ask bank-b" +security
+  }
+
+  rule "Any account resource not in the consent's accessible list answers 401 CONSENT_INVALID, on the account, its balances and its transactions" {
+    example "Anna's unselected Savings" @MVP +nominal {
+      given "consent 123cons456 with Main Account only, and Savings has resourceId 7a1f… under another consent of Anna"
+      when "A calls GET /v1/accounts/7a1f…"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Ben's account" @MVP +error {
+      given "resourceId b0b0… of Ben's account under Ben's consent with A"
+      when "A calls GET /v1/accounts/b0b0… with Consent-ID 123cons456 (Anna's)"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "An account of Anna's replaced consent" @MVP +error {
+      given "resourceId 9e9e… of Main Account under 111cons222 (terminatedByTpp)"
+      when "A calls GET /v1/accounts/9e9e… with Consent-ID 123cons456"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Balances of an unselected account" @MVP +error {
+      given "the same"
+      when "A calls GET /v1/accounts/7a1f…/balances"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "Transactions of an unselected account" @MVP +error {
+      given "the same"
+      when "A calls GET /v1/accounts/7a1f…/transactions?bookingStatus=booked&dateFrom=2026-08-01"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "A selected account is served" @MVP +nominal {
+      given "Main Account 3dc3d5b3-… in the consent"
+      when "A calls GET /v1/accounts/3dc3d5b3-…"
+      then "the answer is 200"
+    }
+  }
+
+  rule "The refusal gives no clue about the account" +security {
+    example "The body of the refusal" @MVP +nominal {
+      given "the refusal for 7a1f…"
+      when "the body is inspected"
+      then "it is {tppMessages: [{category: ERROR, code: CONSENT_INVALID, text: 'resource not covered by consent'}]} with no IBAN, owner or currency"
+    }
+    example "Timing does not reveal existence" @MVP +edge {
+      given "100 calls with random UUIDs and 100 with real ids of other consents"
+      when "the response times are compared"
+      then "the medians differ by less than 20 ms"
+    }
+  }
+
+  rule "Every refusal is logged for audit with the TPP, the consent and the resource" {
+    example "The audit entry" @MVP +nominal {
+      given "the refusal for 7a1f… by PSDDE-BAFIN-123456 under 123cons456"
+      when "the audit log is read"
+      then "one entry has tppId, consentId, resourceId, code CONSENT_INVALID and the X-Request-ID"
+    }
+    example "Twenty refusals in a minute raise a security alert" @MVP +edge {
+      given "A produced 20 CONSENT_INVALID answers in 60 seconds"
+      when "the monitoring rule runs"
+      then "an alert 'possible enumeration by PSDDE-BAFIN-123456' is raised"
+    }
+  }
+}

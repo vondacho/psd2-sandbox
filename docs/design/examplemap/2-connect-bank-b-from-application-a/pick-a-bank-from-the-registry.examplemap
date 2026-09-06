@@ -1,0 +1,89 @@
+// Example map for the story "Pick a bank from the registry" (activity "Connect
+// Bank B from application A", step "Select Bank B").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Pick a bank from the registry" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Pick a bank from the registry" ~analysing @"Walking skeleton" +tpp-a {
+    as "PSU"
+    want "to choose Bank B from a list of registered banks"
+    so "A knows which XS2A API and authorization server to talk to"
+    question "With hundreds of banks in production, is a search box or a country filter needed in the picker?" +"ask product"
+  }
+
+  rule "The picker lists every registry entry, sorted by display name" {
+    example "Two registered banks are listed in alphabetical order" @"Walking skeleton" +nominal {
+      given "the registry holds bank-c 'Bank C' and bank-b 'Bank B'"
+      given "Anna is signed in to A"
+      when "she opens 'Add a bank'"
+      then "the picker shows 'Bank B' then 'Bank C'"
+    }
+    example "An empty registry shows an explanation instead of a list" @MVP +edge {
+      given "the registry holds no entry"
+      when "Anna opens 'Add a bank'"
+      then "the picker shows 'No banks are available yet'"
+      then "no bank can be selected"
+    }
+    example "A bank whose consent models A does not support is shown but not selectable" @MVP +edge {
+      given "bank-d supports only the consent model dedicated"
+      when "Anna opens 'Add a bank'"
+      then "'Bank D' is listed greyed out with 'not supported yet'"
+    }
+  }
+
+  rule "Selecting a bank creates or reuses the one connection A keeps per user and bank" {
+    example "First selection creates a connection in state selected" @"Walking skeleton" +nominal {
+      given "Anna has no connection to bank-b"
+      when "she selects 'Bank B' and clicks 'Connect'"
+      then "a BankConnection (anna, bank-b) exists in state selected"
+      then "the consent request to Bank B starts"
+    }
+    example "Selecting an already connected bank opens its accounts instead of a new consent" @MVP +edge {
+      given "Anna's connection to bank-b is connected until 2026-12-05"
+      when "she selects 'Bank B' in the picker"
+      then "A opens the account list of Bank B"
+      then "no new consent is created"
+    }
+    example "Selecting a bank that needs re-consent starts a new consent on the same connection" @MVP +edge {
+      given "Anna's connection to bank-b is in state needsReconsent"
+      when "she selects 'Bank B'"
+      then "a new consent request starts"
+      then "the same BankConnection is reused, no second connection appears"
+    }
+    example "Selecting a bank while a connection attempt is pending resumes it" @MVP +edge {
+      given "Anna's connection to bank-b is in state authorizing since two minutes"
+      when "she selects 'Bank B' again"
+      then "A offers 'Continue at Bank B' and 'Start over'"
+    }
+    example "Ben selecting Bank B does not touch Anna's connection" @"Walking skeleton" +nominal {
+      given "Anna is connected to bank-b"
+      when "Ben selects 'Bank B'"
+      then "a connection (ben, bank-b) is created"
+      then "Anna's connection is unchanged"
+    }
+  }
+
+  rule "The selected entry fixes every URL used for that connection" {
+    example "Bank B's XS2A base URL is used for the consent request" @"Walking skeleton" +nominal {
+      given "bank-b has xs2aBaseUrl https://api.bank-b.sandbox/psd2"
+      when "Anna selects Bank B"
+      then "A sends POST https://api.bank-b.sandbox/psd2/v1/consents"
+    }
+    example "Bank C's URLs are used for Bank C" @"Walking skeleton" +nominal {
+      given "bank-c has xs2aBaseUrl https://api.bank-c.sandbox/psd2"
+      when "Anna selects Bank C"
+      then "A sends POST https://api.bank-c.sandbox/psd2/v1/consents"
+    }
+    example "A bank id that is not in the registry is refused" @"Walking skeleton" +error {
+      given "the registry has no entry bank-z"
+      when "a request POST /banks/bank-z/connect arrives"
+      then "A answers 404"
+      then "no connection is created"
+    }
+  }
+}

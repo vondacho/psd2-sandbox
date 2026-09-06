@@ -1,0 +1,87 @@
+// Example map for the story "Return a confirmation link" (activity "Connect
+// Bank B from application A", step "Request the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Return a confirmation link" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Return a confirmation link" ~ready @MVP +bank-b-xs2a +"spec 7.6" {
+    as "Bank B security officer"
+    want "the consent response to carry a confirmation link when configured"
+    so "the token holder must prove it is the consent creator"
+  }
+
+  rule "The confirmation link is returned if and only if Bank B is configured to require confirmation" +"spec 7.6" {
+    example "With confirmationRequired true the link points at the authorisation" @MVP +nominal {
+      given "Bank B runs with confirmationRequired true"
+      when "POST /v1/consents answers 201"
+      then "_links.confirmation.href is /psd2/v1/consents/123cons456/authorisations/123auth567"
+      then "the authorisation has confirmationRequired true"
+    }
+    example "With confirmationRequired false there is no link" @MVP +nominal {
+      given "Bank B runs with confirmationRequired false"
+      when "POST /v1/consents answers 201"
+      then "_links has no confirmation entry"
+      then "the authorisation has confirmationRequired false"
+    }
+    example "The setting is read per consent at creation, not at SCA time" @MVP +edge {
+      given "consent 123cons456 was created while confirmationRequired was true"
+      when "the operator switches the setting to false and the SCA completes"
+      then "the authorisation still waits for confirmation"
+    }
+  }
+
+  rule "When a confirmation link was returned, a verified SCA leaves the consent received and the authorisation unconfirmed" +"spec 14.16" {
+    example "After the device signature the status is unconfirmed" @MVP +nominal {
+      given "the link was returned and Anna's device approved the challenge"
+      when "A calls GET /v1/consents/123cons456/status"
+      then "the answer is received"
+      when "A calls the scaStatus link"
+      then "the answer is unconfirmed"
+    }
+    example "Account data is refused before confirmation" @MVP +error {
+      given "the authorisation is unconfirmed and A holds a valid access token"
+      when "A calls GET /v1/accounts"
+      then "the answer is 401 CONSENT_INVALID"
+    }
+    example "After confirmation the consent is valid" @MVP +nominal {
+      given "the authorisation is unconfirmed"
+      when "A calls PUT on the confirmation link with its bearer token"
+      then "the scaStatus is finalised and the consent status is valid"
+    }
+  }
+
+  rule "Without a confirmation link, a verified SCA finalises the authorisation and validates the consent directly" {
+    example "Direct finalisation" @MVP +nominal {
+      given "no link was returned and Anna's device approved the challenge"
+      when "A calls GET /v1/consents/123cons456/status"
+      then "the answer is valid"
+      when "A calls the scaStatus link"
+      then "the answer is finalised"
+    }
+    example "Account data is served right after the token exchange" @MVP +nominal {
+      given "no link was returned and A holds the access token"
+      when "A calls GET /v1/accounts"
+      then "the answer is 200"
+    }
+  }
+
+  rule "The confirmation link is the same resource as the scaStatus link" {
+    example "Both hrefs are equal" @MVP +nominal {
+      given "the 201 answer with both links"
+      when "the hrefs are compared"
+      then "_links.confirmation.href equals _links.scaStatus.href"
+    }
+    example "GET on the confirmation link reads the status, PUT confirms" @MVP +nominal {
+      given "the confirmation link"
+      when "A calls GET on it"
+      then "the answer is {scaStatus: …}"
+      when "A calls PUT on it with the bearer token"
+      then "the authorisation is confirmed"
+    }
+  }
+}

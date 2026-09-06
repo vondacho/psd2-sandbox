@@ -1,0 +1,114 @@
+// Example map for the story "Exchange the code with mTLS and PKCE" (activity
+// "Complete the connection", step "Exchange the code for tokens").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Exchange the code with mTLS and PKCE" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Exchange the code with mTLS and PKCE" ~ready @"Walking skeleton" +tpp-a +oidc-f +"spec 13.3" +"RFC 7636" +"RFC 8705" {
+    as "TPP operator"
+    want "A to call the token endpoint with its QWAC and the code verifier"
+    so "F can bind the token to A's certificate"
+  }
+
+  rule "A posts the code, the same redirect URI, the code verifier and its client id to the token endpoint over mTLS with its QWAC" +"spec 13.3" {
+    example "The token request" @"Walking skeleton" +nominal {
+      given "attempt att-1 with verifier dBjft… for consent 123cons456 and the code Splx…"
+      when "A calls POST https://f.sandbox/token with its QWAC"
+      then "the form body is grant_type=authorization_code, client_id=PSDDE-BAFIN-123456, code=Splx…, redirect_uri=https://a.tpp.sandbox/xs2a/callback/bank-b, code_verifier=dBjft…"
+      then "no client_secret is sent"
+    }
+    example "F answers tokens" @"Walking skeleton" +nominal {
+      given "the token request"
+      when "F answers 200"
+      then "the body has access_token (a JWT), token_type Bearer, expires_in 600, refresh_token, scope 'AIS:123cons456 offline_access'"
+      then "the attempt outcome is succeeded"
+    }
+    example "F answers invalid_grant" @MVP +error {
+      given "the code expired"
+      when "F answers 400 invalid_grant"
+      then "the connection state is failed with 'Bank B did not accept the login, try again'"
+      then "no retry of the exchange is made"
+    }
+    example "F answers invalid_client" @MVP +error {
+      given "A's certificate is not bound to its client at F"
+      when "F answers 401 invalid_client"
+      then "the connection state is failed and an operational alert 'client authentication at f.sandbox failed' is raised"
+    }
+    example "The token endpoint times out" @MVP +error {
+      given "F does not answer within 10 seconds"
+      when "the request times out"
+      then "A retries once, then fails the connection with 'Bank B did not answer'"
+    }
+    example "The verifier is sent to the token endpoint only" @"Walking skeleton" +nominal {
+      given "the whole flow"
+      when "every outgoing request of A is inspected"
+      then "the verifier appears exactly once, in the POST to https://f.sandbox/token"
+    }
+  }
+
+  rule "F redeems a code only for the client that obtained it, presenting its bound certificate, the same redirect URI and the matching verifier, once" +"RFC 7636" +"RFC 8705" {
+    example "Nominal exchange at F" @"Walking skeleton" +nominal {
+      given "code Splx… issued to PSDDE-BAFIN-123456 for redirect_uri …/callback/bank-b with challenge E9Mel…"
+      when "A exchanges it with its QWAC, that redirect_uri and the verifier dBjft…"
+      then "F issues tokens"
+    }
+    example "A wrong verifier" @"Walking skeleton" +error {
+      given "the same code"
+      when "A sends code_verifier 'wrong'"
+      then "F answers 400 invalid_grant"
+    }
+    example "A missing verifier" @MVP +error {
+      given "the same code"
+      when "A sends no code_verifier"
+      then "F answers 400 invalid_request"
+    }
+    example "A different redirect_uri" @MVP +error {
+      given "the same code"
+      when "A sends redirect_uri https://a.tpp.sandbox/xs2a/callback/bank-c"
+      then "F answers 400 invalid_grant"
+    }
+    example "C redeems A's code with C's certificate" @"Walking skeleton" +error {
+      given "code Splx… issued to A"
+      when "C posts it with client_id PSDDE-BAFIN-654321 and its QWAC"
+      then "F answers 400 invalid_grant"
+    }
+    example "C redeems A's code claiming client_id A" @MVP +error {
+      given "code Splx… issued to A"
+      when "C posts it with client_id PSDDE-BAFIN-123456 and C's QWAC"
+      then "F answers 401 invalid_client"
+    }
+    example "No client certificate" @"Walking skeleton" +error {
+      given "the same code"
+      when "the token request is sent without mTLS"
+      then "F answers 401 invalid_client"
+    }
+    example "The code used twice revokes the first grant" @MVP +error {
+      given "code Splx… already redeemed into grant g1"
+      when "it is redeemed again"
+      then "F answers 400 invalid_grant and revokes every token of g1"
+    }
+    example "A code of another client's request cannot be redeemed with a valid verifier guessed" @MVP +nominal {
+      given "the challenge is SHA-256 of a 64-character random verifier"
+      when "an attacker without the verifier tries"
+      then "the exchange fails with invalid_grant"
+    }
+  }
+
+  rule "A never exchanges a code before validating the state, and stores the result only in the vault" {
+    example "The order of operations" @"Walking skeleton" +nominal {
+      given "the callback"
+      when "A processes it"
+      then "the state is validated before any request to F"
+    }
+    example "Tokens go to the vault, not to the session or a cookie" @"Walking skeleton" +nominal {
+      given "the token response"
+      when "A stores it"
+      then "the vault holds the tokens under (anna, bank-b, 123cons456) and no cookie or session field contains them"
+    }
+  }
+}
