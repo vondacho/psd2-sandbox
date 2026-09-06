@@ -216,7 +216,7 @@ Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open que
 | [Multilevel SCA for corporate accounts](6-come-back-later/multilevel-sca-for-corporate-accounts.examplemap) | — | analysing | 3 | 9 | 3 |
 | [Initiate a payment with the same infrastructure](6-come-back-later/initiate-a-payment-with-the-same-infrastructure.examplemap) | Hardening | analysing | 3 | 13 | 2 |
 
-## ASPSP payment services (increments 4 and 5)
+## ASPSP payment services
 
 [`aspsp-payment-services.storymap`](../storymap/aspsp-payment-services.storymap). 20 stories, 62 rules, 227 examples, 9 open questions.
 

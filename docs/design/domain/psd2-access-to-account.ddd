@@ -18,8 +18,9 @@ map "PSD2 access to account" {
 
     subdomain core "Consent and account access" {
       intent "Turning a consent given at the bank into an enforceable access
-              right on the XS2A interface, and serving account data no wider
-              than that right."
+              right on the XS2A interface, serving account data no wider than
+              that right, and executing no payment the customer did not
+              approve on that same interface."
       owner  "Product owner, open banking"
 
       context "Consent management" {

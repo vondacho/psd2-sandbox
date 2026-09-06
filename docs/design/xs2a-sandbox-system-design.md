@@ -1,6 +1,6 @@
-# PSU account-list journey — system design
+# XS2A sandbox — system design
 
-**Journey.** A Payment Service User (PSU) opens a third-party application, **the TPP** (acting as AISP), selects **the Bank** from a list of registered banks, gives consent, authenticates at the Bank with strong customer authentication (password + a QR challenge approved on a registered mobile device), and then views the list of accounts held at the Bank and the details of the accounts they pick.
+**Journeys.** A Payment Service User (PSU) opens a third-party application, **the TPP**, selects **the Bank** from a list of registered banks, gives consent, authenticates at the Bank with strong customer authentication (password + a QR challenge approved on a registered mobile device), and then views the list of accounts held at the Bank and the details of the accounts they pick. The same PSU later pays from one of those accounts through the TPP, approving the payment on the same device. The account journey is the one this document develops step by step, in sections 5 to 11; the payment journey reuses it and is described in section 12.
 
 **Basis.** NextGenPSD2 XS2A Framework Implementation Guidelines v1.3.16 (`docs/xs2a/NextGenPSD2 XS2A Framework.pdf`). Section numbers below (e.g. §6.3.1) refer to that document. OAuth 2.0 / OpenID Connect references are given by RFC number.
 
@@ -254,45 +254,45 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor PSU
-    participant Br as PSU browser
-    participant CIAM as Bank CIAM
-    participant SCA as SCA engine
-    participant App as Bank app (registered device)
-    participant CM as Bank consent mgmt
-    participant OIDC as OIDC-provider
-
-    Br->>CIAM: GET /authorize (from the OIDC-provider)
-    CIAM-->>Br: login page
-    PSU->>Br: PSU-ID + password
-    Br->>CIAM: POST /login
-    CIAM->>CIAM: verify first factor, risk assessment
-    CIAM->>CM: authorisation scaStatus = psuAuthenticated
-    CIAM->>CM: load consent {consentId}
-    CIAM-->>Br: account selection + consent summary
-    PSU->>Br: tick accounts, Continue
-    Br->>CIAM: POST /consent/{consentId}/selection
-    CIAM->>SCA: create challenge (dynamic link: consentId, TPP, accounts, validUntil)
-    SCA-->>CIAM: challengeId, QR payload, expiry (3 min)
-    CIAM->>CM: authorisation scaStatus = started
-    CIAM-->>Br: QR page (polls /challenge/{id}/status)
-    SCA-)App: push notification (optional)
-    PSU->>App: open app, scan QR
-    App->>SCA: GET /sca/challenges/{id} (device-authenticated)
-    SCA-->>App: challenge details
-    App-->>PSU: "TPP wants to read accounts X, Y until date; approve?"
-    PSU->>App: approve (biometric / PIN)
-    App->>App: sign challenge hash with device key
-    App->>SCA: POST /sca/challenges/{id}/response {signature, deviceId}
-    SCA->>SCA: verify signature vs registered key, expiry, device belongs to PSU
-    SCA-->>App: 200 approved
-    Br->>CIAM: poll status
-    CIAM->>CM: authorisation scaStatus = unconfirmed,<br/>accessible accounts = selection
-    CIAM-->>Br: 302 OIDC broker callback (code)
-    Br->>OIDC: GET /broker/callback?code
-    OIDC->>CIAM: POST /token (back channel)
-    CIAM-->>OIDC: ID token {sub, acr, amr:[pwd,hwk], consent_id, consent_status:authorised}
-    OIDC->>OIDC: consent_id == requested scope? acr ok?
-    OIDC-->>Br: 302 TPP redirect_uri?code&state
+    participant "PSU browser" as Br
+    participant "Bank CIAM" as CIAM
+    participant "SCA engine" as SCA
+    participant "Bank app\n(registered device)" as App
+    participant "Bank consent mgmt" as CM
+    participant "OIDC provider" as OIDC
+    
+    Br -> CIAM : GET /authorize (from the OIDC-provider)
+    CIAM --> Br : login page
+    PSU -> Br : PSU-ID + password
+    Br -> CIAM : POST /login
+    CIAM -> CIAM : verify first factor, risk assessment
+    CIAM -> CM : authorisation scaStatus = psuAuthenticated
+    CIAM -> CM : load consent {consentId}
+    CIAM --> Br : account selection + consent summary
+    PSU -> Br : tick accounts, Continue
+    Br -> CIAM : POST /consent/{consentId}/selection
+    CIAM -> SCA : create challenge\n(dynamic link: consentId, TPP, accounts, validUntil)
+    SCA --> CIAM : challengeId, QR payload, expiry (3 min)
+    CIAM -> CM : authorisation scaStatus = started
+    CIAM --> Br : QR page (polls /challenge/{id}/status)
+    SCA ->> App : push notification (optional)
+    PSU -> App : open app, scan QR
+    App -> SCA : GET /sca/challenges/{id} (device-authenticated)
+    SCA --> App : challenge details
+    App --> PSU : "TPP wants to read accounts X, Y until date. Approve?"
+    PSU -> App : approve (biometric / PIN)
+    App -> App : sign challenge hash with device key
+    App -> SCA : POST /sca/challenges/{id}/response {signature, deviceId}
+    SCA -> SCA : verify signature vs registered key,\nexpiry, device belongs to PSU
+    SCA --> App : 200 approved
+    Br -> CIAM : poll status
+    CIAM -> CM : authorisation scaStatus = unconfirmed,\naccessible accounts = selection
+    CIAM --> Br : 302 OIDC broker callback (code)
+    Br -> OIDC : GET /broker/callback?code
+    OIDC -> CIAM : POST /token (back channel)
+    CIAM --> OIDC : ID token {sub, acr, amr:[pwd,hwk],\nconsent_id, consent_status: authorised}
+    OIDC -> OIDC : consent_id == requested scope? acr ok?
+    OIDC --> Br : 302 TPP redirect_uri?code&state
 ```
 
 ### 6.4 Token exchange, confirmation, account list, account details
@@ -856,12 +856,12 @@ The context map and the domain models are the authoritative form of this section
 
 | Domain | Subdomain | Class | Why that class | Bounded contexts |
 |---|---|---|---|---|
-| Access to account (the Bank) | Consent and account access | **core** | The reason the sandbox exists: turning a consent given at the bank into an enforceable access right on the XS2A interface, and serving no more than that right. | Consent management, Account information, Payment initiation |
+| Access to account (the Bank) | Consent and account access | **core** | The reason the sandbox exists: turning a consent given at the bank into an enforceable access right on the XS2A interface, serving no more than that right, and executing no payment the customer did not approve on that same interface. | Consent management, Account information, Payment initiation |
 | Access to account (the Bank) | Customer identity and strong customer authentication | **core** | The Bank is a CIAM. Knowing which devices are the customer's and proving presence with two dynamically linked factors is what makes the consent trustworthy. | Customer identity and SCA |
 | Access to account (the Bank) | Third-party identification | supporting | Needed on every call, but the rules come from eIDAS and ETSI, not from the Bank. | TPP identification |
 | Access to account (the Bank) | Core banking | generic | The ledger already exists; it is wrapped, not modelled. | Accounts ledger |
 | Access to account (the Bank) | Push notifications | generic | A delivery channel. No context of its own. | none |
-| Authorization (the OIDC-provider) | Authorization server | supporting | An OAuth2 server is a commodity; what is bespoke is the scope handler that binds `AIS:<consentId>` to a consent and the brokering to the Bank's CIAM. | Token issuance |
+| Authorization (the OIDC-provider) | Authorization server | supporting | An OAuth2 server is a commodity; what is bespoke is the scope handler that binds `AIS:<consentId>`, `PIS:<paymentId>` and `Cancel-PIS:<paymentId>` to one resource of the Bank, and the brokering to the Bank's CIAM. | Token issuance |
 | Account aggregation (the TPP) | Bank connections | supporting | The TPP's differentiator is what it does with the data; the connection lifecycle is necessary plumbing. | Bank connection |
 
 ### 15.2 Main aggregates
@@ -871,14 +871,21 @@ The context map and the domain models are the authoritative form of this section
 | Consent management | **Consent** | Access rights, validity, frequency, accessible accounts, daily usage | Valid only after every authorisation is finalised. Data served only while valid and only to the creating TPP. Calls without PSU presence stop at `frequencyPerDay`. A new recurring consent terminates the old one. |
 | Consent management | **Authorisation** | One PSU's SCA trail for a consent | `scaStatus` moves forward only; `finalised` needs a verified challenge and, when a confirmation link was returned, the TPP's confirmation. |
 | Account information | **AccountResource** | The XS2A view of one account under one consent | Opaque, consent-stable `resourceId`; balances and links only for granted access types. |
+| Account information | **TransactionReport** | The entries of one account, over a period or since a delta point, as the interface reports them | Built only for an account whose consent grants transactions; reaches no further back than the access rules allow without the PSU; a delta continues from an entry reference or cursor of the same account; paged with a `next` link, every entry exactly once. |
+| Account information | **DeltaCursor** | Where a TPP's last delta read of one account reached | One per consent and account; a delta read without an earlier cursor is refused rather than answered with the whole history; moves forward only. |
+| Payment initiation | **Payment** | One instruction from a PISP, its transaction status and its execution | Executed only after every mandated authorisation is finalised; the status moves forward only and `ACSC`, `RJCT` and `CANC` are terminal; the amount is positive in a currency the product allows; the debtor account belongs to the PSU who authorised it; served only to the creating TPP. |
+| Payment initiation | **PaymentAuthorisation** | One PSU's SCA trail over one payment | `scaStatus` moves forward only; `finalised` needs a verified challenge whose dynamic link covers the amount, the payee and the debtor account; it belongs to exactly one payment. |
+| Payment initiation | **PaymentCancellation** | Withdrawing a payment before it is executed | A payment in a terminal status cannot be cancelled; a non-cancellable product refuses every cancellation; while a cancellation authorisation is pending the payment is not handed to the core banking; the payment is cancelled only when no authorisation is required or the cancellation authorisation is finalised. |
 | Customer identity and SCA | **PsuIdentity** | Who the customer is | Locked or closed identities cannot start a session; credentials lock after too many failures. |
 | Customer identity and SCA | **RegisteredDevice** | The possession element | Active only after enrolment confirmed by an existing SCA; one identity per device; keys are never replaced, a new key is a new device. |
 | Customer identity and SCA | **ScaChallenge** | One approval | Expires after three minutes, answered once, accepted only with a signature from an active device of the same identity, over the dynamic-link hash. |
 | Customer identity and SCA | **AuthenticationSession** | One journey from login to ID token | Second factor only after first factor and risk check; challenge only after account selection; ID token only after approval. |
+| TPP identification | **TppIdentity** | Who is calling, and with which PSD2 roles | Derived from the presented certificate only, never from an earlier call; no PSD2 qualified statement means no identity; the organization identifier of the certificate is the client id everywhere else; an endpoint is served only when the identity holds the role it requires; revoked, expired or blocked yields a refusal. |
 | Token issuance | **ClientRegistration** | Who may ask for tokens | `client_id` equals the QWAC organization identifier; redirect URIs inside the certificate's domain; scope kinds gated by PSD2 roles. |
 | Token issuance | **AuthorizationRequest** | One code flow | Exactly one AIS/PIS/PIIS resource per request; the resource exists, is `received` and belongs to the client; code issued only with the required `acr` and matching consent id; redeemed once, with PKCE, by the same client over mTLS. |
 | Token issuance | **TokenGrant** | Everything a redeemed code produced | Same scope, subject and certificate thumbprint on every token; access token at most ten minutes; refresh token capped by `validUntil`; revoked together. |
 | Bank connection | **BankConnection** | One user's link to one bank | One per (user, bank); connected only while the consent is valid and a token set exists; re-consent on `CONSENT_EXPIRED` / `CONSENT_INVALID`. |
+| Bank connection | **BankRegistryEntry** | A bank the TPP can connect to, and what it supports | A unique bank id; the XS2A base URL and the metadata URL use https; at least one consent model; a validity cap the connection never exceeds. |
 | Bank connection | **AuthorizationAttempt** | One trip to the OIDC-provider | Single-use `state` bound to the session; code exchanged only when `state` matches; verifier only ever sent to the token endpoint. |
 
 ### 15.3 Words that change meaning at a boundary
@@ -890,6 +897,9 @@ The context map and the domain models are the authoritative form of this section
 | Authorisation / Authorization | Consent management | The XS2A authorisation sub-resource of §7 (SCA trail) | Token issuance | An OAuth2 authorization request or grant |
 | PSU | Customer identity and SCA | A customer identity with credentials and devices | Token issuance | A pairwise subject; the bank identifier never crosses to the TPP |
 | Challenge | Customer identity and SCA | A signed approval on a registered device | Token issuance | The PKCE code challenge |
+| Payment | Payment initiation | The XS2A resource: an instruction with a transaction status and its own authorisation trail | Accounts ledger | A booking that debits an account, with no status of its own once it is made |
+| Transaction | Payment initiation | The `transactionStatus` of a payment on its way to execution | Account information | A booking already made, reported to a TPP as an entry of a report |
+| Cancellation | Payment initiation | Withdrawing a payment before execution, sometimes with an SCA of its own | Consent management | Deleting a consent, which needs no SCA and sets `terminatedByTpp` |
 
 ### 15.4 Context map, in words
 
@@ -897,9 +907,11 @@ The context map and the domain models are the authoritative form of this section
 - **TPP identification is an open host service** consumed by the XS2A gateway and by the OIDC-provider's client registry, so "who is calling" has one answer.
 - **Consent management and Payment initiation share a kernel:** the authorisation sub-resource and its `scaStatus` vocabulary, because the specification defines one authorisation process for AIS and PIS.
 - **Consent management supplies Customer identity and SCA** with the consent to display and receives the outcome; both teams are inside the Bank, so this is customer/supplier rather than conformist.
-- **the OIDC-provider sees the consent through an anticorruption layer:** existence, owner and status only, so `AIS:<consentId>` stays an opaque handle at the OIDC-provider.
+- **Payment initiation supplies the same context in the same way** with the payment to show on the review screen and to cover with the dynamic link, and receives the SCA status, the debtor account the PSU chose and the PSU-ID. The CIAM shows and approves a payment exactly as it shows and approves a consent.
+- **The OIDC-provider sees a consent, and a payment, through an anticorruption layer:** existence, owner and status only, so `AIS:<consentId>` and `PIS:<paymentId>` stay opaque handles and no amount or payee ever crosses to the authorization server.
 - **The CIAM is an open host (OpenID Provider) that the OIDC-provider conforms to**, like any other brokered identity provider.
-- **The ledger is wrapped by an anticorruption layer** in Account information so that ledger vocabulary never reaches a TPP.
+- **The ledger is wrapped by an anticorruption layer** in Account information, so that ledger vocabulary never reaches a TPP, and by a second one in Payment initiation, which turns funds checks, bookings and settlement into the transaction statuses of the specification.
+- **TPP identification serves the payment endpoints too**, with the PISP role they require, so a caller is identified the same way whichever service it reaches.
 
 ---
 
