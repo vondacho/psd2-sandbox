@@ -9,7 +9,7 @@ examplemap "Store tokens encrypted" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Store tokens encrypted" ~analysing @MVP +tpp-a +security {
+  story "Store tokens encrypted" ~analysing @MVP +tpp +security {
     as "TPP operator"
     want "tokens encrypted at rest and keyed by PSU, bank and consent"
     so "a database leak does not expose bank access"
@@ -18,9 +18,9 @@ examplemap "Store tokens encrypted" {
 
   rule "Tokens are encrypted with a KMS-managed key (AES-256-GCM, envelope) and stored under (user, bank, consent)" {
     example "A stored token set" @MVP +nominal {
-      given "the token response for anna, bank-b, 123cons456"
-      when "A stores it"
-      then "the vault row has key (anna, bank-b, 123cons456), a ciphertext, a wrapped data key, the KMS key id kms-tokens-1 and accessExpiresAt"
+      given "the token response for anna, bank, 123cons456"
+      when "the TPP stores it"
+      then "the vault row has key (anna, bank, 123cons456), a ciphertext, a wrapped data key, the KMS key id kms-tokens-1 and accessExpiresAt"
       then "the row contains neither 'eyJ' nor the refresh token in clear"
     }
     example "A database dump shows ciphertext only" @MVP +nominal {
@@ -30,7 +30,7 @@ examplemap "Store tokens encrypted" {
     }
     example "Reading through the vault returns the tokens" @MVP +nominal {
       given "the stored row"
-      when "the XS2A client asks the vault for (anna, bank-b, 123cons456)"
+      when "the XS2A client asks the vault for (anna, bank, 123cons456)"
       then "it receives the access token and the refresh token in clear, in memory only"
     }
     example "A tampered ciphertext is refused" @MVP +error {
@@ -47,22 +47,22 @@ examplemap "Store tokens encrypted" {
       then "the Authorization header reads 'Bearer [redacted]'"
     }
     example "An exception message does not carry the token" @MVP +edge {
-      given "F answers 500 during a refresh"
+      given "the OIDC-provider answers 500 during a refresh"
       when "the error is logged"
       then "the log holds the status and the request id, not the refresh token"
     }
     example "The browser session holds a vault reference only" @MVP +nominal {
-      given "Anna's session at A"
+      given "Anna's session at the TPP"
       when "the session store is inspected"
       then "it holds no token, only connection ids"
     }
   }
 
-  rule "One token set per connection; a new set replaces the old and the old refresh token is revoked at F" {
+  rule "One token set per connection; a new set replaces the old and the old refresh token is revoked at the OIDC-provider" {
     example "A reconnect replaces the set" @MVP +nominal {
-      given "the vault holds R1 for (anna, bank-b, 111cons222)"
-      when "the reconnect stores R2 for (anna, bank-b, 123cons456)"
-      then "the row for 111cons222 is deleted and A calls POST https://f.sandbox/revoke with R1"
+      given "the vault holds R1 for (anna, bank, 111cons222)"
+      when "the reconnect stores R2 for (anna, bank, 123cons456)"
+      then "the row for 111cons222 is deleted and the TPP calls POST https://oidc-provider.sandbox/revoke with R1"
     }
     example "A refresh updates the set in place" @MVP +nominal {
       given "the vault holds R1"
@@ -73,13 +73,13 @@ examplemap "Store tokens encrypted" {
 
   rule "Tokens are deleted when the consent ends, and the KMS being down fails closed" {
     example "CONSENT_EXPIRED deletes the set" @MVP +nominal {
-      given "Bank B answered 401 CONSENT_EXPIRED"
-      when "A processes it"
-      then "the vault row for (anna, bank-b, 123cons456) is deleted"
+      given "the Bank answered 401 CONSENT_EXPIRED"
+      when "the TPP processes it"
+      then "the vault row for (anna, bank, 123cons456) is deleted"
     }
     example "Disconnect deletes the set" @MVP +nominal {
-      given "Anna disconnects Bank B"
-      when "A processes it"
+      given "Anna disconnects the Bank"
+      when "the TPP processes it"
       then "the vault row is deleted"
     }
     example "KMS unavailable" @MVP +error {

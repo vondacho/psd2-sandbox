@@ -1,6 +1,6 @@
 // The inside of "Customer identity and SCA" from psd2-access-to-account.ddd.
 // Aggregates: PsuIdentity, RegisteredDevice, ScaChallenge, AuthenticationSession.
-// Bank B is a CIAM: an identity carries the devices that can approve for it.
+// the Bank is a CIAM: an identity carries the devices that can approve for it.
 
 context "Customer identity and SCA" {
 
@@ -157,8 +157,8 @@ context "Customer identity and SCA" {
 
   aggregate "AuthenticationSession" {
     intent "One journey of one customer from the login page to a signed
-            approval (or a refusal), started by F's brokered authorization
-            request and ending with an ID token for F."
+            approval (or a refusal), started by the OIDC-provider's brokered authorization
+            request and ending with an ID token for the OIDC-provider."
 
     invariant "The second factor is offered only after the first factor was
                verified and the risk assessment did not refuse."

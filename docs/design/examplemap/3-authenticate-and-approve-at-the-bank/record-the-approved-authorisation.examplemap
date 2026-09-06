@@ -1,0 +1,93 @@
+// Example map for the story "Record the approved authorisation" (activity
+// "Authenticate and approve at the Bank", step "Return to the TPP").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Record the approved authorisation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Record the approved authorisation" ~ready @"Walking skeleton" +bank-xs2a +"spec 14.16" {
+    as "Bank product owner"
+    want "the accessible accounts stored and the authorisation set to unconfirmed or finalised"
+    so "the XS2A API can serve exactly the approved accounts"
+  }
+
+  rule "On an approved challenge, consent management records the PSU, the accessible accounts with their access types, and the authorisation status according to the confirmation setting" +"spec 14.16" {
+    example "With a confirmation link: unconfirmed and received" @"Walking skeleton" +nominal {
+      given "consent 123cons456 (accounts, balances requested) with confirmationRequired true, and the outcome {challengeId chl-01J8, psuId anna.mueller, accounts [DE23100100100123456789 EUR]}"
+      when "the CIAM posts the outcome"
+      then "the consent has psuId anna.mueller and one accessible account DE23… EUR with access types accounts, balances"
+      then "authorisation 123auth567 is unconfirmed and the consent status is received"
+    }
+    example "Without a confirmation link: finalised and valid" @"Walking skeleton" +nominal {
+      given "the same consent with confirmationRequired false"
+      when "the CIAM posts the outcome"
+      then "authorisation 123auth567 is finalised, finalisedAt set, and the consent status is valid"
+    }
+    example "Two accounts are two accessible accounts" @"Walking skeleton" +nominal {
+      given "the outcome with accounts [DE23… EUR, DE89… EUR]"
+      when "it is recorded"
+      then "the consent has two accessible accounts"
+    }
+    example "Each accessible account gets a fresh opaque resourceId" @"Walking skeleton" +nominal {
+      given "the outcome with one account"
+      when "it is recorded"
+      then "the accessible account has a resourceId that is a UUID v4 and is not derived from the IBAN"
+    }
+    example "lastActionDate is today" @MVP +nominal {
+      given "the outcome recorded on 2026-09-06"
+      when "GET /v1/consents/123cons456 is read"
+      then "lastActionDate is 2026-09-06"
+    }
+  }
+
+  rule "Access types recorded never exceed the access requested" +"spec 6.3.1.2" {
+    example "Transactions are not recorded for an accounts+balances request" @"Walking skeleton" +nominal {
+      given "the consent requested accounts and balances"
+      when "the outcome is recorded"
+      then "no accessible account has the access type transactions"
+    }
+    example "An outcome that claims transactions is trimmed" @MVP +edge {
+      given "an outcome with accessTypes [accounts, balances, transactions] for an accounts+balances consent"
+      when "it is recorded"
+      then "the accessible account has accounts, balances only and a warning is logged"
+    }
+    example "An accounts-only request records accounts only" @MVP +edge {
+      given "a consent that requested access {accounts: []} only"
+      when "the outcome is recorded"
+      then "the accessible account has the access type accounts only"
+    }
+  }
+
+  rule "The outcome is accepted only for a challenge that is approved and belongs to this authorisation, and is idempotent" +security {
+    example "A duplicate outcome changes nothing" @MVP +edge {
+      given "the outcome for chl-01J8 was recorded"
+      when "the same outcome is posted again"
+      then "the answer is 200 and the consent is unchanged, still one accessible account"
+    }
+    example "An outcome for a pending challenge is refused" @MVP +error {
+      given "chl-01J8 is pending"
+      when "an outcome for it is posted"
+      then "consent management answers 409 'challenge not approved'"
+      then "the consent is unchanged"
+    }
+    example "An outcome for a challenge of another consent is refused" @MVP +error {
+      given "chl-77 belongs to consent 111cons222"
+      when "an outcome for chl-77 is posted to 123cons456"
+      then "consent management answers 409"
+    }
+    example "An outcome for a rejected consent is refused" @MVP +error {
+      given "consent 123cons456 is rejected"
+      when "an outcome is posted"
+      then "consent management answers 409 'consent not received'"
+    }
+    example "An outcome with accounts that are not the PSU's is refused" @MVP +error {
+      given "an outcome listing DE75… (Ben's) for anna.mueller"
+      when "it is posted"
+      then "consent management answers 400 'account not owned by PSU'"
+    }
+  }
+}

@@ -1,0 +1,110 @@
+// Example map for the story "Generate a device-bound key pair" of
+// docs/design/storymap/psu-account-list-journey.storymap (activity "Enrol a
+// device at the Bank", step "Activate the Bank app on a device").
+// Fixtures and tag conventions: docs/design/examplemap/README.md.
+
+examplemap "Generate a device-bound key pair" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Generate a device-bound key pair" ~analysing @"Walking skeleton" +bank-app {
+    as "PSU"
+    want "the app to create a key in my phone's secure hardware when I activate it"
+    so "only this device can approve my consents"
+    question "Must the key be invalidated when the biometric set of the phone changes (new fingerprint enrolled)?" +"ask bank" +security
+  }
+
+  rule "The key pair is created inside the device's secure hardware and the private key never leaves it" +"RTS art. 7" {
+    example "Activation on an iPhone with Secure Enclave creates a non-exportable P-256 key" @"Walking skeleton" +nominal {
+      given "Anna installs the Bank app on an iPhone with a Secure Enclave"
+      when "she taps 'Activate this device'"
+      then "a P-256 key pair is generated in the Secure Enclave"
+      then "the private key is marked non-exportable"
+      then "the app records hardwareBacked = true"
+    }
+    example "Activation on an Android phone with StrongBox uses the StrongBox keystore" @"Walking skeleton" +nominal {
+      given "Anna installs the Bank app on an Android phone that reports StrongBox"
+      when "she taps 'Activate this device'"
+      then "the key pair is generated with setIsStrongBoxBacked(true)"
+      then "the app records hardwareBacked = true"
+    }
+    example "Android phone with a TEE keystore but no StrongBox is accepted as hardware-backed" @"Walking skeleton" +edge {
+      given "an Android phone whose keystore reports security level TRUSTED_ENVIRONMENT"
+      when "the app activates the device"
+      then "the key pair is generated in the TEE keystore"
+      then "the app records hardwareBacked = true"
+    }
+    example "A phone without any hardware keystore generates a software key flagged as such" @MVP +edge {
+      given "an old Android phone whose keystore reports security level SOFTWARE"
+      when "the app activates the device"
+      then "the key pair is generated as non-exportable in the software keystore"
+      then "the app records hardwareBacked = false"
+      then "the registration request carries hardwareBacked = false so the Bank can decide"
+    }
+    example "The private key cannot be read back by the app" @"Walking skeleton" +error {
+      given "an activated device with its key pair"
+      when "the app asks the keystore to export the private key"
+      then "the keystore refuses"
+      then "only the public key is available for export"
+    }
+  }
+
+  rule "The key uses ECDSA with curve P-256 and the public key is exported as a JWK" {
+    example "The exported public key is a P-256 JWK with x and y only" @"Walking skeleton" +nominal {
+      given "an activated device"
+      when "the app exports the public key for registration"
+      then "the JWK has kty = EC, crv = P-256, alg = ES256"
+      then "the JWK carries x and y and no d parameter"
+    }
+    example "A signature made with the key verifies with the exported public key" @"Walking skeleton" +nominal {
+      given "the exported JWK of Anna's iPhone"
+      given "the message 'chl_01J8|m3A9|H1' signed with the device key"
+      when "the signature is verified with the JWK"
+      then "the verification succeeds"
+    }
+  }
+
+  rule "Key generation requires a local user verification method on the phone" +sca {
+    example "A phone without screen lock cannot be activated" @MVP +error {
+      given "an iPhone with no passcode and no Face ID configured"
+      when "Anna taps 'Activate this device'"
+      then "the app shows 'Set up a passcode or Face ID first'"
+      then "no key pair is generated"
+    }
+    example "A phone with only a PIN is accepted" @"Walking skeleton" +edge {
+      given "an Android phone with a 6-digit PIN and no biometrics"
+      when "Anna activates the device"
+      then "the key pair is generated with userAuthenticationRequired = true"
+      then "later approvals will ask for the PIN"
+    }
+    example "Using the key requires the user verification each time" @"Walking skeleton" +nominal {
+      given "an activated device"
+      when "the app signs a challenge without a preceding Face ID or PIN prompt"
+      then "the keystore refuses the signing operation"
+    }
+  }
+
+  rule "Each app installation holds exactly one key pair; a new key is a new device" {
+    example "Reinstalling the app produces a new key and therefore a new device" @MVP +edge {
+      given "Anna's iPhone was enrolled as device dev-anna-1 with key K1"
+      when "she deletes and reinstalls the app and activates it again"
+      then "a new key K2 is generated"
+      then "the registration creates a new device record dev-anna-2"
+      then "dev-anna-1 remains until Anna removes it"
+    }
+    example "Starting the activation twice before finishing replaces the unfinished key" @MVP +edge {
+      given "Anna tapped 'Activate' and closed the app before registration finished"
+      when "she taps 'Activate' again"
+      then "the unfinished key is deleted from the keystore"
+      then "one new key pair exists on the device"
+    }
+    example "Two installs on two phones give two independent devices" @"Walking skeleton" +nominal {
+      given "Anna activates the app on her iPhone and on her tablet"
+      when "both registrations complete"
+      then "two device records exist with two different public keys"
+    }
+  }
+}

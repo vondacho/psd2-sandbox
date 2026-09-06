@@ -9,59 +9,59 @@ examplemap "Read the consent status" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Read the consent status" ~analysing @"Walking skeleton" +tpp-a +bank-b-xs2a +"spec 6.3.2" {
+  story "Read the consent status" ~analysing @"Walking skeleton" +tpp +bank-xs2a +"spec 6.3.2" {
     as "TPP operator"
     want "GET /v1/consents/{id}/status to return valid once SCA is done"
-    so "A can show the PSU that the bank is connected"
-    question "May the creating TPP read the status with its QWAC alone, before it holds a token, as assumed here?" +"ask bank-b" +"spec 6.3.2"
+    so "the TPP can show the PSU that the bank is connected"
+    question "May the creating TPP read the status with its QWAC alone, before it holds a token, as assumed here?" +"ask bank" +"spec 6.3.2"
   }
 
   rule "The creating TPP, identified by its QWAC, reads the current consent status; a token is optional" +"spec 6.3.2" {
     example "valid after SCA and confirmation" @"Walking skeleton" +nominal {
       given "consent 123cons456 finalised"
-      when "A calls GET /v1/consents/123cons456/status with X-Request-ID"
+      when "the TPP calls GET /v1/consents/123cons456/status with X-Request-ID"
       then "the answer is 200 {consentStatus: valid}"
     }
     example "received before the SCA" @"Walking skeleton" +nominal {
       given "consent 123cons456 just created"
-      when "A reads the status without a token"
+      when "the TPP reads the status without a token"
       then "the answer is 200 {consentStatus: received}"
     }
     example "rejected after a denial" @MVP +nominal {
       given "Anna denied"
-      when "A reads the status"
+      when "the TPP reads the status"
       then "the answer is rejected"
     }
     example "expired after validUntil" @MVP +nominal {
       given "validUntil 2026-12-05 and today 2026-12-06"
-      when "A reads the status"
+      when "the TPP reads the status"
       then "the answer is expired"
     }
     example "revokedByPsu after revocation" @MVP +nominal {
-      given "Anna revoked at Bank B"
-      when "A reads the status"
+      given "Anna revoked at the Bank"
+      when "the TPP reads the status"
       then "the answer is revokedByPsu"
     }
     example "terminatedByTpp after deletion or replacement" @MVP +nominal {
       given "A deleted the consent"
-      when "A reads the status"
+      when "the TPP reads the status"
       then "the answer is terminatedByTpp"
     }
     example "received while the authorisation is unconfirmed" @MVP +edge {
       given "the device approved and no PUT yet"
-      when "A reads the status"
+      when "the TPP reads the status"
       then "the answer is received"
     }
   }
 
   rule "Another TPP or an unknown id gets CONSENT_UNKNOWN, revealing nothing" +security {
-    example "C reads A's consent" @"Walking skeleton" +error {
+    example "C reads the TPP's consent" @"Walking skeleton" +error {
       given "C's QWAC"
       when "GET /v1/consents/123cons456/status is called"
       then "the answer is 403 CONSENT_UNKNOWN"
     }
     example "An unknown id" @"Walking skeleton" +error {
-      given "A's QWAC"
+      given "the TPP's QWAC"
       when "GET /v1/consents/999cons000/status is called"
       then "the answer is 403 CONSENT_UNKNOWN"
     }
@@ -80,12 +80,12 @@ examplemap "Read the consent status" {
     }
     example "Not counted" @MVP +nominal {
       given "the usage counters at 4 of 4 for today"
-      when "A reads the status without PSU-IP-Address"
+      when "the TPP reads the status without PSU-IP-Address"
       then "the answer is 200 and the counters are unchanged"
     }
-    example "A polls the status every 2 seconds while pending" @MVP +edge {
+    example "The TPP polls the status every 2 seconds while pending" @MVP +edge {
       given "the connection is authorizing"
-      when "A polls 30 times"
+      when "the TPP polls 30 times"
       then "every poll answers 200 and none is refused as too frequent"
     }
   }

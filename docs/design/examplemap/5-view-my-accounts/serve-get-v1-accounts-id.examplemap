@@ -8,38 +8,38 @@ examplemap "Serve GET /v1/accounts/{id}" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Serve GET /v1/accounts/{id}" ~analysing @MVP +bank-b-xs2a +"spec 6.5.2" {
+  story "Serve GET /v1/accounts/{id}" ~analysing @MVP +bank-xs2a +"spec 6.5.2" {
     as "PSU"
-    want "A to show the details of the account I clicked"
+    want "the TPP to show the details of the account I clicked"
     so "I can check product, owner name and balances"
-    question "Is ownerName returned by default in the sandbox, or only when the consent asked ownerNameRequested?" +"ask bank-b" +"spec 14.17"
-    question "Should an unknown resourceId and one belonging to another consent give the same answer, to avoid confirming that an id exists?" +"ask bank-b" +security
+    question "Is ownerName returned by default in the sandbox, or only when the consent asked ownerNameRequested?" +"ask bank" +"spec 14.17"
+    question "Should an unknown resourceId and one belonging to another consent give the same answer, to avoid confirming that an id exists?" +"ask bank" +security
   }
 
   rule "The account object holds the identifiers, product data, status, owner name per policy, balances when asked and granted, and the links" +"spec 6.5.2" {
     example "Main Account with balances" @MVP +nominal {
       given "consent 123cons456 valid, resourceId 3dc3d5b3-… for Main Account"
-      when "A calls GET /v1/accounts/3dc3d5b3-…?withBalance=true"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…?withBalance=true"
       then "the answer is 200 {account: {resourceId: 3dc3d5b3-…, iban: DE23100100100123456789, currency: EUR, ownerName: Anna Müller, name: Main Account, product: Girokonto, cashAccountType: CACC, status: enabled, bic: BANKDEBBXXX, balances: [closingBooked 1250.30 EUR], _links: {balances: …}}}"
     }
     example "Without withBalance" @MVP +nominal {
       given "the same"
-      when "A calls GET /v1/accounts/3dc3d5b3-…"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…"
       then "the object has no balances"
     }
     example "withBalance on an accounts-only consent" @MVP +error {
       given "consent 555cons666 with accounts only"
-      when "A calls with withBalance=true"
+      when "the TPP calls with withBalance=true"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "A USD sub-account" @MVP +edge {
       given "the USD sub-account resourceId"
-      when "A reads it"
+      when "the TPP reads it"
       then "currency is USD and the IBAN is the shared one"
     }
     example "A closed account" @MVP +edge {
       given "Savings closed in the ledger"
-      when "A reads it"
+      when "the TPP reads it"
       then "status is deleted and there are no balances"
     }
   }
@@ -47,22 +47,22 @@ examplemap "Serve GET /v1/accounts/{id}" {
   rule "The same validation chain as the list applies, then the account must be in the consent" +"spec 6.5.2" {
     example "A resourceId that exists nowhere" @MVP +error {
       given "resourceId 00000000-0000-4000-8000-000000000000"
-      when "A reads it"
+      when "the TPP reads it"
       then "the answer is 404 RESOURCE_UNKNOWN"
     }
     example "A resourceId of another consent" @MVP +error {
       given "resourceId 9e9e… of consent 111cons222"
-      when "A reads it with Consent-ID 123cons456"
+      when "the TPP reads it with Consent-ID 123cons456"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "A malformed id" @MVP +error {
       given "resourceId 'main'"
-      when "A reads it"
+      when "the TPP reads it"
       then "the answer is 404 RESOURCE_UNKNOWN"
     }
     example "An expired token" @MVP +error {
       given "an expired access token"
-      when "A reads the account"
+      when "the TPP reads the account"
       then "the answer is 401 TOKEN_EXPIRED"
     }
   }
@@ -70,17 +70,17 @@ examplemap "Serve GET /v1/accounts/{id}" {
   rule "A detail read without PSU presence counts one access for that account only" +"spec 6" {
     example "Counting" @MVP +nominal {
       given "counters Main 2, Savings 2 and no PSU-IP-Address"
-      when "A reads Main Account"
+      when "the TPP reads Main Account"
       then "Main is 3 and Savings still 2"
     }
     example "With PSU presence nothing is counted" @MVP +nominal {
       given "the same counters and PSU-IP-Address present"
-      when "A reads Main Account"
+      when "the TPP reads Main Account"
       then "the counters are unchanged"
     }
     example "The fifth detail read of the day without presence is refused" @MVP +error {
       given "Main at 4 of 4"
-      when "A reads Main Account without PSU-IP-Address"
+      when "the TPP reads Main Account without PSU-IP-Address"
       then "the answer is 429 ACCESS_EXCEEDED"
     }
   }

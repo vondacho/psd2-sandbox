@@ -24,36 +24,36 @@ storymap "PSU account-list journey" {
           risk engine, push, PAR, app-to-app, PIS."
   }
 
-  activity "Enrol a device at Bank B" +precondition +"ES column 1" {
+  activity "Enrol a device at the Bank" +precondition +"ES column 1" {
     persona "PSU"
-    persona "Bank B security officer"
-    step "Activate the Bank B app on a device" +bank-b-app +bank-b-ciam +"ES column 1" {
-      story "Generate a device-bound key pair" @"Walking skeleton" +bank-b-app {
+    persona "Bank security officer"
+    step "Activate the Bank app on a device" +bank-app +bank-ciam +"ES column 1" {
+      story "Generate a device-bound key pair" @"Walking skeleton" +bank-app {
         as "PSU"
         want "the app to create a key in my phone's secure hardware when I activate it"
         so "only this device can approve my consents"
       }
-      story "Register the device with the CIAM" @"Walking skeleton" +bank-b-ciam {
+      story "Register the device with the CIAM" @"Walking skeleton" +bank-ciam {
         as "PSU"
-        want "my activated device listed under my identity at Bank B"
-        so "Bank B knows where to send my challenges"
+        want "my activated device listed under my identity at the Bank"
+        so "the Bank knows where to send my challenges"
       }
-      story "Protect enrolment with an existing SCA" @MVP +bank-b-ciam +security {
-        as "Bank B security officer"
+      story "Protect enrolment with an existing SCA" @MVP +bank-ciam +security {
+        as "Bank security officer"
         want "a new device confirmed with an activation code or an already active device"
         so "an attacker with a password alone cannot enrol a device"
       }
-      story "Verify platform attestation at enrolment" @Hardening +bank-b-ciam +security {
-        as "Bank B security officer"
+      story "Verify platform attestation at enrolment" @Hardening +bank-ciam +security {
+        as "Bank security officer"
         want "the key attested by the platform before the device is activated"
         so "software-only keys are refused"
       }
-      story "List and remove my devices" @MVP +bank-b-ciam {
+      story "List and remove my devices" @MVP +bank-ciam {
         as "PSU"
         want "to see my active devices and block one"
         so "a lost phone cannot approve anything"
       }
-      story "Device simulator in the browser" @"Walking skeleton" +sandbox +bank-b-app {
+      story "Device simulator in the browser" @"Walking skeleton" +sandbox +bank-app {
         as "PSU"
         want "a web page that holds a WebCrypto key and scans or pastes a QR"
         so "the sandbox journey runs without a native app"
@@ -61,40 +61,40 @@ storymap "PSU account-list journey" {
     }
   }
 
-  activity "Connect Bank B from application A" +"ES columns 2-4" {
+  activity "Connect the Bank from the TPP" +"ES columns 2-4" {
     persona "PSU"
     persona "TPP operator"
-    persona "Bank B security officer"
-    step "Select Bank B" +tpp-a +"ES column 2" {
-      story "Pick a bank from the registry" @"Walking skeleton" +tpp-a {
+    persona "Bank security officer"
+    step "Select the Bank" +tpp +"ES column 2" {
+      story "Pick a bank from the registry" @"Walking skeleton" +tpp {
         as "PSU"
-        want "to choose Bank B from a list of registered banks"
-        so "A knows which XS2A API and authorization server to talk to"
+        want "to choose the Bank from a list of registered banks"
+        so "the TPP knows which XS2A API and authorization server to talk to"
       }
-      story "Configure the bank registry" @"Walking skeleton" +tpp-a {
+      story "Configure the bank registry" @"Walking skeleton" +tpp {
         as "TPP operator"
         want "each bank's XS2A base URL, metadata URL and consent model in a config file"
         so "adding a bank does not need a code change"
       }
-      story "Show the connection state per bank" @MVP +tpp-a {
+      story "Show the connection state per bank" @MVP +tpp {
         as "PSU"
-        want "to see whether Bank B is connected, pending or needs re-consent"
+        want "to see whether the Bank is connected, pending or needs re-consent"
         so "I know what to do next"
       }
     }
-    step "Request the consent" +tpp-a +bank-b-xs2a +"ES column 3" {
-      story "Create a bank-offered consent" @"Walking skeleton" +tpp-a +"spec 6.3.1.2" {
+    step "Request the consent" +tpp +bank-xs2a +"ES column 3" {
+      story "Create a bank-offered consent" @"Walking skeleton" +tpp +"spec 6.3.1.2" {
         as "PSU"
-        want "A to ask Bank B for access to the accounts I will choose at the bank"
-        so "I decide at Bank B which accounts A may see"
+        want "the TPP to ask the Bank for access to the accounts I will choose at the bank"
+        so "I decide at the Bank which accounts the TPP may see"
       }
-      story "Terminate the XS2A TLS with a client certificate" @"Walking skeleton" +bank-b-xs2a +security +"spec 3" {
-        as "Bank B security officer"
+      story "Terminate the XS2A TLS with a client certificate" @"Walking skeleton" +bank-xs2a +security +"spec 3" {
+        as "Bank security officer"
         want "every XS2A call to present a client certificate and be refused otherwise"
         so "only identified TPPs reach the API"
       }
-      story "Validate the QWAC and its PSD2 roles" @MVP +bank-b-xs2a +security +"spec 3" {
-        as "Bank B security officer"
+      story "Validate the QWAC and its PSD2 roles" @MVP +bank-xs2a +security +"spec 3" {
+        as "Bank security officer"
         want "the certificate chain, revocation and the AISP role checked on every call"
         so "a revoked or non-AISP certificate gets CERTIFICATE_* or ROLE_INVALID"
       }
@@ -103,198 +103,198 @@ storymap "PSU account-list journey" {
         want "a private CA that issues certificates with a PSD2 QcStatement"
         so "the sandbox exercises the real validation path"
       }
-      story "POST /v1/consents creates consent and authorisation" @"Walking skeleton" +bank-b-xs2a +"spec 6.3.1.1" +"spec 4.6" {
+      story "POST /v1/consents creates consent and authorisation" @"Walking skeleton" +bank-xs2a +"spec 6.3.1.1" +"spec 4.6" {
         as "TPP operator"
         want "a 201 with consentId, ASPSP-SCA-Approach REDIRECT and the scaOAuth, scaStatus, self and status links"
-        so "A can steer the next step from the hyperlinks"
+        so "the TPP can steer the next step from the hyperlinks"
       }
-      story "Forward PSU context headers" @MVP +tpp-a +"spec 4.8" {
-        as "Bank B security officer"
-        want "A to send PSU-IP-Address, PSU-User-Agent, PSU-Device-ID and geo location"
+      story "Forward PSU context headers" @MVP +tpp +"spec 4.8" {
+        as "Bank security officer"
+        want "the TPP to send PSU-IP-Address, PSU-User-Agent, PSU-Device-ID and geo location"
         so "the risk engine can assess the session"
       }
-      story "Return a confirmation link" @MVP +bank-b-xs2a +"spec 7.6" {
-        as "Bank B security officer"
+      story "Return a confirmation link" @MVP +bank-xs2a +"spec 7.6" {
+        as "Bank security officer"
         want "the consent response to carry a confirmation link when configured"
         so "the token holder must prove it is the consent creator"
       }
-      story "Sign requests with the QSEAL" @Hardening +tpp-a +bank-b-xs2a +"spec 4.2" +"spec 12" {
-        as "Bank B security officer"
+      story "Sign requests with the QSEAL" @Hardening +tpp +bank-xs2a +"spec 4.2" +"spec 12" {
+        as "Bank security officer"
         want "Digest, Signature and TPP-Signature-Certificate verified when mandated"
         so "requests are non-repudiable at application level"
       }
-      story "Expire the previous recurring consent" @MVP +bank-b-xs2a +"spec 6.3.1.1" {
+      story "Expire the previous recurring consent" @MVP +bank-xs2a +"spec 6.3.1.1" {
         as "PSU"
         want "an older recurring consent from the same TPP to expire when the new one is authorised"
         so "I never have two live consents for the same app"
       }
     }
-    step "Start the authorization at F" +tpp-a +oidc-f +"ES column 4" {
-      story "Read F's metadata from the scaOAuth link" @"Walking skeleton" +tpp-a +"spec 13" {
+    step "Start the authorization at the OIDC-provider" +tpp +oidc-provider +"ES column 4" {
+      story "Read the OIDC-provider's metadata from the scaOAuth link" @"Walking skeleton" +tpp +"spec 13" {
         as "TPP operator"
-        want "A to discover the authorization and token endpoints from the metadata document"
+        want "the TPP to discover the authorization and token endpoints from the metadata document"
         so "no endpoint is hard-coded per bank"
       }
-      story "Redirect with state and PKCE" @"Walking skeleton" +tpp-a +security +"spec 13.1" {
+      story "Redirect with state and PKCE" @"Walking skeleton" +tpp +security +"spec 13.1" {
         as "PSU"
-        want "A to send me to F with a one-time state bound to my session and an S256 code challenge"
+        want "the TPP to send me to the OIDC-provider with a one-time state bound to my session and an S256 code challenge"
         so "nobody can inject a code into my session"
       }
-      story "Register the TPP client at F" @"Walking skeleton" +oidc-f +"spec 13.1" {
+      story "Register the TPP client at the OIDC-provider" @"Walking skeleton" +oidc-provider +"spec 13.1" {
         as "TPP operator"
         want "a client whose id is the QWAC organizationIdentifier, bound to the certificate and redirect URIs"
-        so "F can authenticate A by mTLS"
+        so "the OIDC-provider can authenticate the TPP by mTLS"
       }
-      story "Validate the scope against the consent" @"Walking skeleton" +oidc-f +bank-b-xs2a {
-        as "Bank B security officer"
-        want "F to accept AIS:<consentId> only if the consent exists, is received and belongs to this client"
+      story "Validate the scope against the consent" @"Walking skeleton" +oidc-provider +bank-xs2a {
+        as "Bank security officer"
+        want "the OIDC-provider to accept AIS:<consentId> only if the consent exists, is received and belongs to this client"
         so "a TPP cannot authorise somebody else's consent"
       }
-      story "Enforce redirect URIs in the QWAC domain" @MVP +oidc-f +security +"spec 4.10" {
-        as "Bank B security officer"
+      story "Enforce redirect URIs in the QWAC domain" @MVP +oidc-provider +security +"spec 4.10" {
+        as "Bank security officer"
         want "redirect URIs outside the certificate's domain refused"
         so "codes are never sent to a third party"
       }
-      story "Broker the PSU to Bank B CIAM" @"Walking skeleton" +oidc-f {
+      story "Broker the PSU to the Bank CIAM" @"Walking skeleton" +oidc-provider {
         as "PSU"
-        want "F to hand me to Bank B's own login page with the consent context"
+        want "the OIDC-provider to hand me to the Bank's own login page with the consent context"
         so "I authenticate with my bank, not with a stranger"
       }
-      story "Pushed authorization requests" @Hardening +oidc-f +tpp-a +security {
-        as "Bank B security officer"
+      story "Pushed authorization requests" @Hardening +oidc-provider +tpp +security {
+        as "Bank security officer"
         want "the authorization parameters sent over the mTLS back channel"
         so "they cannot be tampered with in the browser"
       }
     }
   }
 
-  activity "Authenticate and approve at Bank B" +"ES columns 5-9" {
+  activity "Authenticate and approve at the Bank" +"ES columns 5-9" {
     persona "PSU"
-    persona "Bank B security officer"
-    persona "Bank B product owner"
-    step "Identify and enter my password" +bank-b-ciam +"ES column 5" {
-      story "Log in with PSU-ID and password" @"Walking skeleton" +bank-b-ciam {
+    persona "Bank security officer"
+    persona "Bank product owner"
+    step "Identify and enter my password" +bank-ciam +"ES column 5" {
+      story "Log in with PSU-ID and password" @"Walking skeleton" +bank-ciam {
         as "PSU"
-        want "to enter my bank customer id and password on Bank B's page"
-        so "Bank B knows who is consenting"
+        want "to enter my bank customer id and password on the Bank's page"
+        so "the Bank knows who is consenting"
       }
-      story "Move the authorisation to psuAuthenticated" @"Walking skeleton" +bank-b-xs2a +"spec 14.16" {
-        as "Bank B product owner"
+      story "Move the authorisation to psuAuthenticated" @"Walking skeleton" +bank-xs2a +"spec 14.16" {
+        as "Bank product owner"
         want "the authorisation sub-resource updated as the PSU progresses"
-        so "A can read a truthful scaStatus"
+        so "the TPP can read a truthful scaStatus"
       }
-      story "Assess risk from PSU context and device signals" @Hardening +bank-b-ciam +security {
-        as "Bank B security officer"
+      story "Assess risk from PSU context and device signals" @Hardening +bank-ciam +security {
+        as "Bank security officer"
         want "the session scored before the second factor is offered"
         so "suspicious sessions are refused or stepped up"
       }
-      story "Explain a refusal to the PSU" @MVP +bank-b-ciam {
+      story "Explain a refusal to the PSU" @MVP +bank-ciam {
         as "PSU"
-        want "a clear message and a way back to A when Bank B refuses"
+        want "a clear message and a way back to the TPP when the Bank refuses"
         so "I am not left on a dead page"
       }
     }
-    step "Select accounts and review the consent" +bank-b-ciam +"ES column 6" {
-      story "Choose the accounts to share" @"Walking skeleton" +bank-b-ciam +"spec 6.3.1.2" {
+    step "Select accounts and review the consent" +bank-ciam +"ES column 6" {
+      story "Choose the accounts to share" @"Walking skeleton" +bank-ciam +"spec 6.3.1.2" {
         as "PSU"
-        want "to tick which of my payment accounts A may read"
-        so "A only sees what I decided"
+        want "to tick which of my payment accounts the TPP may read"
+        so "the TPP only sees what I decided"
       }
-      story "Show the consent summary" @"Walking skeleton" +bank-b-ciam {
+      story "Show the consent summary" @"Walking skeleton" +bank-ciam {
         as "PSU"
         want "to see the TPP name, the access types, the accounts, the validity and the frequency before I approve"
         so "I know exactly what I am granting"
       }
-      story "Show the TPP brand name" @MVP +bank-b-ciam +"spec 4.9" {
+      story "Show the TPP brand name" @MVP +bank-ciam +"spec 4.9" {
         as "PSU"
         want "the name I know the app by, not only its legal name"
         so "I recognise who is asking"
       }
     }
-    step "Receive the SCA challenge" +bank-b-ciam +"ES column 7" {
-      story "Issue a challenge with dynamic linking" @"Walking skeleton" +bank-b-ciam +sca +"RTS art. 5" {
-        as "Bank B security officer"
+    step "Receive the SCA challenge" +bank-ciam +"ES column 7" {
+      story "Issue a challenge with dynamic linking" @"Walking skeleton" +bank-ciam +sca +"RTS art. 5" {
+        as "Bank security officer"
         want "the challenge hash to cover consentId, TPP, accounts and validity"
         so "an approval cannot be replayed for a different consent"
       }
-      story "Render the challenge as a QR code" @"Walking skeleton" +bank-b-ciam +sca {
+      story "Render the challenge as a QR code" @"Walking skeleton" +bank-ciam +sca {
         as "PSU"
-        want "a QR code on Bank B's page that my app can scan"
+        want "a QR code on the Bank's page that my app can scan"
         so "I can approve from my registered device"
       }
-      story "Expire the challenge after three minutes" @MVP +bank-b-ciam +sca +security {
-        as "Bank B security officer"
+      story "Expire the challenge after three minutes" @MVP +bank-ciam +sca +security {
+        as "Bank security officer"
         want "a challenge unusable after its lifetime and after a retry limit"
         so "a stale QR cannot be approved later"
       }
-      story "Push the challenge to my active devices" @Hardening +bank-b-ciam +bank-b-app +sca {
+      story "Push the challenge to my active devices" @Hardening +bank-ciam +bank-app +sca {
         as "PSU"
         want "a notification on my phone so I do not have to scan"
         so "approval is one tap away"
       }
-      story "Offer a new code when the old one expired" @MVP +bank-b-ciam {
+      story "Offer a new code when the old one expired" @MVP +bank-ciam {
         as "PSU"
         want "to request a fresh QR without starting over"
         so "a slow scan does not cost me the whole journey"
       }
-      story "App-to-app redirect on a mobile browser" @Hardening +bank-b-ciam +bank-b-app +"spec 4.8" {
+      story "App-to-app redirect on a mobile browser" @Hardening +bank-ciam +bank-app +"spec 4.8" {
         as "PSU"
-        want "Bank B to open its app directly when I am already on my phone"
+        want "the Bank to open its app directly when I am already on my phone"
         so "I do not scan a QR on the same screen"
       }
     }
-    step "Approve on my registered device" +bank-b-app +bank-b-ciam +"ES column 8" {
-      story "Scan the QR and fetch the challenge" @"Walking skeleton" +bank-b-app +sca {
+    step "Approve on my registered device" +bank-app +bank-ciam +"ES column 8" {
+      story "Scan the QR and fetch the challenge" @"Walking skeleton" +bank-app +sca {
         as "PSU"
-        want "the app to read the QR and load the challenge from Bank B over an authenticated channel"
+        want "the app to read the QR and load the challenge from the Bank over an authenticated channel"
         so "what I approve is what the bank recorded, not what the QR says"
       }
-      story "See what I am approving" @"Walking skeleton" +bank-b-app {
+      story "See what I am approving" @"Walking skeleton" +bank-app {
         as "PSU"
         want "the TPP, the accounts and the validity shown on my phone before I approve"
         so "I cannot be tricked into approving something else"
       }
-      story "Approve with biometric or PIN and sign" @"Walking skeleton" +bank-b-app +sca {
+      story "Approve with biometric or PIN and sign" @"Walking skeleton" +bank-app +sca {
         as "PSU"
         want "the app to sign the challenge with my device key after my biometric or PIN"
         so "possession and a local check are both needed"
       }
-      story "Verify the signature against the registered key" @"Walking skeleton" +bank-b-ciam +sca +security {
-        as "Bank B security officer"
+      story "Verify the signature against the registered key" @"Walking skeleton" +bank-ciam +sca +security {
+        as "Bank security officer"
         want "the response accepted only from an active device of the identified PSU with a valid signature"
         so "a stolen challenge id is worthless"
       }
-      story "Deny a challenge from the app" @MVP +bank-b-app {
+      story "Deny a challenge from the app" @MVP +bank-app {
         as "PSU"
         want "a reject button that fails the authorisation"
         so "I can stop a request I did not start"
       }
-      story "Handle a PSU with no active device" @MVP +bank-b-ciam {
-        as "Bank B product owner"
+      story "Handle a PSU with no active device" @MVP +bank-ciam {
+        as "Bank product owner"
         want "the journey to explain how to enrol a device or to abort cleanly"
         so "the PSU is never stuck at the QR page"
       }
     }
-    step "Return to application A" +bank-b-ciam +oidc-f +"ES column 9" {
-      story "Record the approved authorisation" @"Walking skeleton" +bank-b-xs2a +"spec 14.16" {
-        as "Bank B product owner"
+    step "Return to the TPP" +bank-ciam +oidc-provider +"ES column 9" {
+      story "Record the approved authorisation" @"Walking skeleton" +bank-xs2a +"spec 14.16" {
+        as "Bank product owner"
         want "the accessible accounts stored and the authorisation set to unconfirmed or finalised"
         so "the XS2A API can serve exactly the approved accounts"
       }
-      story "Complete the OIDC flow towards F" @"Walking skeleton" +bank-b-ciam +oidc-f {
+      story "Complete the flow towards the OIDC-provider" @"Walking skeleton" +bank-ciam +oidc-provider {
         as "PSU"
-        want "Bank B to send me back to F with an ID token that carries acr, amr and the consent id"
-        so "F can issue the code for A"
+        want "the Bank to send me back to the OIDC-provider with an ID token that carries acr, amr and the consent id"
+        so "the OIDC-provider can issue the code for the TPP"
       }
-      story "Issue the authorization code" @"Walking skeleton" +oidc-f +"spec 13.2" {
+      story "Issue the authorization code" @"Walking skeleton" +oidc-provider +"spec 13.2" {
         as "PSU"
-        want "F to redirect me to A with a code and my original state"
-        so "A can finish without asking me anything else"
+        want "the OIDC-provider to redirect me to the TPP with a code and my original state"
+        so "the TPP can finish without asking me anything else"
       }
-      story "Reject the consent when SCA fails" @MVP +bank-b-xs2a +oidc-f +"spec 14.15" {
-        as "Bank B product owner"
+      story "Reject the consent when SCA fails" @MVP +bank-xs2a +oidc-provider +"spec 14.15" {
+        as "Bank product owner"
         want "a denied, expired or failed challenge to set the consent to rejected and send the PSU to the nok redirect URI"
-        so "A learns the outcome without polling forever"
+        so "the TPP learns the outcome without polling forever"
       }
     }
   }
@@ -302,58 +302,58 @@ storymap "PSU account-list journey" {
   activity "Complete the connection" +"ES columns 10-11" {
     persona "PSU"
     persona "TPP operator"
-    persona "Bank B security officer"
-    step "Exchange the code for tokens" +tpp-a +oidc-f +"ES column 10" {
-      story "Validate the callback state" @"Walking skeleton" +tpp-a +security +"spec 7.6.3" {
+    persona "Bank security officer"
+    step "Exchange the code for tokens" +tpp +oidc-provider +"ES column 10" {
+      story "Validate the callback state" @"Walking skeleton" +tpp +security +"spec 7.6.3" {
         as "TPP operator"
-        want "A to abort when the returned state does not match the session"
+        want "the TPP to abort when the returned state does not match the session"
         so "a fixated session never receives a token"
       }
-      story "Exchange the code with mTLS and PKCE" @"Walking skeleton" +tpp-a +oidc-f +"spec 13.3" {
+      story "Exchange the code with mTLS and PKCE" @"Walking skeleton" +tpp +oidc-provider +"spec 13.3" {
         as "TPP operator"
-        want "A to call the token endpoint with its QWAC and the code verifier"
-        so "F can bind the token to A's certificate"
+        want "the TPP to call the token endpoint with its QWAC and the code verifier"
+        so "the OIDC-provider can bind the token to the TPP's certificate"
       }
-      story "Issue a certificate-bound JWT scoped to the consent" @"Walking skeleton" +oidc-f +security +"spec 13.4" {
-        as "Bank B security officer"
+      story "Issue a certificate-bound JWT scoped to the consent" @"Walking skeleton" +oidc-provider +security +"spec 13.4" {
+        as "Bank security officer"
         want "an access token with aud, scope AIS:<consentId>, cnf thumbprint and a short lifetime"
-        so "a leaked token cannot be used without A's private key"
+        so "a leaked token cannot be used without the TPP's private key"
       }
-      story "Issue a refresh token capped by validUntil" @MVP +oidc-f +"spec 13.5" {
+      story "Issue a refresh token capped by validUntil" @MVP +oidc-provider +"spec 13.5" {
         as "PSU"
-        want "A to keep access for the life of my consent without asking me again"
+        want "the TPP to keep access for the life of my consent without asking me again"
         so "I authenticate once per consent, not per visit"
       }
-      story "Store tokens encrypted" @MVP +tpp-a +security {
+      story "Store tokens encrypted" @MVP +tpp +security {
         as "TPP operator"
         want "tokens encrypted at rest and keyed by PSU, bank and consent"
         so "a database leak does not expose bank access"
       }
-      story "Use a pairwise subject" @MVP +oidc-f +security {
+      story "Use a pairwise subject" @MVP +oidc-provider +security {
         as "PSU"
-        want "F to give A a pseudonymous identifier instead of my bank customer id"
-        so "A cannot correlate me across banks"
+        want "the OIDC-provider to give the TPP a pseudonymous identifier instead of my bank customer id"
+        so "the TPP cannot correlate me across banks"
       }
     }
-    step "Confirm the authorisation" +tpp-a +bank-b-xs2a +"ES column 11" {
-      story "Confirm with the bearer token" @MVP +tpp-a +bank-b-xs2a +"spec 7.6.4" {
-        as "Bank B security officer"
-        want "A to PUT the authorisation with its token and Bank B to check consent id and client before finalising"
+    step "Confirm the authorisation" +tpp +bank-xs2a +"ES column 11" {
+      story "Confirm with the bearer token" @MVP +tpp +bank-xs2a +"spec 7.6.4" {
+        as "Bank security officer"
+        want "the TPP to PUT the authorisation with its token and the Bank to check consent id and client before finalising"
         so "the consent becomes valid only for the TPP that created it"
       }
-      story "Read the consent status" @"Walking skeleton" +tpp-a +bank-b-xs2a +"spec 6.3.2" {
+      story "Read the consent status" @"Walking skeleton" +tpp +bank-xs2a +"spec 6.3.2" {
         as "TPP operator"
         want "GET /v1/consents/{id}/status to return valid once SCA is done"
-        so "A can show the PSU that the bank is connected"
+        so "the TPP can show the PSU that the bank is connected"
       }
-      story "Read the consent object" @MVP +tpp-a +bank-b-xs2a +"spec 6.3.3" {
+      story "Read the consent object" @MVP +tpp +bank-xs2a +"spec 6.3.3" {
         as "TPP operator"
         want "GET /v1/consents/{id} to return the access finally granted"
-        so "A knows which accounts and access types were approved at the bank"
+        so "the TPP knows which accounts and access types were approved at the bank"
       }
-      story "Tell the PSU the bank is connected" @"Walking skeleton" +tpp-a {
+      story "Tell the PSU the bank is connected" @"Walking skeleton" +tpp {
         as "PSU"
-        want "a confirmation screen after I come back from Bank B"
+        want "a confirmation screen after I come back from the Bank"
         so "I know the connection worked"
       }
     }
@@ -362,58 +362,58 @@ storymap "PSU account-list journey" {
   activity "View my accounts" +"ES columns 12-13" {
     persona "PSU"
     persona "TPP operator"
-    persona "Bank B security officer"
-    step "See the account list" +tpp-a +bank-b-xs2a +"ES column 12" {
-      story "Serve GET /v1/accounts from the consent" @"Walking skeleton" +bank-b-xs2a +"spec 6.5.1" {
+    persona "Bank security officer"
+    step "See the account list" +tpp +bank-xs2a +"ES column 12" {
+      story "Serve GET /v1/accounts from the consent" @"Walking skeleton" +bank-xs2a +"spec 6.5.1" {
         as "PSU"
-        want "A to show the accounts I selected at Bank B"
-        so "I see my accounts inside A"
+        want "the TPP to show the accounts I selected at the Bank"
+        so "I see my accounts inside the TPP"
       }
-      story "Validate token and consent on every call" @"Walking skeleton" +bank-b-xs2a +security {
-        as "Bank B security officer"
+      story "Validate token and consent on every call" @"Walking skeleton" +bank-xs2a +security {
+        as "Bank security officer"
         want "the JWT signature, audience, expiry, certificate binding and the Consent-ID match checked before any data leaves"
         so "a token is necessary but never sufficient"
       }
-      story "Tokenise account identifiers" @"Walking skeleton" +bank-b-xs2a +"spec 4.11.2" {
-        as "Bank B security officer"
+      story "Tokenise account identifiers" @"Walking skeleton" +bank-xs2a +"spec 4.11.2" {
+        as "Bank security officer"
         want "opaque resourceIds in paths instead of IBANs"
         so "account numbers never appear in URLs or logs"
       }
-      story "Include balances when consented" @MVP +bank-b-xs2a +"spec 6.5.1" {
+      story "Include balances when consented" @MVP +bank-xs2a +"spec 6.5.1" {
         as "PSU"
         want "withBalance=true to return my booked balances"
         so "I see how much is on each account"
       }
-      story "Return hyperlinks per account" @MVP +bank-b-xs2a +"spec 14.20" {
+      story "Return hyperlinks per account" @MVP +bank-xs2a +"spec 14.20" {
         as "TPP operator"
         want "balances and transactions links only for the access types granted"
-        so "A can navigate without guessing URLs"
+        so "the TPP can navigate without guessing URLs"
       }
-      story "Render the account list" @"Walking skeleton" +tpp-a {
+      story "Render the account list" @"Walking skeleton" +tpp {
         as "PSU"
         want "a list with name, IBAN, currency and balance"
         so "I can pick an account"
       }
     }
-    step "See an account's details" +tpp-a +bank-b-xs2a +"ES column 13" {
-      story "Serve GET /v1/accounts/{id}" @MVP +bank-b-xs2a +"spec 6.5.2" {
+    step "See an account's details" +tpp +bank-xs2a +"ES column 13" {
+      story "Serve GET /v1/accounts/{id}" @MVP +bank-xs2a +"spec 6.5.2" {
         as "PSU"
-        want "A to show the details of the account I clicked"
+        want "the TPP to show the details of the account I clicked"
         so "I can check product, owner name and balances"
       }
-      story "Refuse accounts outside the consent" @MVP +bank-b-xs2a +security {
-        as "Bank B security officer"
+      story "Refuse accounts outside the consent" @MVP +bank-xs2a +security {
+        as "Bank security officer"
         want "a resourceId not covered by the consent to return CONSENT_INVALID"
-        so "A cannot enumerate other accounts"
+        so "the TPP cannot enumerate other accounts"
       }
-      story "Render the account details" @MVP +tpp-a {
+      story "Render the account details" @MVP +tpp {
         as "PSU"
         want "a detail page with balances and links back to the list"
         so "I can move between my accounts"
       }
-      story "Read balances and transactions" +bank-b-xs2a +"spec 6.5.3" +"spec 6.5.4" {
+      story "Read balances and transactions" +bank-xs2a +"spec 6.5.3" +"spec 6.5.4" {
         as "PSU"
-        want "A to show balances and recent transactions of an account"
+        want "the TPP to show balances and recent transactions of an account"
         so "I can follow my spending in one place"
       }
     }
@@ -422,59 +422,59 @@ storymap "PSU account-list journey" {
   activity "Come back later" +"ES column 14" {
     persona "PSU"
     persona "TPP operator"
-    persona "Bank B product owner"
-    step "Reuse the connection" +tpp-a +oidc-f +bank-b-xs2a +"ES column 14" {
-      story "Refresh an expired access token" @MVP +tpp-a +oidc-f +"spec 13.5" {
+    persona "Bank product owner"
+    step "Reuse the connection" +tpp +oidc-provider +bank-xs2a +"ES column 14" {
+      story "Refresh an expired access token" @MVP +tpp +oidc-provider +"spec 13.5" {
         as "PSU"
-        want "A to renew its token silently while my consent is valid"
+        want "the TPP to renew its token silently while my consent is valid"
         so "I am not asked to authenticate on every visit"
       }
-      story "Count accesses without PSU presence" @MVP +bank-b-xs2a +"spec 6" {
-        as "Bank B product owner"
+      story "Count accesses without PSU presence" @MVP +bank-xs2a +"spec 6" {
+        as "Bank product owner"
         want "calls without PSU-IP-Address counted per account per day against frequencyPerDay and refused with ACCESS_EXCEEDED"
         so "background polling stays within the consented frequency"
       }
-      story "Handle TOKEN_EXPIRED and CONSENT_EXPIRED" @MVP +tpp-a +"spec 14.11" {
+      story "Handle TOKEN_EXPIRED and CONSENT_EXPIRED" @MVP +tpp +"spec 14.11" {
         as "TPP operator"
-        want "A to map the XS2A error codes to refresh, re-consent or alert"
+        want "the TPP to map the XS2A error codes to refresh, re-consent or alert"
         so "the PSU sees the right next step"
       }
     }
-    step "Revoke or renew the consent" +bank-b-ciam +bank-b-xs2a +oidc-f +tpp-a +"ES column 14" {
-      story "Revoke a consent at Bank B" @MVP +bank-b-ciam +"spec 14.15" {
+    step "Revoke or renew the consent" +bank-ciam +bank-xs2a +oidc-provider +tpp +"ES column 14" {
+      story "Revoke a consent at the Bank" @MVP +bank-ciam +"spec 14.15" {
         as "PSU"
-        want "a page at Bank B listing my consents with a revoke button"
+        want "a page at the Bank listing my consents with a revoke button"
         so "I can cut off an app without contacting the app"
       }
-      story "Revoke the tokens of a revoked consent" @MVP +bank-b-xs2a +oidc-f {
-        as "Bank B product owner"
-        want "F to revoke the refresh and access tokens when a consent is revoked, expires or is deleted"
+      story "Revoke the tokens of a revoked consent" @MVP +bank-xs2a +oidc-provider {
+        as "Bank product owner"
+        want "the OIDC-provider to revoke the refresh and access tokens when a consent is revoked, expires or is deleted"
         so "no token outlives its consent"
       }
-      story "Delete a consent from A" @MVP +tpp-a +bank-b-xs2a +"spec 6.4" {
+      story "Delete a consent from the TPP" @MVP +tpp +bank-xs2a +"spec 6.4" {
         as "PSU"
-        want "to disconnect Bank B inside A"
+        want "to disconnect the Bank inside the TPP"
         so "the consent is terminated by the TPP at the bank"
       }
-      story "Ask the PSU to reconnect" @MVP +tpp-a {
+      story "Ask the PSU to reconnect" @MVP +tpp {
         as "PSU"
-        want "A to tell me when my consent has ended and offer to reconnect"
+        want "the TPP to tell me when my consent has ended and offer to reconnect"
         so "I can renew before I need my data"
       }
-      story "Notify A of consent status changes" +bank-b-xs2a +tpp-a {
+      story "Notify the TPP of consent status changes" +bank-xs2a +tpp {
         as "TPP operator"
-        want "Bank B to push consent status changes to a notification URI"
-        so "A does not learn about a revocation from a failed call"
+        want "the Bank to push consent status changes to a notification URI"
+        so "the TPP does not learn about a revocation from a failed call"
       }
-      story "Multilevel SCA for corporate accounts" +bank-b-xs2a +bank-b-ciam +"spec 6.3.4" {
+      story "Multilevel SCA for corporate accounts" +bank-xs2a +bank-ciam +"spec 6.3.4" {
         as "PSU"
         want "a consent on a corporate account authorised by every required signer"
         so "company accounts can be connected too"
       }
-      story "Initiate a payment with the same infrastructure" @Hardening +tpp-a +bank-b-xs2a +oidc-f +pis +"spec 5.1.5" {
+      story "Initiate a payment with the same infrastructure" @Hardening +tpp +bank-xs2a +oidc-provider +pis +"spec 5.1.5" {
         as "PSU"
         want "to pay from a connected account with the same QR approval"
-        so "Bank B is PISP compliant with one SCA journey"
+        so "the Bank is PISP compliant with one SCA journey"
       }
     }
   }

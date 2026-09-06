@@ -1,0 +1,101 @@
+// Example map for the story "List and remove my devices" (activity "Enrol a
+// device at the Bank"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "List and remove my devices" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "List and remove my devices" ~analysing @MVP +bank-ciam {
+    as "PSU"
+    want "to see my active devices and block one"
+    so "a lost phone cannot approve anything"
+    question "Can a blocked device be unblocked, or must it be enrolled again as a new device?" +"ask bank"
+    question "Does blocking a device need an SCA, or is the password enough because a lost phone is exactly when the second factor is gone?" +"ask bank" +security
+  }
+
+  rule "The list shows every device of the identity that is not removed" {
+    example "Anna sees her active phone and her blocked old phone" @MVP +nominal {
+      given "Anna has dev-anna-1 'Anna's iPhone' active since 2026-03-02, last used 2026-09-05, and dev-anna-0 'Old phone' blocked"
+      when "she opens 'My devices' in online banking"
+      then "two rows are shown: 'Anna's iPhone' active, 'Old phone' blocked"
+      then "each row shows platform, enrolment date and last use"
+    }
+    example "A pending device is listed with a hint to finish activation" @MVP +edge {
+      given "Anna has dev-anna-2 pending"
+      when "she opens 'My devices'"
+      then "dev-anna-2 is shown with status pending and the link 'finish activation'"
+    }
+    example "A removed device is not listed" @MVP +edge {
+      given "dev-anna-3 has status removed"
+      when "Anna opens 'My devices'"
+      then "dev-anna-3 is absent"
+    }
+    example "A customer without devices sees how to enrol one" @MVP +edge {
+      given "Ben has no device records"
+      when "he opens 'My devices'"
+      then "the page shows 'No device yet' and the enrolment instructions"
+    }
+    example "Another customer's devices are never listed" @MVP +error {
+      given "dev-ben-1 belongs to ben.weber"
+      when "Anna opens 'My devices'"
+      then "dev-ben-1 is absent"
+    }
+  }
+
+  rule "Blocking takes effect immediately, including for challenges already delivered" +security {
+    example "A blocked device cannot answer a challenge issued a minute ago" @MVP +nominal {
+      given "challenge chl-01 was issued to Anna and pushed to dev-anna-1 one minute ago"
+      when "Anna blocks dev-anna-1 from online banking"
+      when "dev-anna-1 posts a valid signature for chl-01"
+      then "the SCA engine answers 403 'device blocked'"
+      then "chl-01 stays pending"
+    }
+    example "Another active device can still answer the pending challenge" @MVP +edge {
+      given "chl-01 is pending and dev-anna-1 was just blocked"
+      when "dev-anna-2, active, signs chl-01"
+      then "chl-01 is approved"
+    }
+    example "A blocked device's session in the app is terminated" @MVP +edge {
+      given "dev-anna-1 is blocked"
+      when "the app on dev-anna-1 next calls the SCA engine"
+      then "it receives 403 and shows 'This device was blocked'"
+    }
+    example "Blocking is idempotent" @MVP +edge {
+      given "dev-anna-1 is already blocked"
+      when "Anna blocks it again"
+      then "the status stays blocked and the page shows no error"
+    }
+  }
+
+  rule "A device can only be blocked or removed by its own identity" +security {
+    example "Ben cannot block Anna's device" @MVP +error {
+      given "Ben is logged in"
+      when "he sends DELETE /devices/dev-anna-1"
+      then "the CIAM answers 404"
+      then "dev-anna-1 stays active"
+    }
+    example "Anna blocks her own device" @MVP +nominal {
+      given "Anna is logged in"
+      when "she sends DELETE /devices/dev-anna-1"
+      then "the CIAM answers 204"
+      then "dev-anna-1 has status blocked"
+    }
+  }
+
+  rule "Blocking the last active device warns that no approval will be possible" {
+    example "Blocking the only active device shows a warning first" @MVP +edge {
+      given "dev-anna-1 is Anna's only active device"
+      when "she clicks 'Block' on it"
+      then "the page warns 'You will not be able to approve consents or payments until you enrol a new device'"
+      then "the block happens only after she confirms"
+    }
+    example "Blocking one of two active devices needs no warning" @MVP +nominal {
+      given "dev-anna-1 and dev-anna-2 are active"
+      when "Anna blocks dev-anna-2"
+      then "it is blocked without the warning"
+    }
+  }
+}

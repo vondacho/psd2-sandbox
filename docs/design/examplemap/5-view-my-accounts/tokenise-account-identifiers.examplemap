@@ -8,8 +8,8 @@ examplemap "Tokenise account identifiers" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Tokenise account identifiers" ~ready @"Walking skeleton" +bank-b-xs2a +"spec 4.11.2" {
-    as "Bank B security officer"
+  story "Tokenise account identifiers" ~ready @"Walking skeleton" +bank-xs2a +"spec 4.11.2" {
+    as "Bank security officer"
     want "opaque resourceIds in paths instead of IBANs"
     so "account numbers never appear in URLs or logs"
   }
@@ -17,7 +17,7 @@ examplemap "Tokenise account identifiers" {
   rule "A resourceId is a random UUID assigned per consent, IBAN and currency at authorisation, and stable for the life of the consent" +"spec 6.5.2" {
     example "The same id on two calls" @"Walking skeleton" +nominal {
       given "consent 123cons456 with Main Account"
-      when "A calls GET /v1/accounts twice"
+      when "the TPP calls GET /v1/accounts twice"
       then "Main Account has resourceId 3dc3d5b3-7023-4848-9853-f5400a64e80f both times"
     }
     example "The id is a UUID v4" @"Walking skeleton" +nominal {
@@ -33,7 +33,7 @@ examplemap "Tokenise account identifiers" {
     example "The same IBAN under C's consent gets another id" @MVP +edge {
       given "Anna shared Main Account with C under 333cons444"
       when "C calls GET /v1/accounts"
-      then "Main Account's resourceId differs from the one A sees"
+      then "Main Account's resourceId differs from the one the TPP sees"
     }
     example "Two currencies of one IBAN get two ids" @MVP +edge {
       given "the multicurrency account with EUR and USD"
@@ -44,7 +44,7 @@ examplemap "Tokenise account identifiers" {
 
   rule "Paths never accept an IBAN, PAN or BBAN" +"spec 4.11.2" {
     example "An IBAN in the path" @"Walking skeleton" +error {
-      given "A's valid token and consent"
+      given "the TPP's valid token and consent"
       when "GET /v1/accounts/DE23100100100123456789 is called"
       then "the answer is 404 RESOURCE_UNKNOWN"
     }
@@ -74,7 +74,7 @@ examplemap "Tokenise account identifiers" {
     example "The mapping table is inside consent management only" @"Walking skeleton" +nominal {
       given "the resourceId to IBAN mapping"
       when "the components that can read it are listed"
-      then "only consent management and the account information service can, never the gateway log or F"
+      then "only consent management and the account information service can, never the gateway log or the OIDC-provider"
     }
   }
 }

@@ -8,7 +8,7 @@ examplemap "Include balances when consented" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Include balances when consented" ~ready @MVP +bank-b-xs2a +"spec 6.5.1" +"spec 14.22" {
+  story "Include balances when consented" ~ready @MVP +bank-xs2a +"spec 6.5.1" +"spec 14.22" {
     as "PSU"
     want "withBalance=true to return my booked balances"
     so "I see how much is on each account"
@@ -17,27 +17,27 @@ examplemap "Include balances when consented" {
   rule "withBalance=true adds a balances array to each account for which balances were granted; without it, no balances" +"spec 6.5.1" {
     example "withBalance=true on an accounts+balances consent" @MVP +nominal {
       given "consent 123cons456 with accounts and balances on Main Account, ledger closingBooked 1250.30 EUR on 2026-09-05"
-      when "A calls GET /v1/accounts?withBalance=true"
+      when "the TPP calls GET /v1/accounts?withBalance=true"
       then "Main Account has balances [{balanceType: closingBooked, balanceAmount: {currency: EUR, amount: '1250.30'}, referenceDate: 2026-09-05}]"
     }
     example "withBalance absent" @MVP +nominal {
       given "the same consent"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "no entry has balances"
     }
     example "withBalance=false" @MVP +edge {
       given "the same consent"
-      when "A calls GET /v1/accounts?withBalance=false"
+      when "the TPP calls GET /v1/accounts?withBalance=false"
       then "no entry has balances"
     }
     example "withBalance=maybe" @MVP +error {
       given "the same consent"
-      when "A calls GET /v1/accounts?withBalance=maybe"
+      when "the TPP calls GET /v1/accounts?withBalance=maybe"
       then "the answer is 400 FORMAT_ERROR with path withBalance"
     }
     example "Several balance types are all returned" @MVP +edge {
       given "the ledger has closingBooked 1250.30 and interimAvailable 1180.30 (a 70.00 card reservation)"
-      when "A calls with withBalance=true"
+      when "the TPP calls with withBalance=true"
       then "balances holds both entries"
     }
   }
@@ -45,17 +45,17 @@ examplemap "Include balances when consented" {
   rule "withBalance on a consent without the balances access type is refused, not silently ignored" +"spec 14.11" {
     example "Accounts-only consent" @MVP +error {
       given "consent 555cons666 with access type accounts only"
-      when "A calls GET /v1/accounts?withBalance=true"
+      when "the TPP calls GET /v1/accounts?withBalance=true"
       then "the answer is 401 CONSENT_INVALID with text 'balances not covered by consent'"
     }
     example "Accounts-only consent without withBalance" @MVP +nominal {
       given "the same consent"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "the answer is 200 without balances"
     }
     example "Balances granted on one account only (dedicated consent)" @MVP +edge {
       given "a dedicated consent with accounts [Main, Savings] and balances [Main]"
-      when "A calls with withBalance=true"
+      when "the TPP calls with withBalance=true"
       then "Main has balances and Savings has none, and the answer is 200"
     }
   }
@@ -86,7 +86,7 @@ examplemap "Include balances when consented" {
   rule "Reading balances on the list is one access per account, not two" +"spec 6" {
     example "Counting" @MVP +nominal {
       given "usage counters at 0 and no PSU-IP-Address"
-      when "A calls GET /v1/accounts?withBalance=true for two accounts"
+      when "the TPP calls GET /v1/accounts?withBalance=true for two accounts"
       then "each account's counter is 1"
     }
   }

@@ -1,0 +1,102 @@
+// Example map for the story "Enforce redirect URIs in the QWAC domain"
+// (activity "Connect the Bank from the TPP", step "Start the authorization
+// at the OIDC-provider"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Enforce redirect URIs in the QWAC domain" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Enforce redirect URIs in the QWAC domain" ~analysing @MVP +oidc-provider +security +"spec 4.10" {
+    as "Bank security officer"
+    want "redirect URIs outside the certificate's domain refused"
+    so "codes are never sent to a third party"
+    question "Is a wildcard SAN (*.tpp.sandbox) acceptable for a QWAC, or does the sandbox CA refuse to issue it?" +"ask sandbox" +security
+  }
+
+  rule "At registration, the host of every redirect URI must be a domain named in the QWAC" +"spec 4.10" {
+    example "A callback under tpp.sandbox is accepted" @MVP +nominal {
+      given "the TPP's QWAC has SAN dNSName tpp.sandbox"
+      when "https://tpp.sandbox/xs2a/callback/bank is registered"
+      then "the registration is accepted"
+    }
+    example "A callback on another domain is refused" @MVP +error {
+      given "the TPP's QWAC has SAN dNSName tpp.sandbox"
+      when "https://evil.example/cb is registered"
+      then "the registration is refused with 'redirect URI not in certificate domain'"
+    }
+    example "A subdomain is accepted only with a wildcard SAN" @MVP +edge {
+      given "the TPP's QWAC has SAN dNSName tpp.sandbox only"
+      when "https://callback.tpp.sandbox/cb is registered"
+      then "the registration is refused"
+    }
+    example "A wildcard SAN covers one level of subdomain" @MVP +edge {
+      given "a QWAC with SAN *.tpp.sandbox"
+      when "https://callback.tpp.sandbox/cb is registered"
+      then "the registration is accepted"
+      when "https://x.y.tpp.sandbox/cb is registered"
+      then "the registration is refused"
+    }
+    example "An http URI is refused" @MVP +error {
+      given "the TPP's QWAC"
+      when "http://tpp.sandbox/cb is registered"
+      then "the registration is refused with 'redirect URI must use https'"
+    }
+    example "A URI with a userinfo part is refused" @MVP +error {
+      given "the TPP's QWAC"
+      when "https://tpp.sandbox@evil.example/cb is registered"
+      then "the registration is refused"
+    }
+    example "A URI with a fragment is refused" @MVP +error {
+      given "the TPP's QWAC"
+      when "https://tpp.sandbox/cb#x is registered"
+      then "the registration is refused"
+    }
+  }
+
+  rule "At /authorize the redirect_uri must be one of the registered URIs, and an error is shown rather than redirected" {
+    example "A registered URI passes" @MVP +nominal {
+      given "https://tpp.sandbox/xs2a/callback/bank is registered"
+      when "/authorize is called with it"
+      then "the OIDC-provider proceeds"
+    }
+    example "An unregistered URI on the right domain is still refused" @MVP +error {
+      given "only https://tpp.sandbox/xs2a/callback/bank is registered"
+      when "/authorize is called with https://tpp.sandbox/xs2a/callback/bank-c"
+      then "the OIDC-provider shows an error page and does not redirect"
+    }
+    example "An error for a bad redirect_uri never goes to that URI" @MVP +error {
+      given "redirect_uri https://evil.example/cb"
+      when "/authorize is called"
+      then "no request reaches evil.example"
+    }
+  }
+
+  rule "The Bank applies the same domain check to TPP-Redirect-URI and TPP-Nok-Redirect-URI on the XS2A interface" +"spec 4.10" {
+    example "A TPP-Redirect-URI in the QWAC domain is accepted" @MVP +nominal {
+      given "the TPP's QWAC and TPP-Redirect-URI https://tpp.sandbox/xs2a/callback/bank"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+    }
+    example "A TPP-Nok-Redirect-URI outside the domain is refused" @MVP +error {
+      given "TPP-Nok-Redirect-URI https://evil.example/nok"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path TPP-Nok-Redirect-URI"
+    }
+  }
+
+  rule "A certificate rotation re-validates the registered URIs" {
+    example "A new certificate without the domain disables the URIs" @MVP +edge {
+      given "the TPP client registered with https://tpp.sandbox/xs2a/callback/bank"
+      when "the operator binds a new QWAC whose SAN is only app-a.example"
+      then "the OIDC-provider refuses the binding with 'registered redirect URIs would leave the certificate domain'"
+    }
+    example "A new certificate with the domain is accepted" @MVP +nominal {
+      given "the same client"
+      when "the operator binds a new QWAC with SAN tpp.sandbox"
+      then "the binding is accepted and the URIs stay registered"
+    }
+  }
+}

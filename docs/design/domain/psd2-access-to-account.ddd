@@ -1,13 +1,13 @@
-// Context map for the PSU account-list journey: Bank B (ASPSP), the OpenID
-// Connect provider F, and TPP application A.
+// Context map for the PSU account-list journey: the Bank (ASPSP), the OpenID
+// Connect provider, and the TPP.
 //
 // Direction is about the model, not the network: upstream is whoever's model
 // the other has to accommodate. The NextGenPSD2 XS2A Implementation
-// Guidelines v1.3.16 are the published language between Bank B and any TPP.
+// Guidelines v1.3.16 are the published language between the Bank and any TPP.
 
 map "PSD2 access to account" {
 
-  domain "Access to account (Bank B, ASPSP)" {
+  domain "Access to account (the Bank, ASPSP)" {
     intent "Let a licensed third party read a customer's payment accounts, or
             initiate a payment from them, exactly as far as the customer
             consented and after the customer proved it was them with two
@@ -73,7 +73,7 @@ map "PSD2 access to account" {
                    and enrolled devices; a Challenge is what the customer
                    approves on one of those devices; an Authentication session
                    is one journey from login to a signed approval. Also the
-                   OpenID Provider that F brokers to."
+                   OpenID Provider that the OIDC-provider brokers to."
         language  "PSU" "PSU-ID" "Credential" "First factor" "Second factor"
                   "Registered device" "Device key" "Attestation" "Enrolment"
                   "SCA challenge" "Dynamic link" "QR code" "Push"
@@ -96,7 +96,7 @@ map "PSD2 access to account" {
       context "TPP identification" {
         intent    "Where a QWAC or QSEAL presented on a connection becomes a
                    TPP identity with roles, or a refusal. Consumed by the XS2A
-                   gateway and by F's client registry."
+                   gateway and by the OIDC-provider's client registry."
         language  "TPP" "QWAC" "QSEAL" "Organization identifier"
                   "PSD2 role" "AISP" "PISP" "PIISP" "Qualified trust
                   service provider" "Revocation" "Request signature"
@@ -128,7 +128,7 @@ map "PSD2 access to account" {
     }
   }
 
-  domain "Authorization (OpenID Connect provider F)" {
+  domain "Authorization (the OIDC-provider)" {
     intent "Issue tokens a resource server can trust, for exactly the resource
             the customer authorised, to exactly the client that asked."
 
@@ -140,7 +140,7 @@ map "PSD2 access to account" {
 
       context "Token issuance" {
         intent    "Where an authorization request with scope AIS:<consentId>
-                   becomes, after Bank B has authenticated the customer, a
+                   becomes, after the Bank has authenticated the customer, a
                    certificate-bound access token and a refresh token. A
                    Client here is a TPP registered by its organization
                    identifier."
@@ -155,14 +155,14 @@ map "PSD2 access to account" {
     }
   }
 
-  domain "Account aggregation (TPP application A)" {
+  domain "Account aggregation (the TPP)" {
     intent "Show a person all their accounts in one place, with as few
             authentications as the law allows."
 
     subdomain supporting "Bank connections" {
-      intent "Establishing and keeping alive the link between one user of A
+      intent "Establishing and keeping alive the link between one user of the TPP
               and one bank, through that bank's consent and token lifecycle."
-      owner  "Product owner, TPP application A"
+      owner  "Product owner, the TPP"
 
       context "Bank connection" {
         intent    "Where a user's choice of a bank becomes a Bank connection
@@ -173,7 +173,7 @@ map "PSD2 access to account" {
                   "Authorization attempt" "Token set" "Re-consent"
                   "Account view"
         aggregate "BankConnection" "BankRegistryEntry" "AuthorizationAttempt"
-        owner     "Product owner, TPP application A"
+        owner     "Product owner, the TPP"
         status    modelled
       }
     }
@@ -184,7 +184,7 @@ map "PSD2 access to account" {
   "TPP identification" -> "Consent management" : open-host-service {
     exchange "A validated TPP identity: organization identifier, legal name,
               PSD2 roles, certificate validity."
-    because  "Every XS2A endpoint and F's client registry need the same answer;
+    because  "Every XS2A endpoint and the OIDC-provider's client registry need the same answer;
               one service is cheaper than three certificate parsers."
   }
 
@@ -192,7 +192,7 @@ map "PSD2 access to account" {
     exchange "The same validated TPP identity, used to authenticate the client
               at the token endpoint and to bind the token to its certificate."
     because  "Client id and certificate subject must mean the same thing at
-              the bank and at F."
+              the bank and at the OIDC-provider."
   }
 
   "Consent management" -> "Account information" : customer-supplier {
@@ -215,27 +215,27 @@ map "PSD2 access to account" {
     exchange "The consent to display on the consent screen, and the outcome to
               record: SCA status, accessible accounts, PSU-ID."
     because  "The CIAM speaks the consent's language when it shows and updates
-              it; both teams sit inside Bank B and negotiate the contract."
+              it; both teams sit inside the Bank and negotiate the contract."
   }
 
   "Consent management" -> "Token issuance" : open-host-service / anticorruption-layer {
     exchange "Existence, owner and status of the consent named in a scope;
               revocation of every token of a consent."
-    because  "F must never learn the consent model beyond existence and
-              status. A thin layer at F keeps AIS:<consentId> an opaque
+    because  "the OIDC-provider must never learn the consent model beyond existence and
+              status. A thin layer at the OIDC-provider keeps AIS:<consentId> an opaque
               handle."
   }
 
   "Customer identity and SCA" -> "Token issuance" : open-host-service / conformist {
     exchange "An OpenID Connect ID token with subject, acr, amr and the
               consent id that was authorised."
-    because  "The CIAM is an OpenID Provider; F brokers to it like to any
+    because  "The CIAM is an OpenID Provider; the OIDC-provider brokers to it like to any
               other and accepts the claims as given."
   }
 
   "Token issuance" -> "Account information" : published-language {
     exchange "A JWT access token with audience, scope AIS:<consentId>,
-              certificate thumbprint and expiry, verifiable with F's JWKS."
+              certificate thumbprint and expiry, verifiable with the OIDC-provider's JWKS."
     because  "Read by the XS2A gateway, by the payment endpoints and by
               auditors. RFC 7519 and RFC 8705 are the schema."
   }
@@ -270,6 +270,6 @@ map "PSD2 access to account" {
     exchange "OAuth2 authorization-server metadata, authorization and token
               endpoints, token responses."
     because  "RFC 6749, 7636, 8414 and 8705 are read by every OAuth2 client;
-              A conforms to them, not to F."
+              The TPP conforms to them, not to the OIDC-provider."
   }
 }

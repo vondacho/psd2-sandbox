@@ -1,0 +1,109 @@
+// Example map for the story "Choose the accounts to share" (activity
+// "Authenticate and approve at the Bank", step "Select accounts and review the
+// consent"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Choose the accounts to share" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Choose the accounts to share" ~analysing @"Walking skeleton" +bank-ciam +"spec 6.3.1.2" {
+    as "PSU"
+    want "to tick which of my payment accounts the TPP may read"
+    so "the TPP only sees what I decided"
+    question "For a dedicated consent (IBANs named by the TPP), are the accounts pre-ticked and locked, or may the PSU untick one?" +"ask product" +"spec 6.3.1.1"
+    question "How is a multicurrency account shown: one row with all currencies, or one row per currency sub-account?" +"ask product" +"spec 6.5.1"
+  }
+
+  rule "The page lists the payment accounts of the authenticated PSU, and nothing else" {
+    example "Anna sees her two payment accounts, not her loan" @"Walking skeleton" +nominal {
+      given "anna.mueller holds Main Account DE23 1001 0010 0123 4567 89 EUR, Savings DE89 3704 0044 0532 0130 00 EUR and a loan account"
+      when "the account selection renders"
+      then "two rows are shown: 'Main Account, DE23 …7 89, EUR' and 'Savings, DE89 …30 00, EUR'"
+      then "the loan is absent"
+    }
+    example "Ben's accounts are never listed for Anna" @"Walking skeleton" +nominal {
+      given "ben.weber holds DE75 5121 0800 1245 1261 99"
+      when "Anna's selection renders"
+      then "DE75 … is absent"
+    }
+    example "A PSU without payment accounts cannot continue" @MVP +edge {
+      given "a customer with only a loan account"
+      when "the selection renders"
+      then "the page says 'You have no account that can be shared' and offers 'Back to TPP App'"
+      then "the authorisation is failed and the consent rejected"
+    }
+    example "A blocked account is listed but cannot be ticked" @MVP +edge {
+      given "Anna's Savings is blocked in the ledger"
+      when "the selection renders"
+      then "Savings is shown greyed with 'blocked'"
+    }
+    example "A multicurrency account shows its currencies" @MVP +edge {
+      given "Anna holds a multicurrency account with EUR and USD sub-accounts"
+      when "the selection renders"
+      then "one row shows 'Multicurrency, DE11 …, EUR, USD'"
+    }
+  }
+
+  rule "At least one account must be ticked to continue" {
+    example "Continue with nothing ticked is refused" @"Walking skeleton" +error {
+      given "no account ticked"
+      when "Anna clicks 'Continue'"
+      then "the page shows 'Select at least one account' and stays"
+    }
+    example "One account ticked continues" @"Walking skeleton" +nominal {
+      given "Main Account ticked"
+      when "Anna clicks 'Continue'"
+      then "the summary page shows Main Account only"
+    }
+    example "All accounts ticked continues" @"Walking skeleton" +nominal {
+      given "both accounts ticked"
+      when "Anna clicks 'Continue'"
+      then "the summary lists both"
+    }
+  }
+
+  rule "The selection becomes the consent's accessible accounts, with exactly the access types the TPP asked for" +"spec 6.3.1.2" {
+    example "Main Account selected on a bank-offered accounts+balances consent" @"Walking skeleton" +nominal {
+      given "consent 123cons456 asked access {accounts: [], balances: []}"
+      when "Anna selects Main Account and completes the SCA"
+      then "the consent has one accessible account DE23 1001 0010 0123 4567 89 EUR with access types accounts, balances"
+    }
+    example "Transactions are never granted when not requested" @"Walking skeleton" +nominal {
+      given "the same consent"
+      when "the accessible accounts are read"
+      then "none carries the access type transactions"
+    }
+    example "Both accounts selected give two accessible accounts" @"Walking skeleton" +nominal {
+      given "the same consent"
+      when "Anna selects both accounts"
+      then "the consent has two accessible accounts, each with accounts, balances"
+    }
+    example "A multicurrency selection records one accessible account per currency" @MVP +edge {
+      given "the multicurrency account with EUR and USD"
+      when "Anna selects it"
+      then "the consent has two accessible accounts with the same IBAN and currencies EUR and USD"
+    }
+    example "The selection is recorded on the session before the challenge is issued" @"Walking skeleton" +nominal {
+      given "Anna clicked Continue with Main Account"
+      when "the session is read"
+      then "selectedAccounts is [DE23 1001 0010 0123 4567 89 EUR] and the step is accountsSelected"
+    }
+  }
+
+  rule "The selection is only reachable after the first factor and the risk check" +security {
+    example "The selection URL without a verified first factor is refused" @MVP +error {
+      given "a session in step identified"
+      when "the browser opens the selection URL directly"
+      then "the login page is shown instead"
+    }
+    example "Posting a selection with an IBAN that is not the PSU's is refused" @MVP +error {
+      given "Anna's session"
+      when "the form posts iban DE75 5121 0800 1245 1261 99 (Ben's)"
+      then "the CIAM answers 400 'account not yours' and the selection stays empty"
+      then "the event is logged as a security event"
+    }
+  }
+}

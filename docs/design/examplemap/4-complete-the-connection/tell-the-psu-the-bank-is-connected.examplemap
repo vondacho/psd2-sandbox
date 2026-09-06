@@ -9,9 +9,9 @@ examplemap "Tell the PSU the bank is connected" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Tell the PSU the bank is connected" ~ready @"Walking skeleton" +tpp-a {
+  story "Tell the PSU the bank is connected" ~ready @"Walking skeleton" +tpp {
     as "PSU"
-    want "a confirmation screen after I come back from Bank B"
+    want "a confirmation screen after I come back from the Bank"
     so "I know the connection worked"
   }
 
@@ -19,7 +19,7 @@ examplemap "Tell the PSU the bank is connected" {
     example "The nominal confirmation screen" @"Walking skeleton" +nominal {
       given "the exchange succeeded, the PUT answered finalised and the status is valid with validUntil 2026-12-05"
       when "the callback page renders"
-      then "it says 'Bank B is connected until 5 December 2026' with the button 'View accounts'"
+      then "it says 'the Bank is connected until 5 December 2026' with the button 'View accounts'"
       then "the connection state is connected and connectedAt is now"
     }
     example "With the consent object, the number of accounts is shown" @MVP +edge {
@@ -29,9 +29,9 @@ examplemap "Tell the PSU the bank is connected" {
     }
     example "The status is still received right after confirmation" @MVP +edge {
       given "the PUT answered finalised but GET status answers received"
-      when "A retries the status three times, two seconds apart"
+      when "the TPP retries the status three times, two seconds apart"
       then "if it becomes valid the page says connected"
-      then "if not, the page says 'Almost done, Bank B is finishing up' and the state is authorizing"
+      then "if not, the page says 'Almost done, the Bank is finishing up' and the state is authorizing"
     }
   }
 
@@ -39,22 +39,22 @@ examplemap "Tell the PSU the bank is connected" {
     example "Access not granted" @"Walking skeleton" +error {
       given "the callback carried error=access_denied"
       when "the page renders"
-      then "it says 'Bank B did not grant access' with 'Try again'"
+      then "it says 'the Bank did not grant access' with 'Try again'"
     }
     example "Token exchange failed" @MVP +error {
-      given "F answered invalid_grant"
+      given "the OIDC-provider answered invalid_grant"
       when "the page renders"
-      then "it says 'Something went wrong while connecting to Bank B (ref A-8F3A). Try again.'"
+      then "it says 'Something went wrong while connecting to the Bank (ref A-8F3A). Try again.'"
     }
-    example "Bank B unreachable during confirmation" @MVP +error {
+    example "The Bank unreachable during confirmation" @MVP +error {
       given "the PUT timed out"
       when "the page renders"
-      then "it says 'Bank B did not answer. Your connection may still complete; check My banks in a minute.'"
+      then "it says 'the Bank did not answer. Your connection may still complete; check My banks in a minute.'"
     }
     example "No registered device" @MVP +error {
       given "error_description 'no registered device'"
       when "the page renders"
-      then "it explains that the Bank B app must be activated first"
+      then "it explains that the Bank app must be activated first"
     }
   }
 
@@ -62,17 +62,17 @@ examplemap "Tell the PSU the bank is connected" {
     example "Reload after success" @"Walking skeleton" +edge {
       given "the callback was processed and the state consumed"
       when "Anna reloads the page"
-      then "it shows 'Bank B is connected' again and sends nothing to F or Bank B"
+      then "it shows 'the Bank is connected' again and sends nothing to the OIDC-provider or the Bank"
     }
     example "Reload after failure" @MVP +edge {
       given "the callback failed"
       when "Anna reloads"
       then "it shows the same failure and 'Try again'"
     }
-    example "Back button to Bank B's page" @MVP +edge {
+    example "Back button to the Bank's page" @MVP +edge {
       given "Anna presses back to the CIAM page"
       when "the page renders"
-      then "the CIAM shows 'This request was already completed' and a link to App A"
+      then "the CIAM shows 'This request was already completed' and a link to TPP App"
     }
   }
 }

@@ -9,14 +9,14 @@ examplemap "Issue a refresh token capped by validUntil" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Issue a refresh token capped by validUntil" ~analysing @MVP +oidc-f +"spec 13.5" {
+  story "Issue a refresh token capped by validUntil" ~analysing @MVP +oidc-provider +"spec 13.5" {
     as "PSU"
-    want "A to keep access for the life of my consent without asking me again"
+    want "the TPP to keep access for the life of my consent without asking me again"
     so "I authenticate once per consent, not per visit"
-    question "Which time zone defines the end of validUntil: Bank B's (Europe/Berlin) as assumed here, or UTC?" +"ask bank-b"
+    question "Which time zone defines the end of validUntil: the Bank's (Europe/Berlin) as assumed here, or UTC?" +"ask bank"
   }
 
-  rule "The refresh token expires at the end of the consent's validUntil day in Bank B's time zone, or after 180 days, whichever is first" +"spec 13.5" {
+  rule "The refresh token expires at the end of the consent's validUntil day in the Bank's time zone, or after 180 days, whichever is first" +"spec 13.5" {
     example "validUntil 2026-12-05" @MVP +nominal {
       given "consent 123cons456 with validUntil 2026-12-05"
       when "the refresh token is issued on 2026-09-06"
@@ -47,46 +47,46 @@ examplemap "Issue a refresh token capped by validUntil" {
   rule "A refresh over mTLS with the same certificate, while the consent is valid, yields a new access token with the same scope and binding and a rotated refresh token" +"spec 13.5" +"RFC 8705" {
     example "The nominal refresh" @MVP +nominal {
       given "grant g1 with refresh token R1 and consent 123cons456 valid"
-      when "A posts grant_type=refresh_token, refresh_token=R1, client_id=PSDDE-BAFIN-123456 with its QWAC"
-      then "F asks consent management and gets status valid"
+      when "the TPP posts grant_type=refresh_token, refresh_token=R1, client_id=PSDDE-BAFIN-123456 with its QWAC"
+      then "the OIDC-provider asks consent management and gets status valid"
       then "the answer has a new access token with the same scope, sub and cnf, and a new refresh token R2"
       then "R1 is invalid from now on"
     }
     example "A revoked consent" @MVP +error {
       given "consent 123cons456 revokedByPsu"
-      when "A refreshes with R1"
-      then "F answers 400 invalid_grant with error_description 'consent no longer valid'"
-      then "A marks the connection needsReconsent"
+      when "the TPP refreshes with R1"
+      then "the OIDC-provider answers 400 invalid_grant with error_description 'consent no longer valid'"
+      then "the TPP marks the connection needsReconsent"
     }
     example "An expired consent" @MVP +error {
       given "consent 123cons456 expired"
-      when "A refreshes"
-      then "F answers 400 invalid_grant"
+      when "the TPP refreshes"
+      then "the OIDC-provider answers 400 invalid_grant"
     }
     example "A refresh after the refresh token's own expiry" @MVP +error {
       given "R1 expired at 2026-12-05T23:59:59+01:00"
-      when "A refreshes on 2026-12-06"
-      then "F answers 400 invalid_grant"
+      when "the TPP refreshes on 2026-12-06"
+      then "the OIDC-provider answers 400 invalid_grant"
     }
     example "A refresh with another certificate of the same client" @MVP +edge {
-      given "A's new QWAC bound as second certificate"
-      when "A refreshes R1 with the new QWAC"
-      then "F issues an access token bound to the new certificate's thumbprint"
+      given "the TPP's new QWAC bound as second certificate"
+      when "the TPP refreshes R1 with the new QWAC"
+      then "the OIDC-provider issues an access token bound to the new certificate's thumbprint"
     }
     example "A refresh with C's certificate" @MVP +error {
-      given "R1 of A"
+      given "R1 of the TPP"
       when "C posts it with its QWAC"
-      then "F answers 401 invalid_client"
+      then "the OIDC-provider answers 401 invalid_client"
     }
     example "A refresh without mTLS" @MVP +error {
       given "R1"
       when "it is posted without client certificate"
-      then "F answers 401 invalid_client"
+      then "the OIDC-provider answers 401 invalid_client"
     }
     example "A rotated refresh token used again revokes the grant" @MVP +error {
       given "R1 was rotated to R2"
       when "R1 is posted again"
-      then "F answers 400 invalid_grant and revokes R2 and every access token of g1"
+      then "the OIDC-provider answers 400 invalid_grant and revokes R2 and every access token of g1"
       then "the event is logged as a refresh-token replay"
     }
   }
@@ -99,8 +99,8 @@ examplemap "Issue a refresh token capped by validUntil" {
     }
     example "A refresh attempt for a one-off consent" @MVP +error {
       given "no refresh token exists for 777cons888"
-      when "A posts grant_type=refresh_token with any value"
-      then "F answers 400 invalid_grant"
+      when "the TPP posts grant_type=refresh_token with any value"
+      then "the OIDC-provider answers 400 invalid_grant"
     }
   }
 }

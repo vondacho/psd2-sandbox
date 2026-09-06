@@ -8,7 +8,7 @@ examplemap "Render the account details" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Render the account details" ~ready @MVP +tpp-a {
+  story "Render the account details" ~ready @MVP +tpp {
     as "PSU"
     want "a detail page with balances and links back to the list"
     so "I can move between my accounts"
@@ -42,35 +42,35 @@ examplemap "Render the account details" {
   rule "The page reads only accounts known from the list, with the PSU present" {
     example "The call carries PSU-IP-Address" @MVP +nominal {
       given "Anna clicks Main Account"
-      when "A calls GET /v1/accounts/3dc3d5b3-…?withBalance=true"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…?withBalance=true"
       then "the call carries PSU-IP-Address and Consent-ID 123cons456"
     }
     example "A resourceId not in the stored views" @MVP +error {
-      given "Anna types /banks/bank-b/accounts/00000000-0000-4000-8000-000000000000"
+      given "Anna types /banks/bank/accounts/00000000-0000-4000-8000-000000000000"
       when "the page renders"
-      then "A answers 404 and makes no call to Bank B"
+      then "the TPP answers 404 and makes no call to the Bank"
     }
     example "Another user's resourceId" @MVP +error {
       given "Ben types the URL of Anna's Main Account"
       when "the page renders"
-      then "A answers 404"
+      then "the TPP answers 404"
     }
   }
 
   rule "Errors are shown with the right next step" +"spec 14.11" {
     example "CONSENT_INVALID on a detail" @MVP +error {
-      given "Bank B answers 401 CONSENT_INVALID"
+      given "the Bank answers 401 CONSENT_INVALID"
       when "the page renders"
-      then "it says 'This account is no longer shared with App A' and links back to the list"
+      then "it says 'This account is no longer shared with TPP App' and links back to the list"
       then "the connection is marked needsReconsent"
     }
     example "ACCESS_EXCEEDED" @MVP +error {
-      given "Bank B answers 429"
+      given "the Bank answers 429"
       when "the page renders"
       then "it shows the cached view with 'try again later'"
     }
     example "RESOURCE_UNKNOWN" @MVP +error {
-      given "Bank B answers 404 RESOURCE_UNKNOWN for a stored view"
+      given "the Bank answers 404 RESOURCE_UNKNOWN for a stored view"
       when "the page renders"
       then "it says 'This account is no longer available' and the view is removed on the next list refresh"
     }

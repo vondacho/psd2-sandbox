@@ -4,7 +4,7 @@ title Consent status (consentStatus, spec 14.15)
 received --> valid : SCA finalised\n(and confirmation if required)
 received --> rejected : SCA failed / PSU declined /\nchallenge expired
 valid --> expired : validUntil passed,\nor one-off consent used
-valid --> revokedByPsu : PSU revokes at Bank B
+valid --> revokedByPsu : PSU revokes at the Bank
 valid --> terminatedByTpp : DELETE /v1/consents/{id}, or replaced by a new\nrecurring consent of the same TPP for the same PSU
 rejected --> [*]
 expired --> [*]

@@ -9,42 +9,42 @@ examplemap "Refuse accounts outside the consent" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Refuse accounts outside the consent" ~analysing @MVP +bank-b-xs2a +security {
-    as "Bank B security officer"
+  story "Refuse accounts outside the consent" ~analysing @MVP +bank-xs2a +security {
+    as "Bank security officer"
     want "a resourceId not covered by the consent to return CONSENT_INVALID"
-    so "A cannot enumerate other accounts"
-    question "Should Bank B rate-limit a TPP that produces many CONSENT_INVALID answers in a short time, and at what threshold?" +"ask bank-b" +security
+    so "the TPP cannot enumerate other accounts"
+    question "Should the Bank rate-limit a TPP that produces many CONSENT_INVALID answers in a short time, and at what threshold?" +"ask bank" +security
   }
 
   rule "Any account resource not in the consent's accessible list answers 401 CONSENT_INVALID, on the account, its balances and its transactions" {
     example "Anna's unselected Savings" @MVP +nominal {
       given "consent 123cons456 with Main Account only, and Savings has resourceId 7a1f… under another consent of Anna"
-      when "A calls GET /v1/accounts/7a1f…"
+      when "the TPP calls GET /v1/accounts/7a1f…"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "Ben's account" @MVP +error {
-      given "resourceId b0b0… of Ben's account under Ben's consent with A"
-      when "A calls GET /v1/accounts/b0b0… with Consent-ID 123cons456 (Anna's)"
+      given "resourceId b0b0… of Ben's account under Ben's consent with the TPP"
+      when "the TPP calls GET /v1/accounts/b0b0… with Consent-ID 123cons456 (Anna's)"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "An account of Anna's replaced consent" @MVP +error {
       given "resourceId 9e9e… of Main Account under 111cons222 (terminatedByTpp)"
-      when "A calls GET /v1/accounts/9e9e… with Consent-ID 123cons456"
+      when "the TPP calls GET /v1/accounts/9e9e… with Consent-ID 123cons456"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "Balances of an unselected account" @MVP +error {
       given "the same"
-      when "A calls GET /v1/accounts/7a1f…/balances"
+      when "the TPP calls GET /v1/accounts/7a1f…/balances"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "Transactions of an unselected account" @MVP +error {
       given "the same"
-      when "A calls GET /v1/accounts/7a1f…/transactions?bookingStatus=booked&dateFrom=2026-08-01"
+      when "the TPP calls GET /v1/accounts/7a1f…/transactions?bookingStatus=booked&dateFrom=2026-08-01"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "A selected account is served" @MVP +nominal {
       given "Main Account 3dc3d5b3-… in the consent"
-      when "A calls GET /v1/accounts/3dc3d5b3-…"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…"
       then "the answer is 200"
     }
   }

@@ -1,0 +1,104 @@
+// Example map for the story "Broker the PSU to the Bank CIAM" (activity "Connect
+// the Bank from the TPP", step "Start the authorization at the OIDC-provider").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Broker the PSU to the Bank CIAM" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Broker the PSU to the Bank CIAM" ~analysing @"Walking skeleton" +oidc-provider +"OIDC Core" {
+    as "PSU"
+    want "the OIDC-provider to hand me to the Bank's own login page with the consent context"
+    so "I authenticate with my bank, not with a stranger"
+    question "Does the CIAM accept the consent context as plain query parameters or must the OIDC-provider send a signed request object?" +"ask bank" +security
+  }
+
+  rule "After the scope is validated, the OIDC-provider redirects the browser to the CIAM with its own state and nonce, the required acr and the consent context" +"OIDC Core" {
+    example "The brokered authorization request" @"Walking skeleton" +nominal {
+      given "the request for AIS:123cons456 by client PSDDE-BAFIN-123456 passed scope validation"
+      when "the OIDC-provider answers the browser"
+      then "it is a 302 to https://ciam.bank.sandbox/authorize with client_id oidc-broker, response_type code, scope openid, acr_values urn:bank:psd2:sca, a fresh state and nonce, redirect_uri https://oidc-provider.sandbox/broker/callback, consent_id 123cons456 and tpp_client_id PSDDE-BAFIN-123456"
+    }
+    example "The TPP's state is not forwarded to the CIAM" @"Walking skeleton" +nominal {
+      given "the TPP's state S8NJ7…"
+      when "the brokered URL is inspected"
+      then "its state differs from S8NJ7…"
+    }
+    example "The PSU is never asked for credentials at the OIDC-provider" @"Walking skeleton" +nominal {
+      given "the OIDC-provider has no PSU accounts"
+      when "the browser hits /authorize"
+      then "the OIDC-provider renders no login form and redirects to the CIAM"
+    }
+    example "The CIAM unreachable yields temporarily_unavailable to the TPP" @MVP +error {
+      given "the CIAM answers 503 on /authorize"
+      when "the browser follows the redirect"
+      then "the CIAM's error is shown and the OIDC-provider, on its next contact, redirects the TPP with error=temporarily_unavailable"
+    }
+  }
+
+  rule "The OIDC-provider accepts the CIAM's ID token only if it is signed by the CIAM, meant for the OIDC-provider, fresh, and carries the required acr and the requested consent id with status authorised" +"OIDC Core" {
+    example "A correct ID token yields a code for the TPP" @"Walking skeleton" +nominal {
+      given "an ID token with iss https://ciam.bank.sandbox, aud oidc-broker, the sent nonce, exp in 5 minutes, acr urn:bank:psd2:sca, amr [pwd, hwk], consent_id 123cons456, consent_status authorised"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider issues an authorization code to the TPP"
+    }
+    example "An ID token with a lower acr is refused" @"Walking skeleton" +error {
+      given "an ID token with acr urn:bank:password-only"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider redirects the TPP with error=access_denied and error_description 'SCA not performed'"
+    }
+    example "An ID token for another consent is refused" @"Walking skeleton" +error {
+      given "an ID token with consent_id 111cons222 while AIS:123cons456 was requested"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider issues no code and redirects the TPP with error=server_error"
+      then "the mismatch is logged as a security event"
+    }
+    example "A refused consent yields access_denied" @MVP +error {
+      given "an ID token with consent_status refused"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider redirects the TPP's nok URI with error=access_denied and the state"
+    }
+    example "A wrong nonce is refused" @MVP +error {
+      given "an ID token whose nonce is not the one the OIDC-provider sent"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider issues no code"
+    }
+    example "An expired ID token is refused" @MVP +error {
+      given "an ID token with exp one minute in the past"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider issues no code and redirects the TPP with error=server_error"
+    }
+    example "An ID token signed with an unknown key is refused" @MVP +error {
+      given "an ID token whose kid is not in the CIAM's JWKS"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider issues no code"
+    }
+    example "An ID token with aud of another relying party is refused" @MVP +error {
+      given "an ID token with aud other-rp"
+      when "the OIDC-provider validates it"
+      then "the OIDC-provider issues no code"
+    }
+  }
+
+  rule "The CIAM's callback to the OIDC-provider is single-use and bound to the brokered request" {
+    example "A replayed broker callback is refused" @MVP +error {
+      given "the CIAM redirected to https://oidc-provider.sandbox/broker/callback?code=c1&state=st1 and the OIDC-provider processed it"
+      when "the same URL is opened again"
+      then "the OIDC-provider answers 400 'request already completed'"
+    }
+    example "A broker callback with an unknown state is refused" @MVP +error {
+      given "a callback with state st-unknown"
+      when "the OIDC-provider handles it"
+      then "the OIDC-provider answers 400 and issues no code"
+    }
+    example "The OIDC-provider redeems the CIAM code over the back channel with its own client credentials" @"Walking skeleton" +nominal {
+      given "the broker callback with code c1"
+      when "the OIDC-provider calls POST https://ciam.bank.sandbox/token"
+      then "the call authenticates client oidc-broker and returns the ID token"
+      then "the browser never sees the ID token"
+    }
+  }
+}

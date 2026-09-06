@@ -1,0 +1,111 @@
+// Example map for the story "Register the TPP client at the OIDC-provider" (activity "Connect
+// the Bank from the TPP", step "Start the authorization at the OIDC-provider").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Register the TPP client at the OIDC-provider" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Register the TPP client at the OIDC-provider" ~analysing @"Walking skeleton" +oidc-provider +"spec 13.1" +"RFC 8705" {
+    as "TPP operator"
+    want "a client whose id is the QWAC organizationIdentifier, bound to the certificate and redirect URIs"
+    so "the OIDC-provider can authenticate the TPP by mTLS"
+    question "Is registration manual by the Bank's operator, or does the OIDC-provider offer dynamic registration authenticated with the QWAC?" +"ask oidc-provider"
+  }
+
+  rule "The client id is the organizationIdentifier of the QWAC and the client authenticates with tls_client_auth" +"spec 13.1" +"RFC 8705" {
+    example "The TPP is registered and authenticates with its QWAC" @"Walking skeleton" +nominal {
+      given "client PSDDE-BAFIN-123456 registered with tls_client_auth_subject_dn 'organizationIdentifier=PSDDE-BAFIN-123456,O=TPP Fintech GmbH,C=DE'"
+      when "the TPP calls POST /token over mTLS with its QWAC"
+      then "the OIDC-provider authenticates the client as PSDDE-BAFIN-123456"
+    }
+    example "C's certificate cannot act as the TPP client" @"Walking skeleton" +error {
+      given "C presents its QWAC (PSDDE-BAFIN-654321) with client_id PSDDE-BAFIN-123456"
+      when "C calls POST /token"
+      then "the OIDC-provider answers 401 invalid_client"
+    }
+    example "An unregistered client id is refused at /authorize" @"Walking skeleton" +error {
+      given "client_id PSDDE-BAFIN-000000 is not registered"
+      when "the browser hits /authorize"
+      then "the OIDC-provider shows an error page 'unknown client' and does not redirect"
+    }
+    example "A client id that differs from the certificate's organizationIdentifier is refused" @MVP +error {
+      given "a certificate with organizationIdentifier PSDDE-BAFIN-123456 and a registration attempt with client_id 'app-a'"
+      when "the registration is submitted"
+      then "the OIDC-provider refuses with 'client_id must equal the organizationIdentifier'"
+    }
+    example "The TPP token request without client certificate is refused" @"Walking skeleton" +error {
+      given "a POST /token without TLS client certificate"
+      when "the OIDC-provider handles it"
+      then "the answer is 401 invalid_client"
+    }
+  }
+
+  rule "Redirect URIs are registered and matched exactly" +"spec 4.10" {
+    example "The registered callback matches" @"Walking skeleton" +nominal {
+      given "registered https://tpp.sandbox/xs2a/callback/bank and https://tpp.sandbox/xs2a/callback/bank?outcome=nok"
+      when "/authorize is called with redirect_uri https://tpp.sandbox/xs2a/callback/bank"
+      then "the request is accepted"
+    }
+    example "A different path is refused without redirect" @"Walking skeleton" +error {
+      given "the same registration"
+      when "/authorize is called with redirect_uri https://tpp.sandbox/xs2a/callback/other"
+      then "the OIDC-provider shows an error page and does not redirect anywhere"
+    }
+    example "An added query parameter is refused" @MVP +error {
+      given "the same registration"
+      when "/authorize is called with redirect_uri https://tpp.sandbox/xs2a/callback/bank?x=1"
+      then "the OIDC-provider shows an error page"
+    }
+    example "A different scheme is refused" @MVP +error {
+      given "the same registration"
+      when "/authorize is called with redirect_uri http://tpp.sandbox/xs2a/callback/bank"
+      then "the OIDC-provider shows an error page"
+    }
+    example "Case differs in the host only: accepted" @MVP +edge {
+      given "the same registration"
+      when "/authorize is called with redirect_uri https://the TPP.TPP.SANDBOX/xs2a/callback/bank"
+      then "the request is accepted, hosts compare case-insensitively"
+    }
+  }
+
+  rule "The client's PSD2 roles come from the QWAC and gate the scope kinds" +"spec 13.1" {
+    example "A with AISP may request AIS scopes" @"Walking skeleton" +nominal {
+      given "the TPP client registered with roles AISP, PISP"
+      when "/authorize is called with scope AIS:123cons456"
+      then "the scope kind is allowed"
+    }
+    example "C with PISP only may not request AIS scopes" @MVP +error {
+      given "client C registered with role PISP"
+      when "/authorize is called with scope AIS:123cons456"
+      then "the OIDC-provider redirects with error=invalid_scope"
+    }
+    example "Roles are re-read when the certificate is rotated" @MVP +edge {
+      given "the TPP's new QWAC carries AISP only"
+      when "the binding is updated"
+      then "the client's roles are AISP"
+      then "a PIS scope request is refused"
+    }
+  }
+
+  rule "A client may hold more than one certificate binding so certificates can rotate" {
+    example "A second QWAC with the same organizationIdentifier is added" @MVP +edge {
+      given "the TPP client bound to certificate thumbprint T1"
+      when "the operator adds the new QWAC with thumbprint T2"
+      then "both T1 and T2 authenticate the TPP client"
+    }
+    example "A certificate with another organizationIdentifier cannot be bound" @MVP +error {
+      given "the TPP client"
+      when "the operator tries to bind C's QWAC"
+      then "the OIDC-provider refuses with 'organizationIdentifier mismatch'"
+    }
+    example "Removing the old binding stops the old certificate" @MVP +nominal {
+      given "the TPP client bound to T1 and T2"
+      when "T1 is removed"
+      then "a token request with the T1 certificate answers invalid_client"
+    }
+  }
+}

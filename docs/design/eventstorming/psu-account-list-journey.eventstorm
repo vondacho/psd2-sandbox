@@ -1,4 +1,4 @@
-// Event storm: PSU views the list of accounts held at Bank B from TPP application A.
+// Event storm: PSU views the list of accounts held at the Bank from the TPP.
 // Level: software design (cumulative: big picture + process modelling + software design).
 // Timeline columns are shared by every lane; a column is one moment of the journey.
 // Column map: 1 precondition | 2 bank selection | 3 consent created | 4 authorization requested
@@ -15,22 +15,22 @@ eventstorm "PSU account-list journey" {
     actor "PSU" @2
     readmodel "Registered banks" @2
     ui "Bank picker" @2
-    command "Select Bank B" @2
-    event "Bank B selected" @2 +pivotal
+    command "Select the Bank" @2
+    event "The Bank selected" @2 +pivotal
 
     actor "PSU" @5
     actor "PSU" @6
     actor "PSU" @8
 
-    command "View accounts at Bank B" @12
+    command "View accounts at the Bank" @12
     command "Open account details" @13
 
-    command "Revoke consent at Bank B" @14
+    command "Revoke consent at the Bank" @14
     event "Consent revoked by PSU" @14 +alternative +"spec 14.15"
   }
 
-  lane "TPP application A" {
-    context "Account aggregation (TPP A, AISP)" @1
+  lane "The TPP" {
+    context "Account aggregation (the TPP, AISP)" @1
     aggregate "Bank connection" @2 {
       note "One per (PSU, bank). Holds consentId,\
             authorisationId, hyperlinks, token reference."
@@ -50,7 +50,7 @@ eventstorm "PSU account-list journey" {
 
     policy "Whenever tokens are issued and a confirmation link exists, confirm the authorisation" @11 +"spec 7.6.4"
     command "Confirm authorisation" @11
-    event "Bank B connected" @11 +pivotal
+    event "The Bank connected" @11 +pivotal
     ui "Connection confirmed" @11
 
     command "Read account list" @12 +"spec 6.5.1"
@@ -63,24 +63,24 @@ eventstorm "PSU account-list journey" {
 
     policy "Whenever the access token has expired, refresh it with the refresh token" @14 +"spec 13.5"
     policy "Whenever the consent is no longer valid, ask the PSU to reconnect the bank" @14
-    hotspot "How does A learn that a consent was revoked before its next call fails?" @14 +"ask bank-b" {
+    hotspot "How does the TPP learn that a consent was revoked before its next call fails?" @14 +"ask bank" {
       note "Options: poll consent status, or resource\
             status notification service (XS2A-RSNS)."
     }
   }
 
-  lane "OIDC provider F" {
-    context "Authorization (F, authorization server)" @1
+  lane "The OIDC-provider" {
+    context "Authorization (the OIDC-provider, authorization server)" @1
     aggregate "Authorization request" @4
     command "Validate client, redirect URI and scope" @4
     event "Client and redirect URI validated" @4 +"spec 13.1" +"spec 4.10"
     event "Scope AIS:consentId bound to the consent" @4
-    event "PSU redirected to Bank B CIAM" @4
-    hotspot "F needs a trusted channel to Bank B consent management to validate AIS:<consentId>" @4 +"ask bank-b" +"ask f"
+    event "PSU redirected to the Bank CIAM" @4
+    hotspot "The OIDC-provider needs a trusted channel to the Bank consent management to validate AIS:<consentId>" @4 +"ask bank" +"ask oidc-provider"
 
-    event "ID token received from Bank B (acr, amr, consent_id)" @9
+    event "ID token received from the Bank (acr, amr, consent_id)" @9
     event "Authorization code issued" @9 +"spec 13.2"
-    event "PSU redirected to TPP A" @9
+    event "PSU redirected to the TPP" @9
 
     aggregate "Token" @10
     command "Issue tokens" @10
@@ -92,8 +92,8 @@ eventstorm "PSU account-list journey" {
     event "Tokens of the consent revoked" @14 +alternative
   }
 
-  lane "Bank B CIAM" {
-    context "Customer identity and SCA (Bank B CIAM)" @1
+  lane "The Bank CIAM" {
+    context "Customer identity and SCA (the Bank CIAM)" @1
 
     aggregate "Authentication session" @5
     ui "Login page" @5
@@ -101,7 +101,7 @@ eventstorm "PSU account-list journey" {
     event "PSU identified" @5 +"spec 14.16"
     event "PSU authenticated with first factor" @5 +"spec 14.16"
     event "Risk assessed from PSU context data" @5 +"spec 4.8"
-    hotspot "Risk engine refuses: what does the PSU see, and what does A receive?" @5 +"ask bank-b"
+    hotspot "Risk engine refuses: what does the PSU see, and what does the TPP receive?" @5 +"ask bank"
 
     readmodel "Payment accounts of the PSU" @6
     ui "Account selection and consent summary" @6
@@ -123,16 +123,16 @@ eventstorm "PSU account-list journey" {
 
     command "Verify challenge response" @9 +sca
     event "Challenge response verified against the registered device key" @9 +pivotal
-    policy "Whenever a challenge is verified, record the authorisation and complete the OIDC flow towards F" @9
+    policy "Whenever a challenge is verified, record the authorisation and complete the OIDC flow towards the OIDC-provider" @9
     event "Challenge expired" @9 +alternative
     event "Challenge denied by PSU" @9 +alternative
   }
 
-  lane "Bank B mobile app" {
-    context "Device authenticator (Bank B app)" @1
+  lane "The Bank mobile app" {
+    context "Device authenticator (the Bank app)" @1
     aggregate "Registered device" @1
-    event "Device enrolled at Bank B" @1 +pivotal {
-      note "Precondition. Done in Bank B's own channel\
+    event "Device enrolled at the Bank" @1 +pivotal {
+      note "Precondition. Done in the Bank's own channel\
             with an existing SCA; never through the TPP."
     }
 
@@ -144,11 +144,11 @@ eventstorm "PSU account-list journey" {
     command "Approve challenge" @8
     event "Challenge approved with biometric or PIN" @8
     event "Challenge signed with the device key" @8 +sca
-    hotspot "PSU has no active device: fallback SCA method or abort?" @8 +"ask bank-b"
+    hotspot "PSU has no active device: fallback SCA method or abort?" @8 +"ask bank"
   }
 
-  lane "Bank B consent and accounts" {
-    context "Consent and account information (Bank B XS2A)" @1
+  lane "The Bank consent and accounts" {
+    context "Consent and account information (the Bank XS2A)" @1
 
     aggregate "Consent" @3
     aggregate "Authorisation sub-resource" @3
@@ -178,6 +178,6 @@ eventstorm "PSU account-list journey" {
     policy "Whenever the PSU is not present, count the access against frequencyPerDay" @14
     event "Access frequency exceeded" @14 +alternative +"spec 14.11.3"
     event "Consent expired" @14 +alternative +"spec 14.15"
-    policy "Whenever a consent is revoked or expires, revoke its tokens at F" @14
+    policy "Whenever a consent is revoked or expires, revoke its tokens at the OIDC-provider" @14
   }
 }

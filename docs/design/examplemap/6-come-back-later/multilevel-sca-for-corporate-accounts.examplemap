@@ -9,18 +9,18 @@ examplemap "Multilevel SCA for corporate accounts" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Multilevel SCA for corporate accounts" ~analysing +bank-b-xs2a +bank-b-ciam +"spec 6.3.4" +"spec 7" {
+  story "Multilevel SCA for corporate accounts" ~analysing +bank-xs2a +bank-ciam +"spec 6.3.4" +"spec 7" {
     as "PSU"
     want "a consent on a corporate account authorised by every required signer"
     so "company accounts can be connected too"
-    question "How does the second signer learn that a consent waits for them: a push, an entry in online banking, or does the TPP have to start the second authorisation explicitly?" +"ask bank-b"
-    question "How long may a consent stay partiallyAuthorised before it is rejected?" +"ask bank-b" +"spec 14.15"
-    question "Is the OAuth2 code flow run once per signer, each with a scope AIS:<consentId>, and does the TPP get one token or one per signer?" +"ask f" +"spec 13"
+    question "How does the second signer learn that a consent waits for them: a push, an entry in online banking, or does the TPP have to start the second authorisation explicitly?" +"ask bank"
+    question "How long may a consent stay partiallyAuthorised before it is rejected?" +"ask bank" +"spec 14.15"
+    question "Is the OAuth2 code flow run once per signer, each with a scope AIS:<consentId>, and does the TPP get one token or one per signer?" +"ask oidc-provider" +"spec 13"
   }
 
   rule "A corporate account that needs two signers makes the consent partiallyAuthorised after the first SCA and valid after the second" +"spec 6.3.4" {
     example "Two signers" +nominal {
-      given "the corporate account DE44… of Muster GmbH needs signers Anna and Ben, and consent 900cons001 by A with PSU-Corporate-ID muster-gmbh"
+      given "the corporate account DE44… of Muster GmbH needs signers Anna and Ben, and consent 900cons001 by the TPP with PSU-Corporate-ID muster-gmbh"
       when "Anna completes her SCA"
       then "authorisation auth-1 is finalised and the consent is partiallyAuthorised"
       when "Ben completes his SCA on a second authorisation auth-2"
@@ -38,23 +38,23 @@ examplemap "Multilevel SCA for corporate accounts" {
     }
     example "The authorisation list shows both" +nominal {
       given "auth-1 and auth-2 exist"
-      when "A calls GET /v1/consents/900cons001/authorisations"
+      when "the TPP calls GET /v1/consents/900cons001/authorisations"
       then "the answer is {authorisationIds: [auth-1, auth-2]}"
     }
     example "A second authorisation is started explicitly" +nominal {
       given "the consent is partiallyAuthorised"
-      when "A calls POST /v1/consents/900cons001/authorisations"
+      when "the TPP calls POST /v1/consents/900cons001/authorisations"
       then "the answer is 201 with a new authorisationId and a scaOAuth link"
     }
   }
 
-  rule "While partiallyAuthorised, the consent serves nothing and A shows who is missing" +"spec 14.15" {
+  rule "While partiallyAuthorised, the consent serves nothing and the TPP shows who is missing" +"spec 14.15" {
     example "GET /v1/accounts while partiallyAuthorised" +error {
       given "one of two signatures"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "the answer is 401 CONSENT_INVALID"
     }
-    example "A shows the waiting state" +nominal {
+    example "The TPP shows the waiting state" +nominal {
       given "GET status answers partiallyAuthorised"
       when "the connection page renders"
       then "it says 'Waiting for another authorised signer of Muster GmbH'"

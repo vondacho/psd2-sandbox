@@ -1,15 +1,15 @@
-@startuml 05-seq-sca-at-bank-b
-title Authentication and SCA at Bank B: password + QR approved on the registered device (steps 6-11)
+@startuml 05-seq-sca-at-bank
+title Authentication and SCA at the Bank: password + QR approved on the registered device (steps 6-11)
 autonumber
 actor PSU
 participant "PSU browser" as Br
-participant "Bank B CIAM" as CIAM
+participant "Bank CIAM" as CIAM
 participant "SCA engine" as SCA
-participant "Bank B app\n(registered device)" as App
-participant "Bank B consent mgmt" as CM
-participant "OIDC provider F" as F
+participant "Bank app\n(registered device)" as App
+participant "Bank consent mgmt" as CM
+participant "OIDC provider" as OIDC
 
-Br -> CIAM : GET /authorize (from F)
+Br -> CIAM : GET /authorize (from the OIDC-provider)
 CIAM --> Br : login page
 PSU -> Br : PSU-ID + password
 Br -> CIAM : POST /login
@@ -27,7 +27,7 @@ SCA ->> App : push notification (optional)
 PSU -> App : open app, scan QR
 App -> SCA : GET /sca/challenges/{id} (device-authenticated)
 SCA --> App : challenge details
-App --> PSU : "A wants to read accounts X, Y until date. Approve?"
+App --> PSU : "TPP wants to read accounts X, Y until date. Approve?"
 PSU -> App : approve (biometric / PIN)
 App -> App : sign challenge hash with device key
 App -> SCA : POST /sca/challenges/{id}/response {signature, deviceId}
@@ -35,10 +35,10 @@ SCA -> SCA : verify signature vs registered key,\nexpiry, device belongs to PSU
 SCA --> App : 200 approved
 Br -> CIAM : poll status
 CIAM -> CM : authorisation scaStatus = unconfirmed,\naccessible accounts = selection
-CIAM --> Br : 302 F broker callback (code)
-Br -> F : GET /broker/callback?code
-F -> CIAM : POST /token (back channel)
-CIAM --> F : ID token {sub, acr, amr:[pwd,hwk],\nconsent_id, consent_status: authorised}
-F -> F : consent_id == requested scope? acr ok?
-F --> Br : 302 A redirect_uri?code&state
+CIAM --> Br : 302 OIDC broker callback (code)
+Br -> OIDC : GET /broker/callback?code
+OIDC -> CIAM : POST /token (back channel)
+CIAM --> OIDC : ID token {sub, acr, amr:[pwd,hwk],\nconsent_id, consent_status: authorised}
+OIDC -> OIDC : consent_id == requested scope? acr ok?
+OIDC --> Br : 302 TPP redirect_uri?code&state
 @enduml

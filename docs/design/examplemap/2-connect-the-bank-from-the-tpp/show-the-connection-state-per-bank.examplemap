@@ -1,0 +1,89 @@
+// Example map for the story "Show the connection state per bank" (activity
+// "Connect the Bank from the TPP", step "Select the Bank").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Show the connection state per bank" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Show the connection state per bank" ~analysing @MVP +tpp {
+    as "PSU"
+    want "to see whether the Bank is connected, pending or needs re-consent"
+    so "I know what to do next"
+    question "Should the TPP poll GET /v1/consents/{id}/status in the background to keep the label fresh, and how often?" +"ask tpp"
+  }
+
+  rule "Each connection state maps to one label and one call to action" {
+    example "connected shows the validity date and 'View accounts'" @MVP +nominal {
+      given "Anna's connection to the Bank is connected with validUntil 2026-12-05"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Connected until 5 Dec 2026' and the button 'View accounts'"
+    }
+    example "authorizing shows pending and 'Continue at the Bank'" @MVP +nominal {
+      given "the connection is in state authorizing"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Pending, finish at the Bank' and the button 'Continue'"
+    }
+    example "needsReconsent shows the reason and 'Reconnect'" @MVP +nominal {
+      given "the connection is in state needsReconsent because the consent expired on 2026-09-01"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Access ended on 1 Sep 2026' and the button 'Reconnect'"
+    }
+    example "disconnected shows 'Not connected' and 'Connect'" @MVP +nominal {
+      given "the connection is in state disconnected"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Not connected' and the button 'Connect'"
+    }
+    example "failed shows the failure and 'Try again'" @MVP +nominal {
+      given "the connection is in state failed with reason 'access not granted'"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Connection failed: access not granted' and the button 'Try again'"
+    }
+    example "A bank never selected is not in 'My banks'" @MVP +edge {
+      given "Anna has no connection to bank-c"
+      when "she opens 'My banks'"
+      then "Bank C is absent; it is only in the picker"
+    }
+  }
+
+  rule "The label is derived from the consent status and the token set, never from a stale flag" {
+    example "A valid consent with tokens is connected" @MVP +nominal {
+      given "consentStatus valid, a token set present"
+      when "the state is computed"
+      then "the state is connected"
+    }
+    example "A valid consent whose validUntil is today shows 'expires today'" @MVP +edge {
+      given "consentStatus valid, validUntil 2026-09-06, today 2026-09-06"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Connected, expires today' and the button 'Renew'"
+    }
+    example "A valid consent without token set is treated as needing re-consent" @MVP +edge {
+      given "consentStatus valid but no token set (the vault entry was deleted)"
+      when "the state is computed"
+      then "the state is needsReconsent with reason 'tokens missing'"
+      then "an operational warning is logged"
+    }
+    example "A received consent older than 15 minutes is shown as failed" @MVP +edge {
+      given "the connection entered authorizing at 09:00 and it is 09:16"
+      when "she opens 'My banks'"
+      then "the Bank shows 'Connection timed out' and 'Try again'"
+    }
+  }
+
+  rule "A status change learned from the Bank updates the label on the next page load" {
+    example "A 401 CONSENT_INVALID on a background call flips the label to re-consent" @MVP +nominal {
+      given "the connection is connected"
+      when "the nightly refresh gets 401 CONSENT_INVALID from the Bank"
+      when "Anna opens 'My banks'"
+      then "the Bank shows 'Access was revoked at the Bank' and 'Reconnect'"
+    }
+    example "A status poll returning valid keeps connected" @MVP +nominal {
+      given "the connection is connected"
+      when "GET /v1/consents/123cons456/status returns valid"
+      then "the label stays 'Connected until 5 Dec 2026'"
+    }
+  }
+}

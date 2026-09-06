@@ -8,31 +8,31 @@ examplemap "Return hyperlinks per account" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Return hyperlinks per account" ~ready @MVP +bank-b-xs2a +"spec 14.20" {
+  story "Return hyperlinks per account" ~ready @MVP +bank-xs2a +"spec 14.20" {
     as "TPP operator"
     want "balances and transactions links only for the access types granted"
-    so "A can navigate without guessing URLs"
+    so "the TPP can navigate without guessing URLs"
   }
 
   rule "Each account carries a balances link if balances are granted and a transactions link if transactions are granted, and nothing else" +"spec 14.20" {
     example "accounts and balances" @MVP +nominal {
       given "consent with accounts and balances on Main Account (resourceId 3dc3d5b3-…)"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "Main Account's _links is {balances: {href: /psd2/v1/accounts/3dc3d5b3-…/balances}}"
     }
     example "accounts, balances and transactions" @MVP +edge {
       given "a consent with all three access types"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "_links has balances and transactions"
     }
     example "accounts only" @MVP +edge {
       given "a consent with accounts only"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "the entry has no _links or an empty one"
     }
     example "Different rights on different accounts" @MVP +edge {
       given "a dedicated consent with balances on Main and transactions on Savings"
-      when "A calls GET /v1/accounts"
+      when "the TPP calls GET /v1/accounts"
       then "Main has a balances link only and Savings a transactions link only"
     }
   }
@@ -44,29 +44,29 @@ examplemap "Return hyperlinks per account" {
       then "it is /psd2/v1/accounts/3dc3d5b3-7023-4848-9853-f5400a64e80f/balances"
     }
     example "Resolving the link against the base works" @MVP +nominal {
-      given "the base https://api.bank-b.sandbox"
-      when "A resolves the href"
-      then "the URL is https://api.bank-b.sandbox/psd2/v1/accounts/3dc3d5b3-…/balances and GET on it answers 200"
+      given "the base https://api.bank.sandbox"
+      when "the TPP resolves the href"
+      then "the URL is https://api.bank.sandbox/psd2/v1/accounts/3dc3d5b3-…/balances and GET on it answers 200"
     }
   }
 
   rule "Following a link that was not returned is refused consistently" {
     example "Transactions on an accounts+balances consent" @MVP +error {
       given "no transactions link was returned"
-      when "A calls GET /v1/accounts/3dc3d5b3-…/transactions?bookingStatus=booked&dateFrom=2026-08-01"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/transactions?bookingStatus=booked&dateFrom=2026-08-01"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "Balances on an accounts-only consent" @MVP +error {
       given "no balances link was returned"
-      when "A calls GET /v1/accounts/3dc3d5b3-…/balances"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/balances"
       then "the answer is 401 CONSENT_INVALID"
     }
   }
 
-  rule "A navigates from the links and never builds account URLs itself" {
+  rule "The TPP navigates from the links and never builds account URLs itself" {
     example "The detail page uses the returned links" @MVP +nominal {
       given "the account list with links"
-      when "A loads balances for the detail page"
+      when "the TPP loads balances for the detail page"
       then "it GETs the href of _links.balances"
     }
     example "A missing link hides the feature" @MVP +nominal {

@@ -1,0 +1,114 @@
+// Example map for the story "Create a bank-offered consent" (activity "Connect
+// the Bank from the TPP", step "Request the consent").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Create a bank-offered consent" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Create a bank-offered consent" ~analysing @"Walking skeleton" +tpp +"spec 6.3.1.2" {
+    as "PSU"
+    want "the TPP to ask the Bank for access to the accounts I will choose at the bank"
+    so "I decide at the Bank which accounts the TPP may see"
+    question "Is frequencyPerDay 4 the right default, or should it be a registry setting per bank?" +"ask product"
+    question "Should the TPP ask for transactions as well so that the account detail page can show recent bookings without a second consent?" +"ask product"
+  }
+
+  rule "A bank-offered request has empty accounts and balances arrays, is recurring and asks for 90 days capped by the bank's maximum" +"spec 6.3.1.2" {
+    example "The default request for the Bank" @"Walking skeleton" +nominal {
+      given "today is 2026-09-06 and the entry bank has maxValidityDays 180"
+      when "Anna connects the Bank"
+      then "the body is access {accounts: [], balances: []}, recurringIndicator true, validUntil 2026-12-05, frequencyPerDay 4, combinedServiceIndicator false"
+    }
+    example "A bank with a 30-day cap gets validUntil in 30 days" @"Walking skeleton" +edge {
+      given "today is 2026-09-06 and bank-c has maxValidityDays 30"
+      when "Anna connects Bank C"
+      then "validUntil is 2026-10-06"
+    }
+    example "validUntil is a calendar date, not a timestamp" @"Walking skeleton" +edge {
+      given "the request is built at 2026-09-06T23:59:59+02:00"
+      when "the body is serialised"
+      then "validUntil is the string 2026-12-05 without time"
+    }
+    example "The request never names an IBAN" @"Walking skeleton" +nominal {
+      given "the TPP knows Anna's IBAN from an earlier consent"
+      when "a new bank-offered consent is created"
+      then "the access object contains no accountReference"
+    }
+  }
+
+  rule "Every request carries the mandatory headers with fresh values" +"spec 4.8" {
+    example "The headers of a consent request" @"Walking skeleton" +nominal {
+      given "Anna's browser session at the TPP"
+      when "the request is sent"
+      then "it carries X-Request-ID as a new UUID v4, TPP-Redirect-URI https://tpp.sandbox/xs2a/callback/bank, TPP-Nok-Redirect-URI https://tpp.sandbox/xs2a/callback/bank?outcome=nok, TPP-Redirect-Preferred true, PSU-IP-Address of Anna's browser and TPP-Brand-Logging-Information 'TPP App'"
+    }
+    example "Two requests never share an X-Request-ID" @"Walking skeleton" +nominal {
+      given "Anna connects the Bank twice in a row"
+      when "the two requests are compared"
+      then "their X-Request-ID values differ"
+    }
+    example "The redirect URIs are exactly the ones registered at the OIDC-provider for this bank" @"Walking skeleton" +nominal {
+      given "the OIDC-provider has https://tpp.sandbox/xs2a/callback/bank registered for client PSDDE-BAFIN-123456"
+      when "the request is sent"
+      then "TPP-Redirect-URI equals that value character for character"
+    }
+  }
+
+  rule "A 201 answer is stored on the connection and steers the next step" +"spec 6.3.1.1" {
+    example "consentId, authorisationId and links are stored" @"Walking skeleton" +nominal {
+      given "the Bank answers 201 with consentId 123cons456, ASPSP-SCA-Approach REDIRECT and links self, status, scaStatus (…/authorisations/123auth567), confirmation, scaOAuth"
+      when "the TPP processes the answer"
+      then "the connection holds consentId 123cons456, authorisationId 123auth567 and the five links"
+      then "the connection state is consentRequested"
+    }
+    example "An answer without confirmation link is stored without it" @"Walking skeleton" +edge {
+      given "the Bank answers 201 without _links.confirmation"
+      when "the TPP processes the answer"
+      then "the connection has no confirmation link"
+      then "after the token exchange the TPP will skip the confirmation call"
+    }
+    example "An SCA approach other than REDIRECT aborts the connection" @MVP +error {
+      given "the Bank answers 201 with ASPSP-SCA-Approach DECOUPLED"
+      when "the TPP processes the answer"
+      then "the connection state is failed with reason 'unsupported SCA approach DECOUPLED'"
+      then "Anna sees 'the Bank uses a method TPP App does not support yet'"
+    }
+    example "A 201 without scaOAuth link aborts the connection" @MVP +error {
+      given "the Bank answers 201 with ASPSP-SCA-Approach REDIRECT but no scaOAuth link"
+      when "the TPP processes the answer"
+      then "the connection state is failed with reason 'scaOAuth link missing'"
+    }
+  }
+
+  rule "A refused or failed request leaves a failed connection with a message and no retry loop" +"spec 14.11" {
+    example "400 FORMAT_ERROR is a bug, not something to retry" @MVP +error {
+      given "the Bank answers 400 with tppMessages [{category ERROR, code FORMAT_ERROR, path validUntil}]"
+      when "the TPP processes the answer"
+      then "the connection state is failed"
+      then "an alert 'consent request rejected: FORMAT_ERROR at validUntil' is raised"
+      then "Anna sees 'Something went wrong on our side'"
+    }
+    example "401 CERTIFICATE_INVALID raises an operational alert" @MVP +error {
+      given "the Bank answers 401 CERTIFICATE_INVALID"
+      when "the TPP processes the answer"
+      then "an operational alert is raised"
+      then "Anna sees 'the Bank is temporarily unavailable'"
+    }
+    example "A timeout after 10 seconds fails the attempt and allows a retry" @MVP +error {
+      given "the Bank does not answer within 10 seconds"
+      when "the request times out"
+      then "the connection state is failed with 'the Bank did not answer'"
+      then "Anna sees 'Try again'"
+    }
+    example "A 503 is retried once, then fails" @MVP +error {
+      given "the Bank answers 503 twice"
+      when "the TPP sends the request"
+      then "the TPP sends it exactly twice"
+      then "the connection state is failed"
+    }
+  }
+}

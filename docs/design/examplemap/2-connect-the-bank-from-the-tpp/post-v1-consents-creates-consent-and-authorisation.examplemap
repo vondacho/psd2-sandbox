@@ -1,0 +1,162 @@
+// Example map for the story "POST /v1/consents creates consent and
+// authorisation" (activity "Connect the Bank from the TPP", step "Request
+// the consent"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "POST /v1/consents creates consent and authorisation" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "POST /v1/consents creates consent and authorisation" ~analysing @"Walking skeleton" +bank-xs2a +"spec 6.3.1.1" +"spec 4.6" {
+    as "TPP operator"
+    want "a 201 with consentId, ASPSP-SCA-Approach REDIRECT and the scaOAuth, scaStatus, self and status links"
+    so "the TPP can steer the next step from the hyperlinks"
+    question "Does the sandbox also accept dedicated consents (non-empty accounts array) or only bank-offered ones?" +"ask product" +"spec 6.3.1.1"
+    question "If a PSU-ID header is sent at creation and a different PSU logs in at the Bank, is the authorisation failed?" +"ask bank"
+  }
+
+  rule "A valid bank-offered request creates a consent in status received and answers 201 with the steering links" +"spec 6.3.1.1" {
+    example "The nominal 201" @"Walking skeleton" +nominal {
+      given "the TPP's QWAC, X-Request-ID 99391c7e-…, TPP-Redirect-URI and TPP-Nok-Redirect-URI set, PSU-IP-Address 192.168.8.78"
+      given "body access {accounts: [], balances: []}, recurringIndicator true, validUntil 2026-12-05, frequencyPerDay 4"
+      when "POST /v1/consents is called"
+      then "the status is 201, ASPSP-SCA-Approach is REDIRECT, Location is /psd2/v1/consents/123cons456"
+      then "the body has consentStatus received, consentId 123cons456 and _links self, status, scaStatus, scaOAuth"
+      then "_links.scaOAuth.href is https://oidc-provider.sandbox/.well-known/oauth-authorization-server"
+    }
+    example "X-Request-ID is echoed" @"Walking skeleton" +nominal {
+      given "X-Request-ID 99391c7e-ad88-49ec-a2ad-99ddcb1f7756"
+      when "POST /v1/consents is called"
+      then "the response header X-Request-ID is 99391c7e-ad88-49ec-a2ad-99ddcb1f7756"
+    }
+    example "The consent stores the TPP, the redirect URIs and the PSU context" @"Walking skeleton" +nominal {
+      given "the nominal request"
+      when "the consent 123cons456 is read in consent management"
+      then "tppId is PSDDE-BAFIN-123456, tppRedirectUri and tppNokRedirectUri are stored, psuId is empty, scaApproach is REDIRECT"
+    }
+    example "Two requests create two distinct consents" @"Walking skeleton" +edge {
+      given "the nominal request sent twice"
+      when "both answers arrive"
+      then "the consentId values differ"
+      then "both consents are in status received"
+    }
+    example "The confirmation link is present when the Bank is configured for confirmation" @"Walking skeleton" +edge {
+      given "the Bank runs with confirmationRequired true"
+      when "POST /v1/consents is called"
+      then "_links.confirmation.href is /psd2/v1/consents/123cons456/authorisations/123auth567"
+    }
+  }
+
+  rule "An authorisation sub-resource is created implicitly with scaStatus received" +"spec 4.6" +"spec 14.16" {
+    example "The scaStatus link resolves to received" @"Walking skeleton" +nominal {
+      given "the 201 answer with _links.scaStatus /psd2/v1/consents/123cons456/authorisations/123auth567"
+      when "the TPP calls GET on that link"
+      then "the answer is 200 {scaStatus: received}"
+    }
+    example "The authorisation list has exactly one entry" @MVP +nominal {
+      given "the consent 123cons456"
+      when "GET /v1/consents/123cons456/authorisations is called"
+      then "the answer is {authorisationIds: [123auth567]}"
+    }
+    example "The authorisation belongs to the consent" @"Walking skeleton" +nominal {
+      given "consent 123cons456 and authorisation 123auth567"
+      when "GET /v1/consents/999cons000/authorisations/123auth567 is called"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+  }
+
+  rule "Body values are validated: validUntil not in the past, frequencyPerDay at least 1 and 1 for one-off consents, access present" +"spec 14.17" {
+    example "validUntil yesterday is refused" @MVP +error {
+      given "validUntil 2026-09-05 and today 2026-09-06"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path validUntil"
+    }
+    example "validUntil today is accepted" @MVP +edge {
+      given "validUntil 2026-09-06 and today 2026-09-06"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+    }
+    example "validUntil beyond the bank's cap is shortened, not refused" @MVP +edge {
+      given "the Bank caps validity at 180 days and validUntil is 2027-09-06"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+      then "GET /v1/consents/123cons456 shows validUntil 2027-03-05"
+    }
+    example "validUntil 9999-12-31 means 'maximum' and is shortened" @MVP +edge {
+      given "validUntil 9999-12-31"
+      when "POST /v1/consents is called"
+      then "the answer is 201 and the stored validUntil is 2027-03-05"
+    }
+    example "frequencyPerDay 0 is refused" @MVP +error {
+      given "frequencyPerDay 0"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path frequencyPerDay"
+    }
+    example "A one-off consent with frequencyPerDay 4 is refused" @MVP +error {
+      given "recurringIndicator false and frequencyPerDay 4"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with text 'frequencyPerDay must be 1 when recurringIndicator is false'"
+    }
+    example "frequencyPerDay above the bank's maximum is capped" @MVP +edge {
+      given "the Bank caps frequencyPerDay at 4 and the request asks 10"
+      when "POST /v1/consents is called"
+      then "the answer is 201 and the stored frequencyPerDay is 4"
+    }
+    example "A body without access is refused" @MVP +error {
+      given "a body without the access object"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path access"
+    }
+    example "A body that is not JSON is refused" @MVP +error {
+      given "the body 'hello'"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR"
+    }
+    example "An unknown field is ignored" @MVP +edge {
+      given "the nominal body plus a field colour: blue"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+    }
+  }
+
+  rule "Mandatory headers are checked: X-Request-ID must be a UUID, redirect URIs must be present for the redirect approach and lie in the QWAC domain" +"spec 4.10" {
+    example "A missing X-Request-ID is refused" @MVP +error {
+      given "no X-Request-ID header"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path X-Request-ID"
+    }
+    example "An X-Request-ID that is not a UUID is refused" @MVP +error {
+      given "X-Request-ID 'req-1'"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path X-Request-ID"
+    }
+    example "A missing TPP-Redirect-URI is refused" @MVP +error {
+      given "no TPP-Redirect-URI header"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path TPP-Redirect-URI"
+    }
+    example "A TPP-Redirect-URI outside the QWAC domain is refused" @MVP +error {
+      given "TPP-Redirect-URI https://evil.example/cb and a QWAC for tpp.sandbox"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with text 'TPP-Redirect-URI not in certificate domain'"
+    }
+    example "A missing TPP-Nok-Redirect-URI is accepted" @"Walking skeleton" +edge {
+      given "no TPP-Nok-Redirect-URI header"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+      then "a failed SCA will redirect to TPP-Redirect-URI with an error parameter"
+    }
+    example "A missing PSU-IP-Address at creation is accepted" @MVP +edge {
+      given "no PSU-IP-Address header"
+      when "POST /v1/consents is called"
+      then "the answer is 201"
+    }
+    example "A PSU-ID header is stored on the consent" @MVP +edge {
+      given "PSU-ID anna.mueller"
+      when "POST /v1/consents is called"
+      then "the consent's psuId is anna.mueller before any login"
+    }
+  }
+}

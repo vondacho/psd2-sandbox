@@ -1,0 +1,80 @@
+// Example map for the story "Notify the TPP of consent status changes" (activity
+// "Come back later", step "Revoke or renew the consent"). Not committed to a
+// delivery. Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Notify the TPP of consent status changes" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Notify the TPP of consent status changes" ~analysing +bank-xs2a +tpp +"XS2A-RSNS" {
+    as "TPP operator"
+    want "the Bank to push consent status changes to a notification URI"
+    so "the TPP does not learn about a revocation from a failed call"
+    question "Which version of the Berlin Group resource status notification service (XS2A-RSNS) does the sandbox implement, and is the notification signed with a QSEAL of the Bank?" +"ask bank"
+  }
+
+  rule "The TPP registers a notification URI at consent creation, and the Bank posts a signed notification on every status change" {
+    example "Registration and a revocation notification" +nominal {
+      given "POST /v1/consents with TPP-Notification-URI https://tpp.sandbox/xs2a/notifications/bank and TPP-Notification-Content-Preferred status"
+      when "the Bank answers 201"
+      then "the response has ASPSP-Notification-Support true and ASPSP-Notification-Content status"
+      when "Anna revokes 123cons456 at the Bank"
+      then "within 5 seconds the Bank posts {consentId: 123cons456, consentStatus: revokedByPsu, timestamp: …} to that URI with a Signature header"
+      then "the TPP marks the connection needsReconsent before its next call"
+    }
+    example "Expiry notification" +nominal {
+      given "the registration"
+      when "the consent expires at midnight"
+      then "a notification with consentStatus expired is posted"
+    }
+    example "No notification URI: no notifications" +edge {
+      given "a consent created without TPP-Notification-URI"
+      when "it is revoked"
+      then "nothing is posted and ASPSP-Notification-Support was false"
+    }
+    example "A notification URI outside the QWAC domain is refused" +error {
+      given "TPP-Notification-URI https://evil.example/n"
+      when "POST /v1/consents is called"
+      then "the answer is 400 FORMAT_ERROR with path TPP-Notification-URI"
+    }
+  }
+
+  rule "The TPP trusts a notification only after verifying it, and confirms with a status read" +security {
+    example "An unsigned notification is ignored" +error {
+      given "a POST to the notification URI without a valid signature"
+      when "the TPP handles it"
+      then "the TPP answers 401 and changes nothing"
+    }
+    example "A signed notification is verified against the Bank's certificate" +nominal {
+      given "a notification signed with the Bank's QSEAL"
+      when "the TPP handles it"
+      then "the TPP verifies the signature, calls GET /v1/consents/123cons456/status, and acts on the status read"
+    }
+    example "A notification for an unknown consent" +edge {
+      given "a notification for 999cons000"
+      when "the TPP handles it"
+      then "the TPP answers 404 and logs it"
+    }
+    example "A duplicate notification" +edge {
+      given "the same notification posted twice"
+      when "the TPP handles the second"
+      then "the TPP answers 200 and changes nothing"
+    }
+  }
+
+  rule "The Bank retries failed deliveries and gives up after a day; the TPP still learns from its next call" {
+    example "The TPP's endpoint down" +error {
+      given "the notification URI answers 503"
+      when "the Bank delivers"
+      then "it retries after 1, 5, 30, 120 and 600 minutes, then stops"
+    }
+    example "The TPP learns anyway" +nominal {
+      given "every delivery failed"
+      when "the TPP's next call to the Bank answers 401 CONSENT_INVALID"
+      then "the TPP marks the connection needsReconsent"
+    }
+  }
+}

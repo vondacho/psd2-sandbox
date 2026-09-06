@@ -1,0 +1,88 @@
+// Example map for the story "Pushed authorization requests" (activity "Connect
+// the Bank from the TPP", step "Start the authorization at the OIDC-provider").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Pushed authorization requests" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Pushed authorization requests" ~ready @Hardening +oidc-provider +tpp +security +"RFC 9126" {
+    as "Bank security officer"
+    want "the authorization parameters sent over the mTLS back channel"
+    so "they cannot be tampered with in the browser"
+  }
+
+  rule "The TPP posts the authorization parameters to the PAR endpoint over mTLS and redirects the browser with client_id and request_uri only" +"RFC 9126" {
+    example "The pushed request and the short redirect" @Hardening +nominal {
+      given "the OIDC-provider's metadata has pushed_authorization_request_endpoint https://oidc-provider.sandbox/par"
+      when "the TPP posts response_type, client_id, scope, state, redirect_uri, code_challenge and code_challenge_method to /par with its QWAC"
+      then "the OIDC-provider answers 201 {request_uri: urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY22c, expires_in: 60}"
+      then "the browser is redirected to https://oidc-provider.sandbox/authorize?client_id=PSDDE-BAFIN-123456&request_uri=urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY22c"
+    }
+    example "The redirect carries no scope, state or code_challenge" @Hardening +nominal {
+      given "the redirect URL"
+      when "it is inspected"
+      then "it has exactly the parameters client_id and request_uri"
+    }
+    example "A PAR without client certificate is refused" @Hardening +error {
+      given "a POST /par without mTLS"
+      when "the OIDC-provider handles it"
+      then "the answer is 401 invalid_client"
+    }
+    example "A PAR with an invalid redirect_uri is refused at the back channel" @Hardening +error {
+      given "redirect_uri https://evil.example/cb"
+      when "the TPP posts to /par"
+      then "the answer is 400 invalid_request"
+      then "the browser is never redirected"
+    }
+    example "A PAR with an invalid scope is refused at the back channel" @Hardening +error {
+      given "scope AIS:999cons000 for an unknown consent"
+      when "the TPP posts to /par"
+      then "the answer is 400 invalid_scope"
+    }
+  }
+
+  rule "A request_uri is single-use, short-lived and bound to the client that pushed it" +"RFC 9126" {
+    example "A request_uri used twice is refused" @Hardening +error {
+      given "request_uri urn:…:6esc was already used at /authorize"
+      when "the browser opens /authorize with it again"
+      then "the OIDC-provider shows an error page 'request_uri already used'"
+    }
+    example "A request_uri older than 60 seconds is refused" @Hardening +error {
+      given "the PAR answered at 09:00:00 with expires_in 60"
+      when "/authorize is opened at 09:01:05"
+      then "the OIDC-provider shows an error page 'request_uri expired'"
+    }
+    example "A request_uri of the TPP opened with client_id C is refused" @Hardening +error {
+      given "request_uri urn:…:6esc pushed by PSDDE-BAFIN-123456"
+      when "/authorize is opened with client_id PSDDE-BAFIN-654321 and that request_uri"
+      then "the OIDC-provider shows an error page"
+    }
+    example "An unknown request_uri is refused" @Hardening +error {
+      given "request_uri urn:ietf:params:oauth:request_uri:nope"
+      when "/authorize is opened with it"
+      then "the OIDC-provider shows an error page"
+    }
+  }
+
+  rule "When the OIDC-provider requires PAR, a plain /authorize with inline parameters is refused" {
+    example "Metadata advertises the requirement" @Hardening +nominal {
+      given "the OIDC-provider runs with require_pushed_authorization_requests true"
+      when "the TPP reads the metadata"
+      then "require_pushed_authorization_requests is true and the TPP uses PAR"
+    }
+    example "A plain /authorize is refused" @Hardening +error {
+      given "the OIDC-provider requires PAR"
+      when "the browser opens /authorize with scope, state and code_challenge inline"
+      then "the OIDC-provider shows an error page 'pushed authorization request required'"
+    }
+    example "When the OIDC-provider does not require PAR, both forms work" @Hardening +edge {
+      given "the OIDC-provider runs with require_pushed_authorization_requests false"
+      when "the TPP uses PAR for the Bank and inline parameters for Bank C"
+      then "both authorizations proceed"
+    }
+  }
+}

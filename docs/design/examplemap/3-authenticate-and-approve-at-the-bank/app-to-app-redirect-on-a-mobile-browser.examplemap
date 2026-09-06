@@ -1,0 +1,74 @@
+// Example map for the story "App-to-app redirect on a mobile browser"
+// (activity "Authenticate and approve at the Bank", step "Receive the SCA
+// challenge"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "App-to-app redirect on a mobile browser" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "App-to-app redirect on a mobile browser" ~analysing @Hardening +bank-ciam +bank-app +"spec 4.8" {
+    as "PSU"
+    want "the Bank to open its app directly when I am already on my phone"
+    so "I do not scan a QR on the same screen"
+    question "On Android, is an App Link (https) enough or is a custom scheme fallback needed for older browsers?" +"ask bank-app"
+    question "Should the app return the PSU to the browser automatically after approval, or is the polling page enough?" +"ask product"
+  }
+
+  rule "On a mobile browser the QR page offers to open the Bank app with a link that carries the challenge id only" +"spec 4.8" {
+    example "iOS Safari shows the button" @Hardening +nominal {
+      given "the QR page is opened from an iPhone (user agent contains 'iPhone')"
+      when "the page renders"
+      then "it shows 'Open the Bank app' above the QR"
+      then "the button links to https://app.bank.sandbox/sca/chl-01J8 (a universal link)"
+    }
+    example "Android Chrome shows the button" @Hardening +nominal {
+      given "the QR page is opened from an Android phone"
+      when "the page renders"
+      then "it shows 'Open the Bank app' linking to https://app.bank.sandbox/sca/chl-01J8"
+    }
+    example "A desktop browser shows no button" @Hardening +nominal {
+      given "the QR page is opened from macOS Safari"
+      when "the page renders"
+      then "only the QR is shown"
+    }
+    example "The link contains no hash, nonce or account data" @Hardening +nominal {
+      given "the universal link"
+      when "it is inspected"
+      then "its only variable part is the challenge id"
+    }
+  }
+
+  rule "If the app is not installed, the link falls back to a web page that explains and shows the QR again" {
+    example "No app installed" @Hardening +edge {
+      given "an iPhone without the Bank app"
+      when "Anna taps 'Open the Bank app'"
+      then "Safari opens https://app.bank.sandbox/sca/chl-01J8 as a web page saying 'Install the Bank app or scan this code with a registered device' with the QR"
+    }
+    example "App installed but not enrolled on this phone" @Hardening +edge {
+      given "the app is installed but this phone is not a registered device"
+      when "the app opens with chl-01J8"
+      then "it shows 'This phone is not registered. Activate it first or approve on your registered device.'"
+    }
+  }
+
+  rule "The app loads the challenge over the authenticated channel, and the browser tab continues by polling" {
+    example "Approval in the app moves the browser tab on" @Hardening +nominal {
+      given "the app opened chl-01J8 from the link and Anna approved with Face ID"
+      when "she switches back to Safari"
+      then "the tab, which kept polling, has redirected to the OIDC-provider and on to TPP App"
+    }
+    example "The app fetches details, never trusts the link" @Hardening +nominal {
+      given "the app opened with challenge id chl-01J8"
+      when "it loads the approval screen"
+      then "the details come from GET /sca/challenges/chl-01J8 over the device-authenticated channel"
+    }
+    example "A link with a foreign challenge id is refused by the app" @Hardening +error {
+      given "Anna's phone opens https://app.bank.sandbox/sca/chl-of-ben"
+      when "the app fetches it"
+      then "the SCA engine answers 403 and the app shows 'This code is not for this device'"
+    }
+  }
+}

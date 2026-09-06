@@ -9,15 +9,15 @@ examplemap "Validate token and consent on every call" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Validate token and consent on every call" ~ready @"Walking skeleton" +bank-b-xs2a +security +"spec 13.6" +"RFC 8705" {
-    as "Bank B security officer"
+  story "Validate token and consent on every call" ~ready @"Walking skeleton" +bank-xs2a +security +"spec 13.6" +"RFC 8705" {
+    as "Bank security officer"
     want "the JWT signature, audience, expiry, certificate binding and the Consent-ID match checked before any data leaves"
     so "a token is necessary but never sufficient"
   }
 
-  rule "The JWT must be signed by F, issued by F, addressed to Bank B's API, and within its validity" +"spec 13.6" {
+  rule "The JWT must be signed by the OIDC-provider, issued by the OIDC-provider, addressed to the Bank's API, and within its validity" +"spec 13.6" {
     example "A valid token passes" @"Walking skeleton" +nominal {
-      given "a token signed with F's kid f-2026, iss https://f.sandbox, aud https://api.bank-b.sandbox/psd2, exp in 5 minutes"
+      given "a token signed with the OIDC-provider's kid oidc-2026, iss https://oidc-provider.sandbox, aud https://api.bank.sandbox/psd2, exp in 5 minutes"
       when "GET /v1/accounts is called"
       then "the token checks pass"
     }
@@ -34,7 +34,7 @@ examplemap "Validate token and consent on every call" {
     example "An unknown kid" @MVP +error {
       given "a token with kid unknown"
       when "the call is made"
-      then "Bank B refetches the JWKS once, then answers 401 TOKEN_INVALID"
+      then "the Bank refetches the JWKS once, then answers 401 TOKEN_INVALID"
     }
     example "Expired" @"Walking skeleton" +error {
       given "a token with exp one second ago"
@@ -69,20 +69,20 @@ examplemap "Validate token and consent on every call" {
   }
 
   rule "The token's certificate thumbprint and client id must match the presented certificate" +"RFC 8705" {
-    example "A's token over A's certificate" @"Walking skeleton" +nominal {
-      given "cnf.x5t#S256 equals the thumbprint of A's QWAC and client_id equals its organizationIdentifier"
+    example "The TPP's token over the TPP's certificate" @"Walking skeleton" +nominal {
+      given "cnf.x5t#S256 equals the thumbprint of the TPP's QWAC and client_id equals its organizationIdentifier"
       when "the call is made"
       then "the binding checks pass"
     }
-    example "A's token over C's certificate" @"Walking skeleton" +error {
-      given "A's token presented over a TLS connection with C's QWAC"
+    example "The TPP's token over C's certificate" @"Walking skeleton" +error {
+      given "the TPP's token presented over a TLS connection with C's QWAC"
       when "the call is made"
       then "the answer is 401 TOKEN_INVALID"
     }
-    example "A's old token after a certificate rotation" @MVP +edge {
-      given "A's token bound to the old QWAC and A now presents the new QWAC"
+    example "The TPP's old token after a certificate rotation" @MVP +edge {
+      given "the TPP's token bound to the old QWAC and the TPP now presents the new QWAC"
       when "the call is made"
-      then "the answer is 401 TOKEN_INVALID and A must refresh with the new certificate"
+      then "the answer is 401 TOKEN_INVALID and the TPP must refresh with the new certificate"
     }
     example "A token without cnf" @MVP +error {
       given "a token with no cnf claim"
@@ -90,7 +90,7 @@ examplemap "Validate token and consent on every call" {
       then "the answer is 401 TOKEN_INVALID"
     }
     example "A token whose client_id is not the certificate's organizationIdentifier" @MVP +error {
-      given "a token with client_id PSDDE-BAFIN-654321 bound (impossibly) to A's thumbprint"
+      given "a token with client_id PSDDE-BAFIN-654321 bound (impossibly) to the TPP's thumbprint"
       when "the call is made"
       then "the answer is 401 TOKEN_INVALID"
     }
@@ -137,7 +137,7 @@ examplemap "Validate token and consent on every call" {
     }
     example "Every endpoint runs the same chain" @"Walking skeleton" +nominal {
       given "GET /v1/accounts, GET /v1/accounts/{id}, GET /v1/accounts/{id}/balances, GET /v1/accounts/{id}/transactions"
-      when "each is called with A's token over C's certificate"
+      when "each is called with the TPP's token over C's certificate"
       then "each answers 401 TOKEN_INVALID"
     }
   }

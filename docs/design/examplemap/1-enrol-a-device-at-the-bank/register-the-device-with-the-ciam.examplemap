@@ -1,0 +1,125 @@
+// Example map for the story "Register the device with the CIAM" (activity
+// "Enrol a device at the Bank"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Register the device with the CIAM" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Register the device with the CIAM" ~analysing @"Walking skeleton" +bank-ciam {
+    as "PSU"
+    want "my activated device listed under my identity at the Bank"
+    so "the Bank knows where to send my challenges"
+    question "Is there a maximum number of active devices per PSU, and what happens to the oldest when it is reached?" +"ask bank"
+    question "Should re-registering the same appInstanceId with a new key retire the previous device record automatically?" +"ask bank"
+  }
+
+  rule "Registration needs an authenticated online-banking session of the PSU" +security {
+    example "Anna, logged in to online banking, registers her iPhone" @"Walking skeleton" +nominal {
+      given "Anna is logged in to the Bank online banking as anna.mueller"
+      when "the app sends POST /devices with the public key, appInstanceId, platform iOS and name 'Anna's iPhone'"
+      then "the CIAM answers 201 with deviceId dev-anna-1"
+      then "the device is stored under psuId anna.mueller with status pending"
+    }
+    example "Registration without a session is refused" @"Walking skeleton" +error {
+      given "no online-banking session"
+      when "the app sends POST /devices"
+      then "the CIAM answers 401"
+      then "no device record is created"
+    }
+    example "A locked identity cannot register a device" @MVP +error {
+      given "the identity anna.mueller has status locked"
+      when "the app sends POST /devices in a session that was opened before the lock"
+      then "the CIAM answers 403 with reason 'identity locked'"
+      then "no device record is created"
+    }
+    example "A closed identity cannot register a device" @MVP +error {
+      given "the identity of a former customer has status closed"
+      when "POST /devices is sent for it"
+      then "the CIAM answers 403"
+    }
+  }
+
+  rule "A device belongs to exactly one identity" +security {
+    example "The same public key cannot be registered under a second identity" @"Walking skeleton" +error {
+      given "public key K1 is registered as dev-anna-1 under anna.mueller"
+      when "Ben, logged in as ben.weber, registers a device with public key K1"
+      then "the CIAM answers 409 'key already registered'"
+      then "Ben has no new device"
+    }
+    example "The device record carries the identity it was registered under" @"Walking skeleton" +nominal {
+      given "Anna registered dev-anna-1"
+      when "the device registry is read for dev-anna-1"
+      then "psuId is anna.mueller"
+    }
+    example "A device registered by Ben never appears under Anna" @"Walking skeleton" +nominal {
+      given "Ben registered dev-ben-1"
+      when "Anna's device list is read"
+      then "dev-ben-1 is not in it"
+    }
+  }
+
+  rule "The registration stores what the SCA engine needs: key, app instance, platform, name, push token, enrolment time" {
+    example "A complete registration is stored with every field" @"Walking skeleton" +nominal {
+      given "a registration with publicKey K1, appInstanceId 6f1c-…, platform iOS 18, name 'Anna's iPhone', pushToken apns-abc, hardwareBacked true"
+      when "the CIAM stores it"
+      then "the record has all those fields, enrolledAt = 2026-09-06T09:12:00Z and status pending"
+    }
+    example "A registration without push token is stored with push disabled" @"Walking skeleton" +edge {
+      given "the browser device simulator registers without a pushToken"
+      when "the CIAM stores it"
+      then "the record has no pushToken"
+      then "the device is listed as 'QR only'"
+    }
+    example "A device name longer than 70 characters is refused" @MVP +error {
+      given "a registration whose name has 71 characters"
+      when "the CIAM validates it"
+      then "it answers 400 naming the field name"
+    }
+    example "A missing device name gets the platform name" @MVP +edge {
+      given "a registration without name on platform Android"
+      when "the CIAM stores it"
+      then "the name is 'Android device'"
+    }
+  }
+
+  rule "Only a P-256 public key in JWK form is accepted" {
+    example "A P-256 JWK is accepted" @"Walking skeleton" +nominal {
+      given "a JWK with kty EC and crv P-256"
+      when "the CIAM validates the registration"
+      then "the key is accepted"
+    }
+    example "An RSA key is refused" @"Walking skeleton" +error {
+      given "a JWK with kty RSA"
+      when "the CIAM validates the registration"
+      then "it answers 400 'unsupported key type'"
+    }
+    example "A JWK that carries a private parameter is refused" @MVP +error {
+      given "a JWK with kty EC, crv P-256 and a d parameter"
+      when "the CIAM validates the registration"
+      then "it answers 400 'private key material must not be sent'"
+      then "the request is logged as a security event"
+    }
+    example "A malformed key is refused" @"Walking skeleton" +error {
+      given "publicKey is the string 'not-a-key'"
+      when "the CIAM validates the registration"
+      then "it answers 400 naming the field publicKey"
+    }
+  }
+
+  rule "A newly registered device is pending until an existing SCA confirms it" {
+    example "The new device appears in Anna's list as pending" @"Walking skeleton" +nominal {
+      given "Anna registered dev-anna-1 a minute ago"
+      when "she opens her device list"
+      then "dev-anna-1 is shown with status pending and the hint 'finish activation'"
+    }
+    example "A pending device gets no challenge" @"Walking skeleton" +error {
+      given "dev-anna-1 is pending"
+      when "a consent challenge is issued for Anna"
+      then "no push is sent to dev-anna-1"
+      then "a signature from dev-anna-1 is refused"
+    }
+  }
+}

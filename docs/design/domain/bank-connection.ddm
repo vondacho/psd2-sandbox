@@ -1,4 +1,4 @@
-// The inside of "Bank connection" (TPP application A) from
+// The inside of "Bank connection" (the TPP) from
 // psd2-access-to-account.ddd. Aggregates: BankConnection, BankRegistryEntry,
 // AuthorizationAttempt.
 
@@ -44,7 +44,7 @@ context "Bank connection" {
   // ---- BankRegistryEntry ---------------------------------------------------
 
   aggregate "BankRegistryEntry" {
-    intent "A bank A can connect to: where its XS2A API and its authorization
+    intent "A bank the TPP can connect to: where its XS2A API and its authorization
             server live, and what it supports."
 
     invariant "A registry entry has a unique bank id."
@@ -64,7 +64,7 @@ context "Bank connection" {
   // ---- AuthorizationAttempt ------------------------------------------------
 
   aggregate "AuthorizationAttempt" {
-    intent "One trip to F and back for one consent: the state and PKCE
+    intent "One trip to the OIDC-provider and back for one consent: the state and PKCE
             verifier bound to the user's session, and what came back."
 
     invariant "state is single-use and bound to one user session."
@@ -89,7 +89,7 @@ context "Bank connection" {
   // ---- BankConnection ------------------------------------------------------
 
   aggregate "BankConnection" {
-    intent "The link between one user of A and one bank: which consent it
+    intent "The link between one user of the TPP and one bank: which consent it
             rests on, which tokens it holds, and whether it still works."
 
     invariant "One connection per (user, bank)."

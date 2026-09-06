@@ -104,9 +104,9 @@ specification {
 
   // ---- tags -----------------------------------------------------------------
 
-  tag tpp-a       { color #1f6feb }
-  tag oidc-f      { color #8250df }
-  tag bank-b      { color #0969da }
+  tag tpp       { color #1f6feb }
+  tag oidc-provider      { color #8250df }
+  tag bank      { color #0969da }
   tag xs2a        { color #0a7ea4 }
   tag oauth2      { color #8250df }
   tag sca         { color #bf8700 }

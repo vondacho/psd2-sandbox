@@ -3,40 +3,40 @@ title Token exchange, confirmation, account list and account details (steps 12-1
 autonumber
 actor PSU
 participant "PSU browser" as Br
-participant "TPP A back end" as A
-participant "OIDC provider F" as F
-participant "Bank B XS2A API" as XS2A
-participant "Bank B consent mgmt" as CM
+participant "TPP back end" as TPP
+participant "OIDC provider" as OIDC
+participant "Bank XS2A API" as XS2A
+participant "Bank consent mgmt" as CM
 participant "Core banking" as Core
 
-Br -> A : GET /callback?code&state
-A -> A : state matches session? (else abort)
-A -> F : POST /token (mTLS QWAC)\ngrant_type=authorization_code, code, redirect_uri,\ncode_verifier, client_id
-F -> F : cert matches client, PKCE ok
-F --> A : access_token (JWT, scope AIS:{consentId}, cnf.x5t#S256),\nrefresh_token, expires_in
-A -> XS2A : PUT /v1/consents/{id}/authorisations/{authId}\nAuthorization: Bearer
+Br -> TPP : GET /callback?code&state
+TPP -> TPP : state matches session? (else abort)
+TPP -> OIDC : POST /token (mTLS QWAC)\ngrant_type=authorization_code, code, redirect_uri,\ncode_verifier, client_id
+OIDC -> OIDC : cert matches client, PKCE ok
+OIDC --> TPP : access_token (JWT, scope AIS:{consentId}, cnf.x5t#S256),\nrefresh_token, expires_in
+TPP -> XS2A : PUT /v1/consents/{id}/authorisations/{authId}\nAuthorization: Bearer
 XS2A -> CM : token.consent_id == id, client == owner\n-> authorisation finalised, consent valid
-XS2A --> A : 200 {scaStatus: finalised}
-A -> XS2A : GET /v1/consents/{id}/status
-XS2A --> A : 200 {consentStatus: valid}
-A --> Br : "Bank B connected"
+XS2A --> TPP : 200 {scaStatus: finalised}
+TPP -> XS2A : GET /v1/consents/{id}/status
+XS2A --> TPP : 200 {consentStatus: valid}
+TPP --> Br : "Bank connected"
 
 == Account list ==
-PSU -> Br : open accounts at Bank B
-Br -> A : GET /banks/B/accounts
-A -> XS2A : GET /v1/accounts?withBalance=true\nConsent-ID, Authorization: Bearer, X-Request-ID, PSU-IP-Address
+PSU -> Br : open accounts at the Bank
+Br -> TPP : GET /banks/bank/accounts
+TPP -> XS2A : GET /v1/accounts?withBalance=true\nConsent-ID, Authorization: Bearer, X-Request-ID, PSU-IP-Address
 XS2A -> XS2A : QWAC (AISP), JWT sig/exp/aud, cnf == client cert,\nscope consentId == Consent-ID
 XS2A -> CM : consent valid? access rights?\nfrequency (PSU present: not counted)
 XS2A -> Core : accounts of psuId within accessible accounts
-XS2A --> A : 200 {accounts: [{resourceId, iban, currency, name, balances, _links}]}
-A --> Br : account list
+XS2A --> TPP : 200 {accounts: [{resourceId, iban, currency, name, balances, _links}]}
+TPP --> Br : account list
 
 == Account details ==
 PSU -> Br : click an account
-Br -> A : GET /banks/B/accounts/{resourceId}
-A -> XS2A : GET /v1/accounts/{resourceId}?withBalance=true
+Br -> TPP : GET /banks/bank/accounts/{resourceId}
+TPP -> XS2A : GET /v1/accounts/{resourceId}?withBalance=true
 XS2A -> CM : resourceId in accessible accounts of this consent?
 XS2A -> Core : account details + balances
-XS2A --> A : 200 {account: {...}}
-A --> Br : account details
+XS2A --> TPP : 200 {account: {...}}
+TPP --> Br : account details
 @enduml

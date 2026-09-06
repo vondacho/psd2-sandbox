@@ -1,5 +1,5 @@
-// Model of the PSU account-list journey: PSU, TPP application A,
-// OidcProvider (OpenID Connect provider F), Bank B (ASPSP) and the Bank B mobile app.
+// Model of the PSU account-list journey: PSU, the TPP,
+// OidcProvider (the OIDC-provider), the Bank (ASPSP) and the Bank mobile app.
 // Mirrors docs/design/psu-account-list-journey.md sections 3 and 4.
 
 model {
@@ -8,19 +8,19 @@ model {
 
   psu = actor 'PSU' {
     description '
-      Payment service user. Holds payment accounts at Bank B and has
-      enrolled at least one device with the Bank B app.
+      Payment service user. Holds payment accounts at the Bank and has
+      enrolled at least one device with the Bank app.
     '
   }
 
-  // ==== TPP application A ====================================================
+  // ==== the TPP ====================================================
 
-  tppA = softwareSystem 'TPP application A' {
-    #tpp-a
+  tpp = softwareSystem 'TPP' {
+    #tpp
     description '
       Third-party provider licensed as AISP and PISP. OAuth2 confidential
       client authenticated by mTLS with its eIDAS QWAC. Creates the consent
-      at Bank B, drives the authorization-code flow at F and reads account
+      at the Bank, drives the authorization-code flow at the OIDC-provider and reads account
       data through the XS2A API.
     '
 
@@ -70,14 +70,14 @@ model {
     backend.xs2aClient -> keyMaterial 'uses QWAC for mTLS, QSEAL for signing'
   }
 
-  // ==== OidcProvider (OpenID Connect provider F) ====================
+  // ==== OidcProvider (the OIDC-provider) ====================
 
   OidcProvider = softwareSystem 'OidcProvider' {
-    #oidc-f
+    #oidc-provider
     description '
-      Authorization server (RFC 6749) and OpenID Provider towards A.
+      Authorization server (RFC 6749) and OpenID Provider towards the TPP.
       Issues certificate-bound access tokens scoped to one consent
-      (scope AIS:<consentId>) and brokers PSU authentication to Bank B.
+      (scope AIS:<consentId>) and brokers PSU authentication to the Bank.
     '
 
     asMetadata = container 'Metadata and JWKS' {
@@ -86,11 +86,11 @@ model {
     }
     authorize = container 'Authorization endpoint' {
       technology '/authorize'
-      description 'Validates client_id, redirect_uri and PKCE; parses scope AIS:/PIS:/PIIS:; checks the named resource with Bank B consent management.'
+      description 'Validates client_id, redirect_uri and PKCE; parses scope AIS:/PIS:/PIIS:; checks the named resource with the Bank consent management.'
     }
     broker = container 'Identity broker' {
       technology 'OIDC relying party'
-      description 'Redirects the PSU to Bank B CIAM with the consent context and acr_values=urn:bank-b:psd2:sca; validates the returned ID token (acr, amr, consent_id).'
+      description 'Redirects the PSU to the Bank CIAM with the consent context and acr_values=urn:bank:psd2:sca; validates the returned ID token (acr, amr, consent_id).'
     }
     tokenService = container 'Token service' {
       technology '/token /revoke /introspect'
@@ -106,10 +106,10 @@ model {
     broker -> tokenService 'hands over the authenticated identity'
   }
 
-  // ==== Bank B ==================================================================
+  // ==== the Bank ==================================================================
 
-  bankB = softwareSystem 'Bank B' {
-    #bank-b
+  bank = softwareSystem 'Bank' {
+    #bank
     description '
       ASPSP. Resource server (XS2A API), identity provider and CIAM:
       customer identities carry enrolled devices, and the possession
@@ -119,7 +119,7 @@ model {
     xs2aGateway = apiGateway 'XS2A gateway' {
       #xs2a
       technology 'reverse proxy'
-      description 'mTLS termination with client certificate; QWAC validation (chain, revocation, PSD2 roles); optional HTTP signature check; JWT validation against F JWKS; rate limiting; X-Request-ID logging.'
+      description 'mTLS termination with client certificate; QWAC validation (chain, revocation, PSD2 roles); optional HTTP signature check; JWT validation against the OIDC-provider's JWKS; rate limiting; X-Request-ID logging.'
     }
 
     xs2aService = container 'XS2A service' {
@@ -135,11 +135,11 @@ model {
 
     ciam = container 'CIAM' {
       #sca
-      description 'Customer identity and access management: identities, devices, authentication journeys, SCA engine, risk engine, consent UI. Acts as OpenID Provider towards F.'
+      description 'Customer identity and access management: identities, devices, authentication journeys, SCA engine, risk engine, consent UI. Acts as OpenID Provider towards the OIDC-provider.'
 
       orchestration = component 'Authentication orchestration' {
         technology 'OpenID Provider'
-        description 'Journey engine: identify, first factor, risk, account selection and consent screen, SCA challenge, result. Issues the ID token to F.'
+        description 'Journey engine: identify, first factor, risk, account selection and consent screen, SCA challenge, result. Issues the ID token to the OIDC-provider.'
       }
       consentUi = webApp 'Consent UI' {
         description 'Login page, account selection, consent summary, QR page with live status.'
@@ -192,38 +192,38 @@ model {
     dashboard -> consentMgmt 'revokes consents'
   }
 
-  // ==== Bank B mobile app =====================================================
+  // ==== the Bank mobile app =====================================================
 
-  bankBApp = mobileApp 'Bank B mobile app' {
-    #bank-b #sca
+  bankApp = mobileApp 'Bank mobile app' {
+    #bank #sca
     description '
       Registered device. Key pair in secure hardware, enrolled through
-      Bank B own channel. Scans the QR, shows the approval details,
+      the Bank own channel. Scans the QR, shows the approval details,
       asks for biometric or PIN, signs the challenge with the device key.
     '
   }
 
   // ==== cross-system relationships ============================================
 
-  psu -> tppA.frontend 'uses' 'browser'
+  psu -> tpp.frontend 'uses' 'browser'
   psu -> OidcProvider.authorize 'is redirected to' 'browser'
-  psu -> bankB.ciam.consentUi 'logs in, selects accounts, reviews consent, sees the QR' 'browser'
-  psu -> bankB.dashboard 'reviews and revokes consents' 'browser'
-  psu -> bankBApp 'scans the QR and approves'
+  psu -> bank.ciam.consentUi 'logs in, selects accounts, reviews consent, sees the QR' 'browser'
+  psu -> bank.dashboard 'reviews and revokes consents' 'browser'
+  psu -> bankApp 'scans the QR and approves'
 
-  tppA.backend.xs2aClient -[mtls]-> bankB.xs2aGateway 'POST /v1/consents, GET /v1/accounts, GET /v1/accounts/{id}'
-  tppA.backend.oauthClient -[https]-> OidcProvider.asMetadata 'reads AS metadata'
-  tppA.backend.oauthClient -[mtls]-> OidcProvider.tokenService 'POST /token (code, refresh)'
-  tppA.backend.oauthClient -[redirect]-> OidcProvider.authorize 'response_type=code, scope=AIS:<consentId>, state, PKCE'
+  tpp.backend.xs2aClient -[mtls]-> bank.xs2aGateway 'POST /v1/consents, GET /v1/accounts, GET /v1/accounts/{id}'
+  tpp.backend.oauthClient -[https]-> OidcProvider.asMetadata 'reads AS metadata'
+  tpp.backend.oauthClient -[mtls]-> OidcProvider.tokenService 'POST /token (code, refresh)'
+  tpp.backend.oauthClient -[redirect]-> OidcProvider.authorize 'response_type=code, scope=AIS:<consentId>, state, PKCE'
 
-  OidcProvider.authorize -[internal]-> bankB.consentMgmt 'validates scope AIS:<consentId>: exists, received, owned by client'
-  OidcProvider.broker -[redirect]-> bankB.ciam.consentUi 'OIDC brokering with consent context'
-  bankB.ciam.orchestration -[https]-> OidcProvider.broker 'ID token (sub, acr, amr, consent_id)' 'back channel'
-  OidcProvider.authorize -[redirect]-> tppA.frontend 'code and state to the redirect URI'
-  bankB.consentMgmt -[internal]-> OidcProvider.tokenService 'revokes tokens of a revoked or expired consent'
+  OidcProvider.authorize -[internal]-> bank.consentMgmt 'validates scope AIS:<consentId>: exists, received, owned by client'
+  OidcProvider.broker -[redirect]-> bank.ciam.consentUi 'OIDC brokering with consent context'
+  bank.ciam.orchestration -[https]-> OidcProvider.broker 'ID token (sub, acr, amr, consent_id)' 'back channel'
+  OidcProvider.authorize -[redirect]-> tpp.frontend 'code and state to the redirect URI'
+  bank.consentMgmt -[internal]-> OidcProvider.tokenService 'revokes tokens of a revoked or expired consent'
 
-  bankB.xs2aGateway -[https]-> OidcProvider.asMetadata 'fetches JWKS to validate access tokens'
+  bank.xs2aGateway -[https]-> OidcProvider.asMetadata 'fetches JWKS to validate access tokens'
 
-  bankBApp -[https]-> bankB.ciam.scaEngine 'fetches the challenge, posts the signed response' 'device-authenticated API'
-  bankB.pushService -[push]-> bankBApp
+  bankApp -[https]-> bank.ciam.scaEngine 'fetches the challenge, posts the signed response' 'device-authenticated API'
+  bank.pushService -[push]-> bankApp
 }

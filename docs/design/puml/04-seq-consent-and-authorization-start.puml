@@ -3,24 +3,24 @@ title Consent creation and start of the OAuth2 authorization-code flow (steps 1-
 autonumber
 actor PSU
 participant "PSU browser" as Br
-participant "TPP A back end" as A
-participant "Bank B XS2A API" as XS2A
-participant "Bank B consent mgmt" as CM
-participant "OIDC provider F" as F
+participant "TPP back end" as TPP
+participant "Bank XS2A API" as XS2A
+participant "Bank consent mgmt" as CM
+participant "OIDC provider" as OIDC
 
-PSU -> Br : select "Bank B", click Connect
-Br -> A : POST /banks/B/connect
-A -> XS2A : POST /v1/consents (mTLS QWAC)\naccess {accounts:[], balances:[]}, recurring, validUntil,\nTPP-Redirect-URI, PSU-IP-Address, X-Request-ID
+PSU -> Br : select "Bank", click Connect
+Br -> TPP : POST /banks/bank/connect
+TPP -> XS2A : POST /v1/consents (mTLS QWAC)\naccess {accounts:[], balances:[]}, recurring, validUntil,\nTPP-Redirect-URI, PSU-IP-Address, X-Request-ID
 XS2A -> XS2A : validate QWAC (AISP role), syntax, semantics
 XS2A -> CM : create consent (received) + authorisation (received)
-XS2A --> A : 201 consentId, ASPSP-SCA-Approach: REDIRECT\n_links: scaOAuth, scaStatus, self, status, confirmation
-A -> F : GET /.well-known/oauth-authorization-server
-F --> A : metadata (authorization_endpoint, token_endpoint, jwks_uri)
-A -> A : generate state + PKCE verifier,\nbind to session and consentId
-A --> Br : 302 F/authorize?response_type=code&client_id=PSDDE-BAFIN-123456\n&scope=AIS:{consentId} offline_access&state&redirect_uri\n&code_challenge&code_challenge_method=S256
-Br -> F : GET /authorize
-F -> F : validate client_id, redirect_uri, PKCE
-F -> CM : consent {consentId} owned by client and status received?
-CM --> F : yes
-F --> Br : 302 Bank B CIAM /authorize (broker)\nacr_values=urn:bank-b:psd2:sca, consent context
+XS2A --> TPP : 201 consentId, ASPSP-SCA-Approach: REDIRECT\n_links: scaOAuth, scaStatus, self, status, confirmation
+TPP -> OIDC : GET /.well-known/oauth-authorization-server
+OIDC --> TPP : metadata (authorization_endpoint, token_endpoint, jwks_uri)
+TPP -> TPP : generate state + PKCE verifier,\nbind to session and consentId
+TPP --> Br : 302 OIDC/authorize?response_type=code&client_id=PSDDE-BAFIN-123456\n&scope=AIS:{consentId} offline_access&state&redirect_uri\n&code_challenge&code_challenge_method=S256
+Br -> OIDC : GET /authorize
+OIDC -> OIDC : validate client_id, redirect_uri, PKCE
+OIDC -> CM : consent {consentId} owned by client and status received?
+CM --> OIDC : yes
+OIDC --> Br : 302 Bank CIAM /authorize (broker)\nacr_values=urn:bank:psd2:sca, consent context
 @enduml

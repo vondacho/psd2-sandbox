@@ -9,22 +9,22 @@ examplemap "Issue a certificate-bound JWT scoped to the consent" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Issue a certificate-bound JWT scoped to the consent" ~ready @"Walking skeleton" +oidc-f +security +"spec 13.4" +"RFC 8705" {
-    as "Bank B security officer"
+  story "Issue a certificate-bound JWT scoped to the consent" ~ready @"Walking skeleton" +oidc-provider +security +"spec 13.4" +"RFC 8705" {
+    as "Bank security officer"
     want "an access token with aud, scope AIS:<consentId>, cnf thumbprint and a short lifetime"
-    so "a leaked token cannot be used without A's private key"
+    so "a leaked token cannot be used without the TPP's private key"
   }
 
-  rule "The access token is an ES256 JWT with issuer, pairwise subject, Bank B's API as audience, the client id, the scope, the consent id, acr, amr, the certificate thumbprint, iat, exp and jti" +"spec 13.4" {
+  rule "The access token is an ES256 JWT with issuer, pairwise subject, the Bank's API as audience, the client id, the scope, the consent id, acr, amr, the certificate thumbprint, iat, exp and jti" +"spec 13.4" {
     example "The claims of the nominal token" @"Walking skeleton" +nominal {
-      given "the exchange for grant g1 at 2026-09-06T09:13:20Z (1757150000) by A with QWAC thumbprint bwcK0…"
-      when "F issues the access token"
-      then "the header has alg ES256 and kid f-2026"
-      then "the claims are iss https://f.sandbox, sub 8f6c2b1e-…, aud https://api.bank-b.sandbox/psd2, client_id PSDDE-BAFIN-123456, scope 'AIS:123cons456 offline_access', consent_id 123cons456, acr urn:bank-b:psd2:sca, amr [pwd, hwk], cnf {x5t#S256: bwcK0…}, iat 1757150000, exp 1757150600, jti unique"
+      given "the exchange for grant g1 at 2026-09-06T09:13:20Z (1757150000) by the TPP with QWAC thumbprint bwcK0…"
+      when "the OIDC-provider issues the access token"
+      then "the header has alg ES256 and kid oidc-2026"
+      then "the claims are iss https://oidc-provider.sandbox, sub 8f6c2b1e-…, aud https://api.bank.sandbox/psd2, client_id PSDDE-BAFIN-123456, scope 'AIS:123cons456 offline_access', consent_id 123cons456, acr urn:bank:psd2:sca, amr [pwd, hwk], cnf {x5t#S256: bwcK0…}, iat 1757150000, exp 1757150600, jti unique"
     }
-    example "The token verifies against F's JWKS" @"Walking skeleton" +nominal {
+    example "The token verifies against the OIDC-provider's JWKS" @"Walking skeleton" +nominal {
       given "the token"
-      when "Bank B fetches https://f.sandbox/jwks and verifies with kid f-2026"
+      when "the Bank fetches https://oidc-provider.sandbox/jwks and verifies with kid oidc-2026"
       then "the signature is valid"
     }
     example "Two tokens never share a jti" @"Walking skeleton" +nominal {
@@ -46,11 +46,11 @@ examplemap "Issue a certificate-bound JWT scoped to the consent" {
       then "exp is 1757150600 and expires_in is 600"
     }
     example "A configured lifetime above ten minutes is capped" @MVP +edge {
-      given "F configured with access token lifetime 3600"
-      when "F starts"
+      given "the OIDC-provider configured with an access token lifetime of 3600"
+      when "the OIDC-provider starts"
       then "it refuses the configuration with 'access token lifetime must be at most 600'"
     }
-    example "Bank B refuses the token one second after exp" @MVP +edge {
+    example "The Bank refuses the token one second after exp" @MVP +edge {
       given "exp 1757150600"
       when "GET /v1/accounts is called at 1757150601"
       then "the answer is 401 TOKEN_EXPIRED"
@@ -58,18 +58,18 @@ examplemap "Issue a certificate-bound JWT scoped to the consent" {
   }
 
   rule "The cnf thumbprint is the SHA-256 of the DER certificate presented at the token endpoint, base64url without padding" +"RFC 8705" {
-    example "The thumbprint of A's QWAC" @"Walking skeleton" +nominal {
-      given "A's QWAC DER bytes"
+    example "The thumbprint of the TPP's QWAC" @"Walking skeleton" +nominal {
+      given "the TPP's QWAC DER bytes"
       when "the thumbprint is computed"
       then "it equals base64url(SHA-256(DER)) without '=' padding and matches cnf.x5t#S256"
     }
     example "A renewed QWAC gives a different thumbprint" @MVP +edge {
-      given "A exchanges a code with its new QWAC"
+      given "the TPP exchanges a code with its new QWAC"
       when "the token is issued"
       then "cnf.x5t#S256 is the thumbprint of the new certificate"
     }
     example "Metadata advertises certificate-bound tokens" @"Walking skeleton" +nominal {
-      given "F's metadata"
+      given "the OIDC-provider's metadata"
       when "it is read"
       then "tls_client_certificate_bound_access_tokens is true"
     }
@@ -98,16 +98,16 @@ examplemap "Issue a certificate-bound JWT scoped to the consent" {
     }
   }
 
-  rule "F's signing key rotates without breaking verification" {
+  rule "The OIDC-provider's signing key rotates without breaking verification" {
     example "The old kid stays in the JWKS for 24 hours" @MVP +edge {
-      given "F rotated from kid f-2026 to f-2026b at 10:00"
-      when "Bank B verifies a token signed with f-2026 at 12:00"
-      then "the JWKS still holds f-2026 and the verification succeeds"
+      given "the OIDC-provider rotated from kid oidc-2026 to oidc-2026b at 10:00"
+      when "the Bank verifies a token signed with oidc-2026 at 12:00"
+      then "the JWKS still holds oidc-2026 and the verification succeeds"
     }
     example "New tokens use the new kid" @MVP +nominal {
       given "the rotation"
       when "a token is issued at 10:01"
-      then "its header kid is f-2026b"
+      then "its header kid is oidc-2026b"
     }
   }
 }

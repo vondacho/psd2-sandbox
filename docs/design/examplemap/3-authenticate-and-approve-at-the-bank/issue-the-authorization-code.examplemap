@@ -1,0 +1,78 @@
+// Example map for the story "Issue the authorization code" (activity
+// "Authenticate and approve at the Bank", step "Return to the TPP").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Issue the authorization code" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Issue the authorization code" ~ready @"Walking skeleton" +oidc-provider +"spec 13.2" +"RFC 6749" {
+    as "PSU"
+    want "the OIDC-provider to redirect me to the TPP with a code and my original state"
+    so "the TPP can finish without asking me anything else"
+  }
+
+  rule "After a valid ID token, the OIDC-provider issues a random single-use code bound to the client, the redirect URI, the PKCE challenge and the consent, and redirects with the client's state" +"spec 13.2" {
+    example "The redirect to the TPP" @"Walking skeleton" +nominal {
+      given "request req-1 by PSDDE-BAFIN-123456 with state S8NJ7…, redirect_uri https://tpp.sandbox/xs2a/callback/bank, code_challenge 5c3055…, scope AIS:123cons456 offline_access, and a valid ID token"
+      when "the OIDC-provider issues the code"
+      then "the browser is redirected to https://tpp.sandbox/xs2a/callback/bank?code=SplxlOBeZQQYbYS6WxSbIA&state=S8NJ7…"
+      then "the code is 128 bits of randomness, base64url"
+      then "the request status is codeIssued"
+    }
+    example "The state is returned verbatim" @"Walking skeleton" +edge {
+      given "state 'a b+c/d=' URL-encoded on the way in"
+      when "the OIDC-provider redirects"
+      then "the state parameter decodes to exactly 'a b+c/d='"
+    }
+    example "A redirect URI that already has a query gets the code appended with &" @MVP +edge {
+      given "redirect_uri https://tpp.sandbox/xs2a/callback/bank?outcome=nok registered and used"
+      when "the OIDC-provider redirects"
+      then "the URL is https://tpp.sandbox/xs2a/callback/bank?outcome=nok&code=…&state=…"
+    }
+    example "The OIDC-provider redirects only to the registered redirect_uri of the request" @"Walking skeleton" +nominal {
+      given "the request's redirect_uri"
+      when "the OIDC-provider redirects"
+      then "the location is that URI, never one derived from the ID token or the CIAM"
+    }
+    example "No code without a valid ID token" @"Walking skeleton" +error {
+      given "the CIAM answered access_denied"
+      when "the OIDC-provider handles the broker callback"
+      then "no code is issued"
+    }
+  }
+
+  rule "The code lives 60 seconds and is redeemable once" +"RFC 6749" {
+    example "A code exchanged at 59 seconds works" @MVP +edge {
+      given "the code issued at 09:13:40"
+      when "the TPP exchanges it at 09:14:39"
+      then "tokens are issued"
+    }
+    example "A code exchanged at 61 seconds fails" @MVP +error {
+      given "the code issued at 09:13:40"
+      when "the TPP exchanges it at 09:14:41"
+      then "the OIDC-provider answers 400 invalid_grant"
+    }
+    example "A code exchanged twice" @"Walking skeleton" +error {
+      given "the code was exchanged once"
+      when "it is exchanged again"
+      then "the OIDC-provider answers 400 invalid_grant and revokes the tokens of the first exchange"
+    }
+  }
+
+  rule "One request yields at most one code" {
+    example "A second ID token for the same request issues nothing" @MVP +edge {
+      given "req-1 is codeIssued"
+      when "a second broker callback for req-1 arrives"
+      then "the OIDC-provider answers 400 and issues no second code"
+    }
+    example "A request that expired before the PSU finished issues nothing" @MVP +error {
+      given "req-1 received at 09:00 and the PSU finished at 09:31 with a 30-minute request lifetime"
+      when "the broker callback arrives"
+      then "the OIDC-provider redirects the TPP with error=access_denied and error_description 'authorization request expired'"
+    }
+  }
+}

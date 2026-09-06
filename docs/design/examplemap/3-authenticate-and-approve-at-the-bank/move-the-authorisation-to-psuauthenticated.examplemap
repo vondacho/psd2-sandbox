@@ -1,0 +1,96 @@
+// Example map for the story "Move the authorisation to psuAuthenticated"
+// (activity "Authenticate and approve at the Bank", step "Identify and enter my
+// password"). Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Move the authorisation to psuAuthenticated" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Move the authorisation to psuAuthenticated" ~ready @"Walking skeleton" +bank-xs2a +"spec 14.16" {
+    as "Bank product owner"
+    want "the authorisation sub-resource updated as the PSU progresses"
+    so "the TPP can read a truthful scaStatus"
+  }
+
+  rule "The scaStatus follows the PSU: received, psuIdentified when the PSU-ID is entered, psuAuthenticated when the password is verified" +"spec 14.16" {
+    example "Before anything, received" @"Walking skeleton" +nominal {
+      given "consent 123cons456 just created"
+      when "the TPP calls GET /v1/consents/123cons456/authorisations/123auth567"
+      then "the answer is {scaStatus: received}"
+    }
+    example "After the PSU-ID is entered, psuIdentified" @"Walking skeleton" +nominal {
+      given "Anna typed anna.mueller and the CIAM resolved the identity"
+      when "the TPP reads the scaStatus"
+      then "the answer is psuIdentified"
+      then "the consent's psuId is anna.mueller"
+    }
+    example "After the password is verified, psuAuthenticated" @"Walking skeleton" +nominal {
+      given "Anna's password was verified"
+      when "the TPP reads the scaStatus"
+      then "the answer is psuAuthenticated"
+    }
+    example "A wrong password leaves the status at psuIdentified" @MVP +edge {
+      given "Anna typed a wrong password twice"
+      when "the TPP reads the scaStatus"
+      then "the answer is psuIdentified"
+    }
+    example "A locked identity fails the authorisation" @MVP +error {
+      given "the fifth wrong password locked anna.mueller"
+      when "the TPP reads the scaStatus"
+      then "the answer is failed"
+      then "the consent status is rejected"
+    }
+  }
+
+  rule "The status moves forward only, and terminal states never change" +"spec 14.16" {
+    example "Reloading the login page does not reset the status" @MVP +edge {
+      given "scaStatus is psuAuthenticated"
+      when "Anna reloads the CIAM page"
+      then "scaStatus is still psuAuthenticated"
+    }
+    example "An outcome message arriving late cannot move failed back" @MVP +edge {
+      given "scaStatus is failed"
+      when "a delayed message 'psuAuthenticated' arrives from the CIAM"
+      then "scaStatus stays failed and the message is logged as ignored"
+    }
+    example "finalised is terminal" @MVP +edge {
+      given "scaStatus is finalised"
+      when "any further update arrives"
+      then "scaStatus stays finalised"
+    }
+  }
+
+  rule "The authorisation is readable by the creating TPP only" +security {
+    example "The TPP reads its own authorisation" @"Walking skeleton" +nominal {
+      given "the TPP's QWAC"
+      when "GET /v1/consents/123cons456/authorisations/123auth567 is called"
+      then "the answer is 200"
+    }
+    example "C cannot read the TPP's authorisation" @MVP +error {
+      given "C's QWAC"
+      when "GET /v1/consents/123cons456/authorisations/123auth567 is called"
+      then "the answer is 403 CONSENT_UNKNOWN"
+    }
+    example "An unknown authorisation id answers RESOURCE_UNKNOWN" @MVP +error {
+      given "the TPP's QWAC"
+      when "GET /v1/consents/123cons456/authorisations/nope is called"
+      then "the answer is 404 RESOURCE_UNKNOWN"
+    }
+  }
+
+  rule "The CIAM updates the authorisation through the internal contract, with the PSU" {
+    example "The internal update carries scaStatus and psuId" @"Walking skeleton" +nominal {
+      given "Anna's password was verified in session sess-1"
+      when "the CIAM calls POST /internal/consents/123cons456/authorisations/123auth567"
+      then "the body is {scaStatus: psuAuthenticated, psuId: anna.mueller}"
+    }
+    example "An update for an authorisation of another consent is refused" @MVP +error {
+      given "authorisation 123auth567 belongs to 123cons456"
+      when "the CIAM posts to /internal/consents/111cons222/authorisations/123auth567"
+      then "consent management answers 404"
+    }
+  }
+}

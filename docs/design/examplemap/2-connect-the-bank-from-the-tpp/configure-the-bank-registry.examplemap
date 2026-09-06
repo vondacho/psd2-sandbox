@@ -1,0 +1,119 @@
+// Example map for the story "Configure the bank registry" (activity "Connect
+// the Bank from the TPP", step "Select the Bank").
+// Fixtures: docs/design/examplemap/README.md.
+
+examplemap "Configure the bank registry" {
+  product "berlin-psd2-sandbox"
+
+  delivery "Walking skeleton" release
+  delivery "MVP" release
+  delivery "Hardening" release
+
+  story "Configure the bank registry" ~analysing @"Walking skeleton" +tpp {
+    as "TPP operator"
+    want "each bank's XS2A base URL, metadata URL and consent model in a config file"
+    so "adding a bank does not need a code change"
+    question "Is a restart acceptable to pick up a new bank, or must the file be reloaded on SIGHUP?" +"ask tpp"
+  }
+
+  rule "The registry is a YAML file read at startup; each entry needs id, displayName, xs2aBaseUrl, oauthMetadataUrl and consentModels" {
+    example "A file with two complete entries is loaded" @"Walking skeleton" +nominal {
+      given "banks.yaml with entries bank ('Bank', https://api.bank.sandbox/psd2, https://oidc-provider.sandbox/.well-known/oauth-authorization-server, [bankOffered]) and bank-c"
+      when "the TPP starts"
+      then "the registry holds two entries"
+      then "the log says 'bank registry: 2 banks loaded'"
+    }
+    example "A missing xs2aBaseUrl stops the start-up and names the entry" @"Walking skeleton" +error {
+      given "entry bank-c has no xs2aBaseUrl"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml: bank-c: xs2aBaseUrl is required'"
+    }
+    example "A duplicate id stops the start-up" @"Walking skeleton" +error {
+      given "two entries with id bank"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml: duplicate bank id bank'"
+    }
+    example "An unknown consent model stops the start-up" @MVP +error {
+      given "entry bank-c has consentModels [everything]"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml: bank-c: unknown consent model everything'"
+    }
+    example "An entry without consent model stops the start-up" @MVP +error {
+      given "entry bank-c has consentModels []"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml: bank-c: at least one consent model is required'"
+    }
+    example "A missing file stops the start-up" @"Walking skeleton" +error {
+      given "banks.yaml does not exist"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml not found'"
+    }
+    example "An empty file is a valid empty registry" @MVP +edge {
+      given "banks.yaml contains 'banks: []'"
+      when "the TPP starts"
+      then "the registry holds no entry and the TPP runs"
+    }
+  }
+
+  rule "Every URL in the registry uses https" +security {
+    example "An http XS2A base URL is refused" @"Walking skeleton" +error {
+      given "entry bank-c has xs2aBaseUrl http://api.bank-c.sandbox/psd2"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml: bank-c: xs2aBaseUrl must use https'"
+    }
+    example "An http metadata URL is refused" @"Walking skeleton" +error {
+      given "entry bank-c has oauthMetadataUrl http://oidc-provider.sandbox/.well-known/oauth-authorization-server"
+      when "the TPP starts"
+      then "the TPP exits naming oauthMetadataUrl"
+    }
+    example "A URL with a trailing slash is normalised" @MVP +edge {
+      given "entry bank has xs2aBaseUrl https://api.bank.sandbox/psd2/"
+      when "the TPP starts"
+      then "the entry's base URL is https://api.bank.sandbox/psd2"
+      then "consent requests go to https://api.bank.sandbox/psd2/v1/consents, not to //v1"
+    }
+  }
+
+  rule "Optional settings have defaults: requiresSignature false, maxValidityDays 180" {
+    example "An entry without maxValidityDays gets 180" @"Walking skeleton" +nominal {
+      given "entry bank has no maxValidityDays"
+      when "the TPP starts"
+      then "bank.maxValidityDays is 180"
+    }
+    example "An explicit maxValidityDays 30 is kept" @"Walking skeleton" +nominal {
+      given "entry bank-c has maxValidityDays 30"
+      when "the TPP starts"
+      then "bank-c.maxValidityDays is 30"
+    }
+    example "maxValidityDays 0 is refused" @MVP +error {
+      given "entry bank-c has maxValidityDays 0"
+      when "the TPP starts"
+      then "the TPP exits with 'banks.yaml: bank-c: maxValidityDays must be between 1 and 180'"
+    }
+    example "maxValidityDays above 180 is refused" @MVP +error {
+      given "entry bank-c has maxValidityDays 365"
+      when "the TPP starts"
+      then "the TPP exits naming maxValidityDays"
+    }
+    example "requiresSignature defaults to false" @"Walking skeleton" +nominal {
+      given "entry bank has no requiresSignature"
+      when "the TPP starts"
+      then "consent requests to the Bank carry no Signature header"
+    }
+  }
+
+  rule "Adding a bank is a configuration change only" {
+    example "A new entry appears in the picker after a restart" @"Walking skeleton" +nominal {
+      given "the TPP runs with the entry bank only"
+      when "the operator adds bank-c to banks.yaml and restarts the TPP"
+      then "the picker lists the Bank and Bank C"
+      then "no code was changed"
+    }
+    example "Removing an entry keeps existing connections but hides the bank from the picker" @MVP +edge {
+      given "Anna is connected to bank-c"
+      when "the operator removes bank-c and restarts the TPP"
+      then "Bank C is absent from the picker"
+      then "Anna's connection to bank-c is shown as 'bank no longer supported'"
+    }
+  }
+}

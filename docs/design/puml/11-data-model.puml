@@ -1,5 +1,5 @@
 @startuml 11-data-model
-title Data model (Bank B consent management, CIAM, F tokens)
+title Data model (the Bank consent management, CIAM, OIDC-provider tokens)
 hide circle
 skinparam linetype ortho
 

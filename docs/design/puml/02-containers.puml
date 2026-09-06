@@ -2,12 +2,12 @@
 ' Containers of the three systems (C4 level 2)
 !include <C4/C4_Container>
 
-title Containers: TPP application A, OIDC provider F, Bank B
+title Containers: the TPP, the OIDC-provider, the Bank
 
 Person(psu, "PSU")
-System_Ext(app, "Bank B mobile app", "registered device, hardware-backed key")
+System_Ext(app, "Bank mobile app", "registered device, hardware-backed key")
 
-System_Boundary(a, "TPP application A") {
+System_Boundary(a, "TPP") {
   Container(afe, "Web front end", "SPA / SSR", "Bank picker, account list, account details, SCA waiting page")
   Container(abe, "Back end", "service", "Consent orchestrator, OAuth2 client (PKCE, state, mTLS), XS2A client")
   ContainerDb(registry, "Bank registry", "config", "ASPSP id, XS2A base URL, OAuth metadata URL, consent models")
@@ -15,15 +15,15 @@ System_Boundary(a, "TPP application A") {
   Container(keys, "Key material", "HSM / KMS", "QWAC and QSEAL private keys")
 }
 
-System_Boundary(f, "OpenID Connect provider F") {
+System_Boundary(f, "OIDC-provider") {
   Container(meta, "Metadata and JWKS", "RFC 8414", "/.well-known/oauth-authorization-server, /jwks")
   Container(authz, "Authorization endpoint", "/authorize", "client, redirect_uri, PKCE checks; scope handler AIS:/PIS:/PIIS:")
-  Container(broker, "Identity broker", "OIDC RP", "Delegates to Bank B CIAM, requires acr urn:bank-b:psd2:sca")
+  Container(broker, "Identity broker", "OIDC RP", "Delegates to the Bank CIAM, requires acr urn:bank:psd2:sca")
   Container(token, "Token service", "/token /revoke /introspect", "JWT access tokens with cnf, refresh tokens capped by validUntil")
   ContainerDb(clients, "Client registry", "db", "client_id = QWAC organizationIdentifier, cert binding, redirect URIs, roles")
 }
 
-System_Boundary(b, "Bank B") {
+System_Boundary(b, "Bank") {
   Container(gw, "XS2A gateway", "reverse proxy", "mTLS termination, QWAC validation, signature check, JWT validation, rate limit")
   Container(xs2a, "XS2A service", "REST", "consents, accounts, balances, transactions, payments; _links steering")
   Container(cm, "Consent management", "service + db", "consent state machine, authorisations, accessible accounts, usage counters")

@@ -9,28 +9,28 @@ examplemap "Read balances and transactions" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Read balances and transactions" ~analysing +bank-b-xs2a +tpp-a +"spec 6.5.3" +"spec 6.5.4" {
+  story "Read balances and transactions" ~analysing +bank-xs2a +tpp +"spec 6.5.3" +"spec 6.5.4" {
     as "PSU"
-    want "A to show balances and recent transactions of an account"
+    want "the TPP to show balances and recent transactions of an account"
     so "I can follow my spending in one place"
     question "Does the product want transactions at all in the first consent, which means asking for the transactions access type and showing it on the consent summary?" +"ask product"
-    question "Which delta mechanisms (entryReferenceFrom, deltaList) does the sandbox support?" +"ask bank-b" +"spec 6.5.4"
+    question "Which delta mechanisms (entryReferenceFrom, deltaList) does the sandbox support?" +"ask bank" +"spec 6.5.4"
   }
 
   rule "GET /v1/accounts/{id}/balances returns the balances of an account whose consent grants balances" +"spec 6.5.3" {
     example "Balances of Main Account" +nominal {
       given "consent with balances on Main Account, ledger closingBooked 1250.30 and interimAvailable 1180.30"
-      when "A calls GET /v1/accounts/3dc3d5b3-…/balances"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/balances"
       then "the answer is 200 {account: {iban: DE23…, currency: EUR}, balances: [closingBooked 1250.30, interimAvailable 1180.30]}"
     }
     example "Balances not granted" +error {
       given "an accounts-only consent"
-      when "A calls the balances endpoint"
+      when "the TPP calls the balances endpoint"
       then "the answer is 401 CONSENT_INVALID"
     }
     example "Balances of an unselected account" +error {
       given "Savings not in the consent"
-      when "A calls its balances endpoint"
+      when "the TPP calls its balances endpoint"
       then "the answer is 401 CONSENT_INVALID"
     }
   }
@@ -38,22 +38,22 @@ examplemap "Read balances and transactions" {
   rule "GET /v1/accounts/{id}/transactions needs bookingStatus and a period, and returns the booked and/or pending entries of that period" +"spec 6.5.4" {
     example "Booked transactions of August" +nominal {
       given "consent with transactions on Main Account and three bookings in August 2026"
-      when "A calls GET /v1/accounts/3dc3d5b3-…/transactions?bookingStatus=booked&dateFrom=2026-08-01&dateTo=2026-08-31"
+      when "the TPP calls GET /v1/accounts/3dc3d5b3-…/transactions?bookingStatus=booked&dateFrom=2026-08-01&dateTo=2026-08-31"
       then "the answer is 200 {account: {…}, transactions: {booked: [three entries with transactionId, bookingDate, valueDate, transactionAmount, creditorName or debtorName, remittanceInformationUnstructured]}}"
     }
     example "Pending only" +edge {
       given "one card reservation pending"
-      when "A calls with bookingStatus=pending&dateFrom=2026-09-01"
+      when "the TPP calls with bookingStatus=pending&dateFrom=2026-09-01"
       then "transactions.pending holds one entry and there is no booked array"
     }
     example "Both" +edge {
       given "the same data"
-      when "A calls with bookingStatus=both&dateFrom=2026-08-01"
+      when "the TPP calls with bookingStatus=both&dateFrom=2026-08-01"
       then "booked and pending are both present"
     }
     example "An empty period" +edge {
       given "no bookings in 2020"
-      when "A calls with dateFrom=2020-01-01&dateTo=2020-01-31"
+      when "the TPP calls with dateFrom=2020-01-01&dateTo=2020-01-31"
       then "the answer is 200 with booked: []"
     }
     example "Missing bookingStatus" +error {
@@ -114,7 +114,7 @@ examplemap "Read balances and transactions" {
     }
   }
 
-  rule "A renders transactions per account with date, counterpart, amount and remittance, most recent first" {
+  rule "The TPP renders transactions per account with date, counterpart, amount and remittance, most recent first" {
     example "The transaction list" +nominal {
       given "three booked entries: 2026-08-03 REWE -45.20, 2026-08-15 Salary +3200.00, 2026-08-28 Rent -950.00"
       when "the page renders"

@@ -8,22 +8,22 @@ examplemap "Ask the PSU to reconnect" {
   delivery "MVP" release
   delivery "Hardening" release
 
-  story "Ask the PSU to reconnect" ~ready @MVP +tpp-a {
+  story "Ask the PSU to reconnect" ~ready @MVP +tpp {
     as "PSU"
-    want "A to tell me when my consent has ended and offer to reconnect"
+    want "the TPP to tell me when my consent has ended and offer to reconnect"
     so "I can renew before I need my data"
   }
 
   rule "A connection in needsReconsent shows a banner with the reason and a Reconnect action that starts a new consent on the same connection" {
     example "Expired" @MVP +nominal {
-      given "the connection to bank-b is needsReconsent with reason expired on 2026-12-05"
-      when "Anna opens A"
-      then "a banner says 'Your connection to Bank B ended on 5 Dec 2026' with 'Reconnect'"
+      given "the connection to the Bank is needsReconsent with reason expired on 2026-12-05"
+      when "Anna opens the TPP"
+      then "a banner says 'Your connection to the Bank ended on 5 Dec 2026' with 'Reconnect'"
     }
     example "Revoked" @MVP +nominal {
       given "reason revoked"
-      when "Anna opens A"
-      then "the banner says 'Access to Bank B was withdrawn at the bank' with 'Reconnect'"
+      when "Anna opens the TPP"
+      then "the banner says 'Access to the Bank was withdrawn at the bank' with 'Reconnect'"
     }
     example "Reconnect starts a new consent on the same connection" @MVP +nominal {
       given "the banner"
@@ -33,35 +33,35 @@ examplemap "Ask the PSU to reconnect" {
     }
     example "Dismissing the banner brings it back next visit" @MVP +edge {
       given "Anna dismisses the banner"
-      when "she opens A tomorrow"
+      when "she opens the TPP tomorrow"
       then "the banner is shown again"
     }
     example "Two banks: two banners" @MVP +edge {
-      given "bank-b and bank-c both need re-consent"
-      when "Anna opens A"
+      given "the Bank and Bank C both need re-consent"
+      when "Anna opens the TPP"
       then "two banners are shown, one per bank"
     }
   }
 
-  rule "A warns seven days before validUntil and lets the PSU renew early" {
+  rule "The TPP warns seven days before validUntil and lets the PSU renew early" {
     example "Seven days before" @MVP +nominal {
       given "validUntil 2026-12-05 and today 2026-11-28"
-      when "Anna opens A"
-      then "a banner says 'Your connection to Bank B expires on 5 Dec 2026' with 'Renew now'"
+      when "Anna opens the TPP"
+      then "a banner says 'Your connection to the Bank expires on 5 Dec 2026' with 'Renew now'"
     }
     example "Eight days before: no banner" @MVP +edge {
       given "today 2026-11-27"
-      when "Anna opens A"
+      when "Anna opens the TPP"
       then "no banner is shown"
     }
     example "Renew now replaces the consent" @MVP +nominal {
       given "the renewal banner"
       when "Anna renews and the new consent becomes valid"
-      then "Bank B terminates the old consent and the connection holds the new one with validUntil 2027-02-26"
+      then "the Bank terminates the old consent and the connection holds the new one with validUntil 2027-02-26"
     }
-    example "Renewal declined at Bank B keeps the old connection" @MVP +edge {
+    example "Renewal declined at the Bank keeps the old connection" @MVP +edge {
       given "Anna declines during the renewal"
-      when "she returns to A"
+      when "she returns to the TPP"
       then "the old consent is still valid and the connection connected, and the banner remains"
     }
   }
@@ -69,13 +69,13 @@ examplemap "Ask the PSU to reconnect" {
   rule "While re-consent is needed, no account data is shown" {
     example "Account views are hidden" @MVP +nominal {
       given "needsReconsent"
-      when "Anna opens the accounts of Bank B"
+      when "Anna opens the accounts of the Bank"
       then "the page shows the banner and no account rows"
     }
     example "The scheduler skips the connection" @MVP +nominal {
       given "needsReconsent"
       when "the nightly refresh runs"
-      then "no call is made for bank-b"
+      then "no call is made for the Bank"
     }
   }
 }
