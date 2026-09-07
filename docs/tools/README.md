@@ -1,11 +1,12 @@
 # Tools
 
-Small, dependency-free scripts for checking the models. Python 3 and a standard
-library are all they need.
+Small, dependency-free scripts that check the models and generate from them.
+Python 3 and its standard library are all they need.
 
-| Script | Checks |
+| Script | Does |
 |---|---|
-| [`emcheck.py`](emcheck.py) | `.examplemap` files in [`../docs/design/examplemap/`](../docs/design/examplemap/) |
+| [`emcheck.py`](emcheck.py) | Validates the `.examplemap` files in [`../docs/design/examplemap/`](../docs/design/examplemap/) |
+| [`emgherkin.py`](emgherkin.py) | Generates a Gherkin `.feature` for each of them into [`../docs/design/features/`](../docs/design/features/) |
 
 ## emcheck.py
 
@@ -47,3 +48,27 @@ if any file was invalid, so it drops into a pre-commit hook or CI step as is.
 It does **not** check anything across files — that a story exists in a story
 map, that tags match, that a delivery is declared. Those are cross-model
 questions, and the model folders describe the rules they follow.
+
+## emgherkin.py
+
+Generates [`../docs/design/features/`](../docs/design/features/) from the
+example maps, following the mapping stated in
+[the example map README](../docs/design/examplemap/README.md): story to
+`Feature:`, rule to `Rule:`, example to `Scenario:`; questions are not exported.
+It reuses `emcheck.py`'s tokeniser — one grammar, one reader — and adds the
+AST that generation needs but checking did not.
+
+```sh
+python3 tools/emgherkin.py                 # regenerate all 126
+python3 tools/emgherkin.py --check         # exit 1 if any output is stale
+python3 tools/emgherkin.py -v <files...>   # a subset, reporting each file
+python3 tools/emgherkin.py --out /tmp/x    # somewhere else
+```
+
+Output is deterministic and the writer is idempotent: a second run reports
+`written=0 unchanged=126`. That makes `--check` usable as a CI or pre-commit
+gate — it fails when someone edits a generated `.feature` instead of the map it
+came from, and when a map changed but the features were not regenerated.
+
+The generated files are committed, so a change to a map shows up in review as a
+change to its scenarios.

@@ -14,6 +14,7 @@ like code.
 | [`domain/`](domain/) | `.ddd` / `.ddm`, [ba-cm.obya.ch/dsl](https://ba-cm.obya.ch/dsl) | The context map and the inside of each bounded context. |
 | [`likec4/`](likec4/) | LikeC4, [likec4.dev/dsl](https://likec4.dev/dsl) | The C4 model: one source, many views, browsable in a viewer. |
 | [`puml/`](puml/) | PlantUML | The rendered diagrams of the document: C4, sequences, state machines. |
+| [`features/`](features/) | Gherkin | **Generated** from the example maps: one `.feature` per story, ready for a runner. |
 
 ## How the models chain
 
@@ -28,6 +29,9 @@ storymap/       activities > steps > stories, sliced into deliveries
       |         one story becomes one file, named after it; the story's
       v         as/want/so, delivery and tags are copied verbatim
 examplemap/     rules, examples with Given/When/Then, open questions
+      |         story > Feature, rule > Rule, example > Scenario;
+      v         questions are not exported  (tools/emgherkin.py)
+features/       executable specifications, one .feature per story
 
 domain/         .ddd names the bounded contexts; one .ddm per context
                 opens it up into aggregates, entities, values and enums
@@ -48,6 +52,7 @@ story map entry it names.
 | Story maps | 3 | 12 activities, 28 steps, 126 stories |
 | Example maps | 126 | 426 rules, 1594 examples, 5052 Given/When/Then steps, 100 open questions |
 | Domain models | 1 `.ddd` + 8 `.ddm` | 8 bounded contexts, 19 aggregates, plus one unfilled stub (see [`domain/`](domain/)) |
+| Feature files | 126 | 426 rules, 1594 scenarios, 5052 steps — generated, not hand-written |
 | Diagrams | 3 `.c4` + 14 `.puml` | 14 LikeC4 views, 14 PlantUML diagrams |
 
 Regenerate the example-map figures with

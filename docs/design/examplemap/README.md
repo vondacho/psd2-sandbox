@@ -24,9 +24,14 @@ The grammar is the example-mapping DSL documented at
 Each map holds the story (yellow card), its business rules (blue cards), the
 concrete examples that illustrate each rule (green cards) and the questions
 nobody could answer from the design alone (red cards). The examples are written
-with Given/When/Then steps and real values so that they can be exported to
-Gherkin feature files mechanically: story to `Feature:`, rule to `Rule:`,
-example to `Scenario:`; questions are not exported.
+with Given/When/Then steps and real values so that they export to Gherkin
+mechanically: story to `Feature:`, rule to `Rule:`, example to `Scenario:`;
+questions are not exported.
+
+That export is not hypothetical. [`../features/`](../features/) holds one
+generated `.feature` per map — 426 rules and 1594 scenarios — produced by
+`python3 tools/emgherkin.py`. The maps here are the source of truth; the
+feature files are regenerated, never edited.
 
 ## Conventions
 

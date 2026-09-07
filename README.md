@@ -18,3 +18,4 @@ says what its files are and how they relate to the rest.
 
 # Tools
 - [`tools/emcheck.py`](tools/README.md): structural checker for the 126 example maps. `python3 tools/emcheck.py docs/design/examplemap/*/*.examplemap`.
+- [`tools/emgherkin.py`](tools/README.md#emgherkinpy): generates a Gherkin [`.feature`](docs/design/features/) from every example map. `python3 tools/emgherkin.py`.
