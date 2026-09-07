@@ -1,0 +1,64 @@
+{
+  "format": "ba-cm-view",
+  "version": 1,
+  "map": "PSD2 access to account",
+  "positions": {
+    "subdomain:Consent and account access": {
+      "x": 695.8872454973048,
+      "y": 230.71279304174882
+    },
+    "domain:Access to account (the Bank, ASPSP)": {
+      "x": 1095.5746593202084,
+      "y": 39.5315001166245
+    },
+    "subdomain:Customer identity and strong customer authentication": {
+      "x": 979.7938386872651,
+      "y": 228.00509883769024
+    },
+    "subdomain:Third-party identification": {
+      "x": 1230.8985064429717,
+      "y": 225.24802620199102
+    },
+    "subdomain:Core banking": {
+      "x": 1509.4077589109793,
+      "y": 463.034252701096
+    },
+    "subdomain:Push notifications": {
+      "x": 1508.5047996879937,
+      "y": 227.28407674007298
+    },
+    "context:Accounts ledger": {
+      "x": 1510.7654766972828,
+      "y": 917.5719113410183
+    },
+    "context:Customer identity and SCA": {
+      "x": 1014.1553677853151,
+      "y": 431.30135786200964
+    },
+    "context:Payment initiation": {
+      "x": 721.272614096166,
+      "y": 433.14599007669443
+    },
+    "context:TPP identification": {
+      "x": 1227.1156093655654,
+      "y": 621.298475974551
+    },
+    "context:Bank connection": {
+      "x": 410.92231610734245,
+      "y": 422.5114295490558
+    },
+    "context:Consent management": {
+      "x": 637.2785104511909,
+      "y": 910.4499938408886
+    },
+    "context:Account information": {
+      "x": 109.17370805068262,
+      "y": 895.8097095220506
+    },
+    "context:Token issuance": {
+      "x": 90,
+      "y": 572.867101372637
+    }
+  },
+  "curves": {}
+}

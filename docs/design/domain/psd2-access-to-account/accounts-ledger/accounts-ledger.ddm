@@ -1,0 +1,14 @@
+// The inside of one bounded context.
+//
+// Rename the aggregate, say what it keeps true, and give it the entities and
+// values it owns. The panel below says what is still missing.
+
+context "Accounts ledger" {
+
+  aggregate "New aggregate" {
+
+    root entity "New aggregate" {
+      id "NewAggregateId"
+    }
+  }
+}
