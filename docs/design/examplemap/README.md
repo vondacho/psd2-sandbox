@@ -1,11 +1,24 @@
-# Example maps of the PSU account-list journey
+# Example maps of the two PSU journeys
 
 One `.examplemap` file per story of the three story maps in
-[`../storymap/`](../storymap/), grouped in one directory per story-map activity:
-the PSU account-list journey, the Bank's payment services, and what the
-interface owes every TPP whatever the service. The grammar is the
-example-mapping DSL documented at [doc-em.obya.ch/dsl](https://doc-em.obya.ch/dsl);
-the practice is described at
+[`../storymap/`](../storymap/), grouped in one directory per story-map activity.
+The directory numbers run in journey order, so the folder listing is itself the
+backbone:
+
+| Directories | Covers | Stories |
+|---|---|---|
+| `1-` to `6-` | **The account-list journey.** A PSU enrols a device at the Bank, picks the Bank in the TPP and consents to the access, authenticates with a password and approves a QR challenge on that device, the TPP exchanges its tokens and reads the account list and the details, and comes back later under the consent's frequency and validity limits. | 90 |
+| `7-` to `10-` | **The payment journey.** The same PSU pays from one of those accounts: the TPP posts the payment, the PSU reviews payee and amount and approves a challenge whose dynamic link covers them, the payment is executed and followed through its transaction status, and cancelled while that is still allowed. | 20 |
+| `11-` to `12-` | **Neither journey and both.** What the Bank's interface owes every TPP whatever the service: the authorisation sub-resource as a resource of its own, and conformance in errors, status, hyperlinks and notifications. | 16 |
+
+The two journeys share their machinery on purpose — one device, one SCA engine,
+one authorisation model, one token issuer — so a rule proved in the account
+journey is not re-proved in the payment journey; only what the payment adds
+(the amount and payee in the dynamic link, the transaction status, the
+cancellation) gets its own maps.
+
+The grammar is the example-mapping DSL documented at
+[doc-em.obya.ch/dsl](https://doc-em.obya.ch/dsl); the practice is described at
 [dev-portal.obya.ch/doc/practices/example-mapping](https://dev-portal.obya.ch/doc/practices/example-mapping/).
 
 Each map holds the story (yellow card), its business rules (blue cards), the
@@ -23,7 +36,7 @@ example to `Scenario:`; questions are not exported.
   the story map, including the `+"spec x.y"` references to the NextGenPSD2 XS2A
   Implementation Guidelines v1.3.16.
 - **Deliveries.** A map declares the delivery bands it uses and the story
-  ships (`@`) in the band its story map gives it. The account journey was
+  ships (`@`) in the band its story map gives it. The account-list journey was
   sliced into `Walking skeleton`, `MVP` and `Hardening`: there, examples of a
   Walking-skeleton story ship their nominal cases in the skeleton and their
   edge and error cases in the MVP, because the skeleton is the thinnest
@@ -54,7 +67,13 @@ example to `Scenario:`; questions are not exported.
 ## Shared fixtures
 
 The examples use one consistent set of names and values so that scenarios from
-different maps can share step definitions.
+different maps can share step definitions. The set spans both journeys: Anna,
+the TPP and her Main Account are the same throughout, and that account is both
+what is read under consent `123cons456` and the debtor account of payment
+`pay001`. The consent is deliberately *not* shared — the payment maps name
+`123cons456` only as a negative, an AIS token, scope or signature offered for a
+payment and refused, because a payment is authorised under its own
+`PIS:<paymentId>` scope.
 
 | Fixture | Value |
 |---|---|
@@ -69,10 +88,10 @@ different maps can share step definitions.
 | TPP C | Brand "C Pay", `PSDDE-BAFIN-654321`, PISP only unless stated otherwise, domain `tpp-c.sandbox` |
 | The Bank | XS2A API `https://api.bank.sandbox/psd2`, CIAM `https://ciam.bank.sandbox`, app and simulator `https://app.bank.sandbox`, PKI `https://pki.sandbox` |
 | The OIDC-provider | `https://oidc-provider.sandbox`, metadata at `/.well-known/oauth-authorization-server`, signing key id `oidc-2026`, broker client at the CIAM `oidc-broker` |
-| Consents | `123cons456` the consent of the journey (authorisation `123auth567`, validUntil 2026-12-05, frequencyPerDay 4, recurring); `111cons222` an older recurring consent of the TPP for Anna; `333cons444` a consent of C for Anna; `555cons666` a consent of the TPP for Ben or an accounts-only consent; `777cons888` a one-off consent; `900cons001` a corporate consent; `999cons000` never exists |
+| Consents | `123cons456` the consent of the account-list journey (authorisation `123auth567`, validUntil 2026-12-05, frequencyPerDay 4, recurring); `111cons222` an older recurring consent of the TPP for Anna; `333cons444` a consent of C for Anna; `555cons666` a consent of the TPP for Ben or an accounts-only consent; `777cons888` a one-off consent; `900cons001` a corporate consent; `999cons000` never exists |
 | OAuth2 values | state `S8NJ7…`, PKCE verifier `dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk` and challenge `E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM` (RFC 7636 test vector), code `SplxlOBeZQQYbYS6WxSbIA`, refresh tokens `R1`, `R2`, access token `T1`, grant `g1`, pairwise subject `8f6c2b1e-…`, certificate thumbprint `bwcK0…` |
 | SCA | challenge `chl-01J8` (also `chl-01`, `chl-02`, `chl-03` for retries), nonce `m3A9…`, dynamic-link hash `H1` (another consent: `H2`), lifetime 180 s, at most 3 challenges per session and 3 invalid signatures per challenge |
-| Payments | `pay001` the payment of the journey (sepa-credit-transfers, EUR 12.50 from Main Account to Payee X `DE12 5001 0517 0648 4898 90`, remittance "Invoice 42", authorisation `pay001auth1`, dynamic-link hash `P1`); `pay002` accepted and still cancellable (cancellation authorisation `pay002cancauth1`); `pay003` already settled or belonging to TPP C; `pay999` never exists |
+| Payments | `pay001` the payment of the payment journey (sepa-credit-transfers, EUR 12.50 from Main Account to Payee X `DE12 5001 0517 0648 4898 90`, remittance "Invoice 42", authorisation `pay001auth1`, dynamic-link hash `P1`); `pay002` accepted and still cancellable (cancellation authorisation `pay002cancauth1`); `pay003` already settled or belonging to TPP C; `pay999` never exists |
 | Transactions | On Main Account: `tx-3001` Rent EUR -950.00 to Landlord GmbH on 2026-08-28 (entry reference `ent-2026-08-28-01`), Salary EUR +3200.00 from Employer AG on 2026-08-15, REWE EUR -45.20 on 2026-08-03, a pending card reservation of EUR -70.00; `tx-3002` a collective booking with entry details; `tx-3003` booked through an exchange rate; `tx-2001` booked more than ninety days ago; `tx-4001` belongs to Savings |
 | Sandbox parameters | validity cap 180 days, frequency cap 4 per day, access-token lifetime 600 s, authorization code lifetime 60 s, login session inactivity 10 min, abandoned consent rejected after 30 min, `confirmationRequired` and `requestSigningRequired` switchable, transaction page size 200 with a one-hour paging cursor, `cancellationScaRequired` switchable, per-payment limit EUR 10000.00, notifications switchable, offered payment services and products configurable |
 
@@ -80,7 +99,7 @@ different maps can share step definitions.
 
 Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open questions.
 
-## PSU account-list journey
+## PSU account list journey
 
 [`obi_psu-account-list-journey.storymap`](../storymap/obi_psu-account-list-journey.storymap). 90 stories, 316 rules, 1188 examples, 79 open questions.
 
@@ -216,7 +235,7 @@ Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open que
 | [Multilevel SCA for corporate accounts](6-come-back-later/multilevel-sca-for-corporate-accounts.examplemap) | — | analysing | 3 | 9 | 3 |
 | [Initiate a payment with the same infrastructure](6-come-back-later/initiate-a-payment-with-the-same-infrastructure.examplemap) | Hardening | analysing | 3 | 13 | 2 |
 
-## ASPSP payment services
+## PSU payment journey
 
 [`obi-psu-payment-journey.storymap`](../storymap/obi-psu-payment-journey.storymap). 20 stories, 62 rules, 227 examples, 9 open questions.
 
