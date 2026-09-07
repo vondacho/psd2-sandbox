@@ -2,7 +2,7 @@
 // later", step "Revoke or renew the consent"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Delete a consent from the TPP" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

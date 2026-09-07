@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Move the transaction status through its lifecycle" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS core" release
 

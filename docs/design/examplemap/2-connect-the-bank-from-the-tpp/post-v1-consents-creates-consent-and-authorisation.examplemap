@@ -3,7 +3,7 @@
 // the consent"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "POST /v1/consents creates consent and authorisation" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

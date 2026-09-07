@@ -2,7 +2,7 @@
 // accounts", step "See an account's details"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Serve GET /v1/accounts/{id}" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

@@ -3,7 +3,7 @@
 // Increment 7. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Serve one TPP identity from the certificate" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Conformance" release
 

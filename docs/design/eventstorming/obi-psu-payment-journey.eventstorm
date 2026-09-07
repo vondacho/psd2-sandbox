@@ -11,7 +11,7 @@
 //       +"spec x.y" cites the NextGenPSD2 XS2A Implementation Guidelines v1.3.16.
 
 eventstorm "PSU payment journey" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   lane "PSU" {
     actor "PSU" @2
@@ -28,7 +28,7 @@ eventstorm "PSU payment journey" {
     event "Cancellation requested by the PSU" @14 +alternative +"spec 5.7"
   }
 
-  lane "TPP application" {
+  lane "TPP" {
     context "Payment initiation (TPP, PISP)" @1
     aggregate "Payment attempt" @2
 
@@ -50,7 +50,7 @@ eventstorm "PSU payment journey" {
     command "Request cancellation" @14 +"spec 5.7"
   }
 
-  lane "OIDC-provider" {
+  lane "OIDC" {
     context "Authorization (OIDC-provider)" @1
     command "Validate scope PIS:paymentId against the payment resource" @4
     event "Scope PIS:paymentId bound to the payment" @4 +"spec 13.1"
@@ -95,7 +95,7 @@ eventstorm "PSU payment journey" {
     event "Challenge signed with the device key" @8 +sca
   }
 
-  lane "Bank payment services" {
+  lane "Bank XS2A" {
     context "Payment initiation (Bank XS2A)" @1
 
     aggregate "Payment" @3

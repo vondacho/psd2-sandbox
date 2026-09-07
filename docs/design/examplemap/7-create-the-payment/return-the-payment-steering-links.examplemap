@@ -3,7 +3,7 @@
 // Increment 4. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Return the payment steering links" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS core" release
 

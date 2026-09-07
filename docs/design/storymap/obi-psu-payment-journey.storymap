@@ -1,14 +1,14 @@
 // Story map: the Bank's payment initiation service (PISP-facing), increments 4
 // and 5 of the ASPSP compliance roadmap.
 // Backbone = the PSU payment journey of
-// docs/design/eventstorming/psu-payment-journey.eventstorm: one activity per
+// docs/design/eventstorming/obi-psu-payment-journey.eventstorm: one activity per
 // phase between two pivotal events, one step per timeline column (+"ES column n").
 // Scope: the Bank's own services. Stories for the TPP client live in the
 // account-list map; here the TPP appears only as the caller.
 // Deliveries are the roadmap increments; declaration order is timeline order.
 
-storymap "ASPSP payment services" {
-  product "berlin-psd2-sandbox"
+storymap "PSU payment journey" {
+  product "OBI"
 
   delivery "PIS core" release {
     note "Increment 4: single payments in JSON on one payment product,\
@@ -55,6 +55,7 @@ storymap "ASPSP payment services" {
   activity "Approve the payment at the Bank" +"ES columns 4-9" {
     persona "PSU"
     persona "Bank security officer"
+    persona "Bank product owner"
     step "Review the payment" +bank-ciam +"ES column 6" {
       story "Show the payment on the Bank's review screen" @"PIS core" +bank-ciam {
         as "PSU"

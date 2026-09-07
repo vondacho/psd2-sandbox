@@ -52,6 +52,9 @@ context "Payment initiation" {
     attribute "hash"          : "Hash"
   }
 
+  enum "ScaStatus" {
+  }
+
   // ---- Payment -------------------------------------------------------------
 
   aggregate "Payment" {

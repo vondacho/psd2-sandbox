@@ -3,7 +3,7 @@
 // Increment 5. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Serve the cancellation authorisation sub-resources" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS cancellation" release
 

@@ -3,7 +3,7 @@
 // Increment 7. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Serve the message codes of each service" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Conformance" release
 

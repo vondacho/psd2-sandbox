@@ -2,7 +2,7 @@
 // back later", step "Reuse the connection"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Refresh an expired access token" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

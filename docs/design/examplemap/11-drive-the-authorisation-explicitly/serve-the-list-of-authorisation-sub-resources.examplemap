@@ -3,7 +3,7 @@
 // authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Serve the list of authorisation sub-resources" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Authorisation resources" release
 

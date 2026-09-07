@@ -1,12 +1,11 @@
-// Story map: what the Bank's XS2A interface owes every TPP, whatever the
-// service. Increments 3 and 7 of the ASPSP compliance roadmap.
+// Story map: what the Bank's XS2A interface owes every TPP, whatever the service.
 // No event-storm backbone here: the journey is a TPP operator integrating with
 // the interface, not a PSU using it, so the activities follow the integration
 // rather than a timeline of PSU moments.
 // Deliveries are the roadmap increments; declaration order is timeline order.
 
 storymap "ASPSP interface conformance" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Authorisation resources" release {
     note "Increment 3: the authorisation sub-resource as a resource of its\
@@ -20,6 +19,7 @@ storymap "ASPSP interface conformance" {
   }
 
   activity "Drive the authorisation explicitly" {
+    persona "PSU"
     persona "TPP operator"
     persona "Bank security officer"
     step "Start and read authorisations" +bank-xs2a {

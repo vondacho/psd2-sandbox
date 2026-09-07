@@ -2,7 +2,7 @@
 // later", step "Revoke or renew the consent"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Ask the PSU to reconnect" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

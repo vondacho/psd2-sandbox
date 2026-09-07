@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Accept a consent on all available accounts" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Consent models" release
 

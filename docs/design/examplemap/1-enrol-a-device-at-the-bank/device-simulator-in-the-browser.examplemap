@@ -2,7 +2,7 @@
 // a device at the Bank"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Device simulator in the browser" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

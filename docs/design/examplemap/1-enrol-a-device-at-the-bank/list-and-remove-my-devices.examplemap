@@ -2,7 +2,7 @@
 // device at the Bank"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "List and remove my devices" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

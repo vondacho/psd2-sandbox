@@ -3,7 +3,7 @@
 // registered device"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Verify the signature against the registered key" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

@@ -1,10 +1,10 @@
 // Example map for the story "Generate a device-bound key pair" of
-// docs/design/storymap/psu-account-list-journey.storymap (activity "Enrol a
+// docs/design/storymap/obi_psu-account-list-journey.storymap (activity "Enrol a
 // device at the Bank", step "Activate the Bank app on a device").
 // Fixtures and tag conventions: docs/design/examplemap/README.md.
 
 examplemap "Generate a device-bound key pair" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

@@ -3,7 +3,7 @@
 // consent"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Choose the accounts to share" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

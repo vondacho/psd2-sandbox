@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Validate the callback state" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

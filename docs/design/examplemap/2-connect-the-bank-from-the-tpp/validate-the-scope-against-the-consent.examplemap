@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Validate the scope against the consent" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

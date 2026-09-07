@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Deny a challenge from the app" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

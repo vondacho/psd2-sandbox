@@ -82,7 +82,7 @@ Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open que
 
 ## PSU account-list journey
 
-[`psu-account-list-journey.storymap`](../storymap/psu-account-list-journey.storymap). 90 stories, 316 rules, 1188 examples, 79 open questions.
+[`obi_psu-account-list-journey.storymap`](../storymap/obi_psu-account-list-journey.storymap). 90 stories, 316 rules, 1188 examples, 79 open questions.
 
 ### Enrol a device at the Bank
 
@@ -218,7 +218,7 @@ Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open que
 
 ## ASPSP payment services
 
-[`aspsp-payment-services.storymap`](../storymap/aspsp-payment-services.storymap). 20 stories, 62 rules, 227 examples, 9 open questions.
+[`obi-psu-payment-journey.storymap`](../storymap/obi-psu-payment-journey.storymap). 20 stories, 62 rules, 227 examples, 9 open questions.
 
 ### Create the payment
 
@@ -270,7 +270,7 @@ Across the three story maps: 126 stories, 426 rules, 1594 examples, 100 open que
 
 ## ASPSP interface conformance (increments 3 and 7)
 
-[`aspsp-interface-conformance.storymap`](../storymap/aspsp-interface-conformance.storymap). 16 stories, 48 rules, 179 examples, 12 open questions.
+[`obi_aspsp-interface-conformance.storymap`](../storymap/obi_aspsp-interface-conformance.storymap). 16 stories, 48 rules, 179 examples, 12 open questions.
 
 ### Drive the authorisation explicitly
 

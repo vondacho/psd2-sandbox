@@ -1,5 +1,5 @@
-§// Story map: building the system behind the PSU account-list journey.
-// Backbone = the PSU journey of docs/design/eventstorming/psu-account-list-journey.eventstorm:
+// Story map: building the system behind the PSU account-list journey.
+// Backbone = the PSU journey of docs/design/eventstorming/obi-psu-account-list-journey.eventstorm:
 //   each activity is a phase between two pivotal events, each step is one timeline column
 //   (tagged +"ES column n"). Stories under a step are ordered by priority, top first.
 // Deliveries slice the map horizontally: the walking skeleton is the thinnest end-to-end
@@ -7,8 +7,8 @@
 // Stories without @delivery are known and not committed.
 // Tickets (#) are issued by the tracker, never invented here.
 
-storymap "PSU account-list journey" {
-  product "berlin-psd2-sandbox"
+storymap "PSU account list journey" {
+  product "OBI"
 
   delivery "Walking skeleton" release {
     note "Thinnest end-to-end path: test QWAC, bank-offered\

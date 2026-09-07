@@ -3,7 +3,7 @@
 // authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Serve the SCA status of an authorisation" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Authorisation resources" release
 

@@ -3,7 +3,7 @@
 // challenge"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "App-to-app redirect on a mobile browser" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

@@ -2,7 +2,7 @@
 // "Come back later", step "Reuse the connection"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Count accesses without PSU presence" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

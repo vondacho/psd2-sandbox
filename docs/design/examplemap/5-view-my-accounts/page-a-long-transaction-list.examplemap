@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Page a long transaction list" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "AIS reads" release
 

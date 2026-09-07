@@ -3,7 +3,7 @@
 // codes"). Increment 7. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Map failures to the right HTTP response codes" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Conformance" release
 

@@ -3,7 +3,7 @@
 // Increment 4. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Record the approved payment authorisation" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS core" release
 

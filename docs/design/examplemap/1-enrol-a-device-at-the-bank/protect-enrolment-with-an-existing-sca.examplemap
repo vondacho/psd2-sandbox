@@ -2,7 +2,7 @@
 // "Enrol a device at the Bank"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Protect enrolment with an existing SCA" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

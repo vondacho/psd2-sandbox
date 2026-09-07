@@ -3,7 +3,7 @@ title Payment initiation and approval (increment 4)
 autonumber
 actor PSU
 participant "PSU browser" as Br
-participant "TPP back end" as TPP
+participant "TPP backend" as TPP
 participant "Bank XS2A API" as XS2A
 participant "Bank payment mgmt" as PM
 participant "OIDC provider" as OIDC

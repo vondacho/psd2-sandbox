@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Count balance and transaction reads against the frequency" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Access rules" release
 

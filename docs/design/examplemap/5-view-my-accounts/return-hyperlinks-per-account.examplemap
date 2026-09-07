@@ -2,7 +2,7 @@
 // accounts", step "See the account list"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Return hyperlinks per account" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

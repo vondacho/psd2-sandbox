@@ -3,7 +3,7 @@
 // delivery. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Notify the TPP of consent status changes" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

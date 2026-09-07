@@ -2,7 +2,7 @@
 // accounts", step "See the account list"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Tokenise account identifiers" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

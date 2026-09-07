@@ -2,7 +2,7 @@
 // later", step "Revoke or renew the consent"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Revoke a consent at the Bank" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

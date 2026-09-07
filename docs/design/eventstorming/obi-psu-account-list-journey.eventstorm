@@ -8,8 +8,8 @@
 // Tags: +pivotal marks the events that separate the phases; +alternative marks branch events;
 //       +"spec x.y" cites the NextGenPSD2 XS2A Implementation Guidelines v1.3.16.
 
-eventstorm "PSU account-list journey" {
-  product "berlin-psd2-sandbox"
+eventstorm "PSU account list journey" {
+  product "OBI"
 
   lane "PSU" {
     actor "PSU" @2
@@ -29,8 +29,8 @@ eventstorm "PSU account-list journey" {
     event "Consent revoked by PSU" @14 +alternative +"spec 14.15"
   }
 
-  lane "The TPP" {
-    context "Account aggregation (the TPP, AISP)" @1
+  lane "TPP" {
+    context "Account aggregation (TPP, AISP)" @1
     aggregate "Bank connection" @2 {
       note "One per (PSU, bank). Holds consentId,\
             authorisationId, hyperlinks, token reference."
@@ -69,8 +69,8 @@ eventstorm "PSU account-list journey" {
     }
   }
 
-  lane "The OIDC-provider" {
-    context "Authorization (the OIDC-provider, authorization server)" @1
+  lane "OIDC" {
+    context "Authorization (OIDC-provider)" @1
     aggregate "Authorization request" @4
     command "Validate client, redirect URI and scope" @4
     event "Client and redirect URI validated" @4 +"spec 13.1" +"spec 4.10"
@@ -92,8 +92,8 @@ eventstorm "PSU account-list journey" {
     event "Tokens of the consent revoked" @14 +alternative
   }
 
-  lane "The Bank CIAM" {
-    context "Customer identity and SCA (the Bank CIAM)" @1
+  lane "Bank CIAM" {
+    context "Customer identity and SCA (Bank CIAM)" @1
 
     aggregate "Authentication session" @5
     ui "Login page" @5
@@ -128,8 +128,8 @@ eventstorm "PSU account-list journey" {
     event "Challenge denied by PSU" @9 +alternative
   }
 
-  lane "The Bank mobile app" {
-    context "Device authenticator (the Bank app)" @1
+  lane "Bank mobile app" {
+    context "Device authenticator (Bank app)" @1
     aggregate "Registered device" @1
     event "Device enrolled at the Bank" @1 +pivotal {
       note "Precondition. Done in the Bank's own channel\
@@ -147,8 +147,8 @@ eventstorm "PSU account-list journey" {
     hotspot "PSU has no active device: fallback SCA method or abort?" @8 +"ask bank"
   }
 
-  lane "The Bank consent and accounts" {
-    context "Consent and account information (the Bank XS2A)" @1
+  lane "Bank XS2A" {
+    context "Consent and account information (Bank XS2A)" @1
 
     aggregate "Consent" @3
     aggregate "Authorisation sub-resource" @3

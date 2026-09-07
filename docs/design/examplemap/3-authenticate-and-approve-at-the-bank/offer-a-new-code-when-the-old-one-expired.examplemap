@@ -3,7 +3,7 @@
 // challenge"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Offer a new code when the old one expired" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

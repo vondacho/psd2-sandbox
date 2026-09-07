@@ -3,7 +3,7 @@
 // password"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Assess risk from PSU context and device signals" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

@@ -3,7 +3,7 @@
 // Increment 7. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Steer every state with hyperlinks" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Conformance" release
 

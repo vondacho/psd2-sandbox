@@ -2,7 +2,7 @@
 // accounts", step "See an account's details"). Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Render the account details" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Walking skeleton" release
   delivery "MVP" release

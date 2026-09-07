@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Execute the payment at the core banking" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS core" release
 

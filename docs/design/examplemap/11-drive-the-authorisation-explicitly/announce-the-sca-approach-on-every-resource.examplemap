@@ -3,7 +3,7 @@
 // authorisations"). Increment 3. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Announce the SCA approach on every resource" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Authorisation resources" release
 

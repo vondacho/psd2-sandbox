@@ -3,7 +3,7 @@
 // Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Limit the transaction history without a fresh SCA" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Access rules" release
 

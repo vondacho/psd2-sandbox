@@ -3,7 +3,7 @@
 // changed"). Increment 7. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Notify the TPP of payment status changes" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Conformance" release
 

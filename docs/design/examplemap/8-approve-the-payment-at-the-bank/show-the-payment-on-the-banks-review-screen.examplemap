@@ -3,7 +3,7 @@
 // Increment 4. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Show the payment on the Bank's review screen" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS core" release
 

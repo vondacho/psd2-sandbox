@@ -3,7 +3,7 @@
 // the TPP what changed"). Increment 7. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Announce notification support and accept a notification URI" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "Conformance" release
 

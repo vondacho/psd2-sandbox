@@ -3,7 +3,7 @@
 // Increment 5. Fixtures: docs/design/examplemap/README.md.
 
 examplemap "Refuse to cancel a payment that is already settled" {
-  product "berlin-psd2-sandbox"
+  product "OBI"
 
   delivery "PIS cancellation" release
 
