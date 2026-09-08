@@ -1,0 +1,43 @@
+# The sandbox's mocked dependencies.
+#
+#   podman machine start
+#   export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+#   podman compose -f sandbox/compose.yaml up -d
+#
+# The mock is whatever contracts/ says. Changing a response means adding a named
+# example to the contract, not writing code.
+services:
+
+  bank-core:
+    image: quay.io/microcks/microcks-uber:latest
+    container_name: bank-core
+    ports:
+      - "8585:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: uber
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # Microcks-uber has no auto-import hook, so the contract is pushed in once the API is
+  # up. Idempotent: re-uploading the same artifact replaces the service definition, so
+  # `up -d` after editing the contract re-imports it.
+  bank-core-contracts:
+    image: quay.io/curl/curl:latest
+    container_name: bank-core-contracts
+    depends_on:
+      bank-core:
+        condition: service_healthy
+    volumes:
+      - ../contracts:/contracts:ro,z
+    entrypoint:
+      - sh
+      - -c
+      - |
+        for contract in /contracts/*.openapi.yaml; do
+          echo "importing $$contract"
+          curl -sS -X POST http://bank-core:8080/api/artifact/upload \
+               -F "file=@$$contract" -w ' (HTTP %{http_code})\n'
+        done

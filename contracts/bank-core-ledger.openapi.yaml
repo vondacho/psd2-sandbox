@@ -1,0 +1,385 @@
+openapi: 3.0.3
+
+info:
+  title: Bank core ledger
+  version: 1.0.0
+  description: |
+    The core banking system's own API: customers, their accounts, ledger balances and
+    bookings.
+
+    **This is deliberately not XS2A.** `psd2-access-to-account.ddd` marks "Accounts
+    ledger" a generic subdomain, `unmodelled`, reached through an **anticorruption
+    layer**: "The ledger's account is not the XS2A account: resource ids are tokenised,
+    balances typed, sub-accounts split by currency. The layer exists so the ledger
+    vocabulary never reaches a TPP."
+
+    So the words here are the ledger's — `bookedBalance`, `booking`, `counterparty` —
+    and never the interface's — `resourceId`, `closingBooked`, `transactionId`,
+    `entryReference`. Translating between them is the adapter's job, and keeping the two
+    vocabularies visibly different is what stops that translation being skipped.
+
+    Two contexts consume this, differently. Account information sits behind the
+    anticorruption layer. The CIAM reads it as a **conformist** — "a read-only list; not
+    worth a translation layer of its own" — purely to offer accounts on the consent
+    screen.
+
+    ## Mocked by Microcks
+
+    The examples below are the mock. Microcks pairs a request with a response by
+    **matching example names**, so the `anna` example of a path parameter selects the
+    `anna` example of the response. Adding a case means adding a named example on both
+    sides; no code changes.
+
+    Values follow the shared fixtures of `docs/design/examplemap/README.md`, so the
+    acceptance suite and a person poking at the sandbox meet the same Anna.
+
+servers:
+  - url: /api/bank-core/1.0.0
+    description: Microcks serves the mock under this base path
+
+tags:
+  - name: customers
+  - name: accounts
+
+paths:
+
+  /customers/{customerId}/accounts:
+    get:
+      tags: [customers]
+      operationId: listAccountsOfCustomer
+      summary: The accounts a customer holds
+      description: |
+        Every account, including ones that are not payment accounts. Filtering those out
+        is the caller's business: the CIAM must not offer a loan account for consent, but
+        the ledger has no notion of what a consent is.
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+          examples:
+            anna:
+              summary: Anna Müller, two payment accounts and one loan
+              value: anna.mueller
+            ben:
+              summary: Ben Weber, one account
+              value: ben.weber
+            unknown:
+              summary: A customer the ledger does not know
+              value: nobody.here
+      responses:
+        '200':
+          description: The customer's accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountList'
+              examples:
+                anna:
+                  value:
+                    customerId: anna.mueller
+                    holderName: Anna Müller
+                    accounts:
+                      - iban: DE23100100100123456789
+                        currency: EUR
+                        productName: Girokonto
+                        accountType: CURRENT
+                        paymentAccount: true
+                        status: ENABLED
+                      - iban: DE89370400440532013000
+                        currency: EUR
+                        productName: Sparkonto
+                        accountType: SAVINGS
+                        paymentAccount: true
+                        status: ENABLED
+                      - iban: DE44100100100999888777
+                        currency: EUR
+                        productName: Ratenkredit
+                        accountType: LOAN
+                        paymentAccount: false
+                        status: ENABLED
+                ben:
+                  value:
+                    customerId: ben.weber
+                    holderName: Ben Weber
+                    accounts:
+                      - iban: DE75512108001245126199
+                        currency: EUR
+                        productName: Girokonto
+                        accountType: CURRENT
+                        paymentAccount: true
+                        status: ENABLED
+        '404':
+          description: No such customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerError'
+              examples:
+                unknown:
+                  value:
+                    code: CUSTOMER_UNKNOWN
+                    message: no customer nobody.here
+
+  /accounts/{iban}/balances:
+    get:
+      tags: [accounts]
+      operationId: readBalances
+      summary: The ledger balances of one account
+      description: |
+        Two figures, as the ledger keeps them: what is booked, and what may be spent.
+        The XS2A balance types (`closingBooked`, `interimAvailable`, …) are the adapter's
+        rendering of these, not the ledger's own words.
+      parameters:
+        - name: iban
+          in: path
+          required: true
+          schema:
+            type: string
+          examples:
+            main:
+              summary: Anna's Main Account
+              value: DE23100100100123456789
+            savings:
+              summary: Anna's Savings
+              value: DE89370400440532013000
+            ben:
+              summary: Ben's account
+              value: DE75512108001245126199
+            unknown:
+              summary: An IBAN the ledger does not hold
+              value: DE00000000000000000000
+      responses:
+        '200':
+          description: The account's balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Balances'
+              examples:
+                main:
+                  value:
+                    iban: DE23100100100123456789
+                    currency: EUR
+                    bookedBalance: 1250.30
+                    availableBalance: 1180.30
+                    asOf: '2026-09-06T00:00:00Z'
+                savings:
+                  value:
+                    iban: DE89370400440532013000
+                    currency: EUR
+                    bookedBalance: 8400.00
+                    availableBalance: 8400.00
+                    asOf: '2026-09-06T00:00:00Z'
+                ben:
+                  value:
+                    iban: DE75512108001245126199
+                    currency: EUR
+                    bookedBalance: 320.15
+                    availableBalance: 320.15
+                    asOf: '2026-09-06T00:00:00Z'
+        '404':
+          description: No such account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerError'
+              examples:
+                unknown:
+                  value:
+                    code: ACCOUNT_UNKNOWN
+                    message: no account DE00000000000000000000
+
+  /accounts/{iban}/bookings:
+    get:
+      tags: [accounts]
+      operationId: listBookings
+      summary: The bookings of one account
+      description: |
+        Ledger entries, newest first. A pending entry has no `bookedOn`: it is a
+        reservation the ledger has accepted but not booked, which the adapter renders as
+        XS2A `pending`.
+      parameters:
+        - name: iban
+          in: path
+          required: true
+          schema:
+            type: string
+          examples:
+            main:
+              value: DE23100100100123456789
+            savings:
+              value: DE89370400440532013000
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          examples:
+            main:
+              value: '2026-06-08'
+            savings:
+              value: '2026-06-08'
+      responses:
+        '200':
+          description: The account's bookings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingList'
+              examples:
+                main:
+                  value:
+                    iban: DE23100100100123456789
+                    currency: EUR
+                    bookings:
+                      - bookingId: tx-3001
+                        bookedOn: '2026-08-28'
+                        valueDate: '2026-08-28'
+                        amount: -950.00
+                        counterpartyName: Landlord GmbH
+                        counterpartyIban: DE21500105171234567890
+                        remittance: Miete September
+                        pending: false
+                      - bookingId: tx-3005
+                        bookedOn: '2026-08-15'
+                        valueDate: '2026-08-15'
+                        amount: 3200.00
+                        counterpartyName: Employer AG
+                        counterpartyIban: DE12500105170648489890
+                        remittance: Gehalt August
+                        pending: false
+                      - bookingId: tx-3006
+                        bookedOn: '2026-08-03'
+                        valueDate: '2026-08-03'
+                        amount: -45.20
+                        counterpartyName: REWE Markt
+                        counterpartyIban: DE33500105177777666655
+                        remittance: Einkauf
+                        pending: false
+                      - bookingId: tx-3007
+                        valueDate: '2026-09-05'
+                        amount: -70.00
+                        counterpartyName: Kartenzahlung
+                        remittance: Reservierung
+                        pending: true
+                savings:
+                  value:
+                    iban: DE89370400440532013000
+                    currency: EUR
+                    bookings:
+                      - bookingId: tx-4001
+                        bookedOn: '2026-07-01'
+                        valueDate: '2026-07-01'
+                        amount: 500.00
+                        counterpartyName: Anna Müller
+                        counterpartyIban: DE23100100100123456789
+                        remittance: Sparen
+                        pending: false
+
+components:
+  schemas:
+
+    AccountList:
+      type: object
+      required: [customerId, accounts]
+      properties:
+        customerId:
+          type: string
+        holderName:
+          type: string
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LedgerAccount'
+
+    LedgerAccount:
+      type: object
+      required: [iban, currency, paymentAccount, status]
+      properties:
+        iban:
+          type: string
+          description: The ledger holds IBANs. Nothing outside the adapter may.
+        currency:
+          type: string
+        productName:
+          type: string
+        accountType:
+          type: string
+          enum: [CURRENT, SAVINGS, LOAN, CARD]
+        paymentAccount:
+          type: boolean
+          description: |
+            False for a loan or a card account. PSD2 access covers payment accounts, so
+            the CIAM offers only these on the consent screen.
+        status:
+          type: string
+          enum: [ENABLED, BLOCKED, CLOSED]
+
+    Balances:
+      type: object
+      required: [iban, currency, bookedBalance, availableBalance]
+      properties:
+        iban:
+          type: string
+        currency:
+          type: string
+        bookedBalance:
+          type: number
+          description: What is booked. The adapter renders this as `closingBooked`.
+        availableBalance:
+          type: number
+          description: What may be spent. The adapter renders this as `interimAvailable`.
+        asOf:
+          type: string
+          format: date-time
+
+    BookingList:
+      type: object
+      required: [iban, bookings]
+      properties:
+        iban:
+          type: string
+        currency:
+          type: string
+        bookings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+
+    Booking:
+      type: object
+      required: [bookingId, amount, pending]
+      properties:
+        bookingId:
+          type: string
+        bookedOn:
+          type: string
+          format: date
+          description: Absent while the entry is pending.
+        valueDate:
+          type: string
+          format: date
+        amount:
+          type: number
+          description: Signed. Negative is money leaving the account.
+        counterpartyName:
+          type: string
+        counterpartyIban:
+          type: string
+        remittance:
+          type: string
+        pending:
+          type: boolean
+
+    LedgerError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [CUSTOMER_UNKNOWN, ACCOUNT_UNKNOWN]
+        message:
+          type: string
