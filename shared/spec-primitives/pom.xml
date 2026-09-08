@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>ch.obya.psd2</groupId>
+    <artifactId>psd2-sandbox</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spec-primitives</artifactId>
+  <name>Spec primitives</name>
+  <!-- ISO 20022 / NextGenPSD2 lexical types only. No context-specific invariant
+       lives here: Amount is deliberately NOT hoisted, because account-information
+       and payment-initiation define it separately and meet only through two
+       different anticorruption layers to the ledger. -->
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
