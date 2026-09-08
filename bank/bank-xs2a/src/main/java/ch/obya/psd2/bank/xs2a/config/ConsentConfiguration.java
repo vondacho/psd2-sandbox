@@ -6,6 +6,8 @@ import ch.obya.psd2.bank.consent.appl.ConsentService;
 import ch.obya.psd2.bank.consent.appl.SandboxLimits;
 import java.time.Clock;
 import java.util.concurrent.atomic.AtomicLong;
+import ch.obya.psd2.bank.accounts.appl.AccountInformation;
+import ch.obya.psd2.bank.accounts.appl.LedgerAccounts;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +18,11 @@ public class ConsentConfiguration {
     @Bean
     public SandboxLimits sandboxLimits() {
         return SandboxLimits.defaults();
+    }
+
+    @Bean
+    public AccountInformation accountInformation(LedgerAccounts ledger) {
+        return new AccountInformation(ledger);
     }
 
     @Bean

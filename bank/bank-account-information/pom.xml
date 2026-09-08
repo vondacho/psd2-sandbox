@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>ch.obya.psd2</groupId>
+    <artifactId>psd2-sandbox</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>bank-account-information</artifactId>
+  <name>Account information</name>
+  <!-- The "Account information" bounded context.
+
+       It depends on bank-consent, and that is allowed: the context map makes
+       Consent management -> Account information a CUSTOMER-SUPPLIER edge, not an
+       anticorruption layer - "Same product owner, so account information can ask for
+       a change in the consent model and get it."
+
+       The ledger is the opposite case. That edge IS an anticorruption layer, so the
+       ledger is reached through a port whose adapter translates; no ledger type
+       crosses into this context. -->
+
+  <dependencies>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>bank-consent</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-json</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+    </dependency>
+  </dependencies>
+</project>

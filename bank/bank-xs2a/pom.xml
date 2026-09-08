@@ -30,6 +30,11 @@
     </dependency>
     <dependency>
       <groupId>ch.obya.psd2</groupId>
+      <artifactId>bank-account-information</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
       <artifactId>pki</artifactId>
       <version>${project.version}</version>
     </dependency>
