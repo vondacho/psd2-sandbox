@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>ch.obya.psd2</groupId>
+    <artifactId>psd2-sandbox</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>bank-xs2a-gateway</artifactId>
+  <name>XS2A gateway</name>
+  <!-- A LIBRARY, not a process. §4.3's gateway concerns - mTLS termination, QWAC
+       validation, JWT validation, X-Request-ID - as filters mounted inside the app.
+
+       Nothing in the walking skeleton needs a separate proxy hop, and the filters
+       must run where the application can answer: a bad certificate has to become
+       401 CERTIFICATE_REVOKED with a tppMessages body, which a dead TLS handshake
+       cannot produce. -->
+
+  <dependencies>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>bank-tpp-identification</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <!-- Boot 4 no longer pulls Jackson in through starter-web. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-json</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>pki</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

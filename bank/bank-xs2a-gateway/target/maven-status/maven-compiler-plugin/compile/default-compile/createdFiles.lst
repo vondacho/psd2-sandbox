@@ -1,0 +1,5 @@
+ch/obya/psd2/bank/gateway/QwacFilter.class
+ch/obya/psd2/bank/gateway/TppMessages$TppMessage.class
+ch/obya/psd2/bank/gateway/ChainOnlyTrustManager.class
+ch/obya/psd2/bank/gateway/TppMessages.class
+ch/obya/psd2/bank/gateway/RequestIdFilter.class
