@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>ch.obya.psd2</groupId>
+    <artifactId>psd2-sandbox</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>oidc-provider</artifactId>
+  <name>OIDC provider</name>
+  <!-- The "Token issuance" bounded context: a different DOMAIN in the context map
+       ("Authorization (the OIDC-provider)"), not merely a different context.
+
+       It must not depend on bank-consent or bank-payment. Both edges to it are
+       anticorruption layers whose whole point is that "the OIDC-provider must never
+       learn the consent model beyond existence and status" - so a consent id is an
+       opaque String here, and consent management is reached only over the internal
+       HTTP contract behind ConsentLookup.
+
+       This module holds the logic Spring Authorization Server cannot supply: the
+       AIS:/PIS:/Cancel-PIS: scope grammar and its validation. The SAS wiring joins
+       it when the process is stood up. -->
+
+  <dependencies>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>spec-primitives</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+    </dependency>
+  </dependencies>
+</project>
