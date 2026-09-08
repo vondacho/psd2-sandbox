@@ -1,0 +1,16 @@
+ch/obya/psd2/bank/consent/ConsentRequest.class
+ch/obya/psd2/bank/consent/Authorisation.class
+ch/obya/psd2/bank/consent/ConsentId.class
+ch/obya/psd2/bank/consent/Consent$AccessibleAccount.class
+ch/obya/psd2/bank/consent/Consent$UsageKey.class
+ch/obya/psd2/bank/consent/ConsentStatus.class
+ch/obya/psd2/bank/consent/Consent.class
+ch/obya/psd2/bank/consent/ConsentService$Created.class
+ch/obya/psd2/bank/consent/AuthorisationId.class
+ch/obya/psd2/bank/consent/ConsentRequestException.class
+ch/obya/psd2/bank/consent/ScaApproach.class
+ch/obya/psd2/bank/consent/AccessType.class
+ch/obya/psd2/bank/consent/SandboxLimits.class
+ch/obya/psd2/bank/consent/AccountAccess.class
+ch/obya/psd2/bank/consent/ConsentService.class
+ch/obya/psd2/bank/consent/AccountReference.class
