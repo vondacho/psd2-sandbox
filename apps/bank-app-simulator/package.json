@@ -1,0 +1,11 @@
+{
+  "name": "@psd2/bank-app-simulator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=esm --outfile=dist/simulator.js && cp src/index.html src/simulator.css dist/ && mkdir -p ../../bank/bank-ciam/src/main/resources/static/simulator && cp dist/* ../../bank/bank-ciam/src/main/resources/static/simulator/",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": { "esbuild": "^0.24.0", "typescript": "^5.7.2" }
+}
