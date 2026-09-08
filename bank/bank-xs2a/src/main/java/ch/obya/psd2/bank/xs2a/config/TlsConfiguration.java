@@ -38,6 +38,32 @@ public class TlsConfiguration {
 
     private static final String PASSWORD = "sandbox";
 
+    /**
+     * A second, plain-HTTP connector for the internal API of §7.7.
+     *
+     * <p>Needed because {@code certificateVerification=required} is a property of the
+     * connector, not of a path: the CIAM has no QWAC and never should, so it cannot
+     * reach the XS2A port at all — the handshake fails with {@code certificate_required}
+     * before any filter runs.
+     *
+     * <p>Nothing is opened up by this. The QWAC filter still guards {@code /psd2}, and on
+     * this connector there is no certificate on the request, so an XS2A call arriving
+     * here is refused with {@code 401 CERTIFICATE_MISSING}.
+     */
+    @Bean
+    public WebServerFactoryCustomizer<TomcatServletWebServerFactory> internalConnector(
+            @org.springframework.beans.factory.annotation.Value(
+                    "${sandbox.bank.internal-port:8081}") int internalPort) {
+        return factory -> {
+            Connector connector = new Connector("org.apache.coyote.http11.Http11NioProtocol");
+            connector.setPort(internalPort);
+            connector.setScheme("http");
+            connector.setSecure(false);
+            // Boot 4 renamed this from addAdditionalTomcatConnectors.
+            factory.addAdditionalConnectors(connector);
+        };
+    }
+
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> mutualTls(
             SandboxCa ca, List<X509Certificate> clientTrustAnchors) throws Exception {

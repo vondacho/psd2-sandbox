@@ -19,6 +19,7 @@ public final class AuthenticationSession {
 
     private final String sessionId;
     private final String brokerRequestId;
+    private final String authorisationId;
     private final ChallengeSubjectKind subjectKind;
     private final String subjectId;
     private final Instant startedAt;
@@ -31,10 +32,19 @@ public final class AuthenticationSession {
     private Instant completedAt;
     private boolean riskRefused;
 
+    private String tppName = "a third party";
+
     public AuthenticationSession(String sessionId, String brokerRequestId,
             ChallengeSubjectKind subjectKind, String subjectId, Instant startedAt) {
+        this(sessionId, brokerRequestId, subjectKind, subjectId, null, startedAt);
+    }
+
+    public AuthenticationSession(String sessionId, String brokerRequestId,
+            ChallengeSubjectKind subjectKind, String subjectId, String authorisationId,
+            Instant startedAt) {
         this.sessionId = sessionId;
         this.brokerRequestId = brokerRequestId;
+        this.authorisationId = authorisationId;
         this.subjectKind = subjectKind;
         this.subjectId = subjectId;
         this.startedAt = startedAt;
@@ -47,6 +57,24 @@ public final class AuthenticationSession {
     /** Ties the session to the one authorization request that started it. */
     public String brokerRequestId() {
         return brokerRequestId;
+    }
+
+    /**
+     * The authorisation sub-resource this session authorises, learnt from the brokered
+     * request. The CIAM needs it to report the outcome, and cannot derive it: only
+     * consent management knows which authorisation belongs to which consent.
+     */
+    public String authorisationId() {
+        return authorisationId;
+    }
+
+    /** Who is asking, for the login page and the device screen. */
+    public String tppName() {
+        return tppName;
+    }
+
+    public void setTppName(String tppName) {
+        this.tppName = tppName;
     }
 
     public ChallengeSubjectKind subjectKind() {

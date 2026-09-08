@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The CIAM's journey engine: login, account selection, challenge, approval.
@@ -20,16 +22,61 @@ import java.util.function.Supplier;
  */
 public final class CiamService {
 
+    private static final Logger log = LoggerFactory.getLogger(CiamService.class);
+
     private final Clock clock;
     private final Supplier<String> challengeIds;
+    private final Supplier<String> deviceIds;
+    private final AuthorisationRecorder recorder;
     private final Map<String, PsuIdentity> identities = new ConcurrentHashMap<>();
     private final Map<String, RegisteredDevice> devices = new ConcurrentHashMap<>();
     private final Map<String, ScaChallenge> challenges = new ConcurrentHashMap<>();
     private final Map<String, AuthenticationSession> sessions = new ConcurrentHashMap<>();
 
+    /** For tests that only exercise the journey and never report an outcome. */
     public CiamService(Clock clock, Supplier<String> challengeIds) {
+        this(clock, challengeIds, () -> "dev-" + java.util.UUID.randomUUID(),
+                (consentId, authorisationId, psuId, challengeId, accounts) -> {
+                    throw new AuthorisationRecorder.RecordingFailed("no recorder configured");
+                });
+    }
+
+    public CiamService(Clock clock, Supplier<String> challengeIds,
+            Supplier<String> deviceIds, AuthorisationRecorder recorder) {
         this.clock = clock;
         this.challengeIds = challengeIds;
+        this.deviceIds = deviceIds;
+        this.recorder = recorder;
+    }
+
+    /**
+     * Enrols a device. It is {@code pending} until an existing SCA confirms it, so a
+     * stolen password alone can never add an approving device.
+     */
+    public RegisteredDevice registerDevice(String psuId, String name, String platform,
+            java.security.PublicKey publicKey, boolean hardwareBacked) {
+        if (identities.get(psuId) == null) {
+            throw new IllegalArgumentException("no such identity");
+        }
+        RegisteredDevice device = new RegisteredDevice(deviceIds.get(), psuId, name,
+                publicKey, hardwareBacked, DeviceStatus.PENDING, clock.instant());
+        devices.put(device.deviceId(), device);
+        return device;
+    }
+
+    /** Every device of a PSU, whatever its status, for the device list screen. */
+    public List<RegisteredDevice> devicesOf(String psuId) {
+        return devices.values().stream()
+                .filter(device -> device.psuId().equals(psuId))
+                .toList();
+    }
+
+    public void deny(String challengeId) {
+        ScaChallenge challenge = challenges.get(challengeId);
+        if (challenge != null) {
+            challenge.deny(clock.instant());
+            sessionFor(challengeId).ifPresent(session -> session.refused(clock.instant()));
+        }
     }
 
     public void register(PsuIdentity identity) {
@@ -62,8 +109,13 @@ public final class CiamService {
 
     public AuthenticationSession startSession(String sessionId, String brokerRequestId,
             ChallengeSubjectKind subjectKind, String subjectId) {
-        AuthenticationSession session = new AuthenticationSession(
-                sessionId, brokerRequestId, subjectKind, subjectId, clock.instant());
+        return startSession(sessionId, brokerRequestId, subjectKind, subjectId, null);
+    }
+
+    public AuthenticationSession startSession(String sessionId, String brokerRequestId,
+            ChallengeSubjectKind subjectKind, String subjectId, String authorisationId) {
+        AuthenticationSession session = new AuthenticationSession(sessionId, brokerRequestId,
+                subjectKind, subjectId, authorisationId, clock.instant());
         sessions.put(sessionId, session);
         return session;
     }
@@ -80,7 +132,9 @@ public final class CiamService {
      * nothing more specific to leak.
      */
     public boolean logIn(AuthenticationSession session, String psuId, String password) {
-        PsuIdentity identity = identities.get(psuId);
+        // "Leading and trailing spaces in the PSU-ID are ignored" - but not in the
+        // password, where "spaces inside the password are significant".
+        PsuIdentity identity = identities.get(psuId == null ? null : psuId.trim());
         if (identity == null || !identity.verifyPassword(password)) {
             return false;
         }
@@ -116,23 +170,71 @@ public final class CiamService {
      * <p>Nothing in {@code deviceId} or the signature can supply a key: the device is
      * looked up here and its stored key is the only one used.
      */
-    public ScaChallenge.Outcome respond(String challengeId, String deviceId,
-            String signatureBase64) {
+    /**
+     * Applies a device's response and, when it holds, reports the outcome to consent
+     * management.
+     *
+     * <p>The report is the point at which the PSU's approval leaves the CIAM. If it
+     * fails the challenge stays approved — the PSU did approve — but the caller is told,
+     * because a consent that never becomes valid is worse than an error the TPP can act
+     * on.
+     */
+    public Approval respond(String challengeId, String deviceId, String signatureBase64) {
         ScaChallenge challenge = challenges.get(challengeId);
         if (challenge == null) {
-            return ScaChallenge.Outcome.UNKNOWN_DEVICE;
+            return Approval.refused(ScaChallenge.Outcome.UNKNOWN_DEVICE);
         }
         Instant now = clock.instant();
         ScaChallenge.Outcome outcome =
                 challenge.answer(devices.get(deviceId), signatureBase64, now);
-
-        if (outcome.isApproved()) {
-            sessions.values().stream()
-                    .filter(session -> session.challengeId()
-                            .map(challengeId::equals).orElse(false))
-                    .findFirst()
-                    .ifPresent(session -> session.approved(AuthenticationMethod.HWK, now));
+        if (!outcome.isApproved()) {
+            return Approval.refused(outcome);
         }
-        return outcome;
+
+        AuthenticationSession session = sessionFor(challengeId).orElse(null);
+        if (session == null) {
+            return Approval.notRecorded(outcome, "the challenge belongs to no session");
+        }
+        session.approved(AuthenticationMethod.HWK, now);
+
+        try {
+            AuthorisationRecorder.Recorded recorded = recorder.record(
+                    session.subjectId(), session.authorisationId(),
+                    session.psuId().orElseThrow(), challengeId, session.selectedAccounts());
+            return Approval.recorded(outcome, recorded.scaStatus(), recorded.consentStatus());
+        } catch (AuthorisationRecorder.RecordingFailed e) {
+            log.error("challenge {} was approved but consent {} could not be updated: {}",
+                    challengeId, session.subjectId(), e.getMessage());
+            return Approval.notRecorded(outcome, e.getMessage());
+        }
     }
+
+    private java.util.Optional<AuthenticationSession> sessionFor(String challengeId) {
+        return sessions.values().stream()
+                .filter(session -> session.challengeId()
+                        .map(challengeId::equals).orElse(false))
+                .findFirst();
+    }
+
+    /**
+     * What came of a device's answer: whether it verified, and if so whether consent
+     * management took the outcome.
+     */
+    public record Approval(ScaChallenge.Outcome outcome, String scaStatus,
+            String consentStatus, String recordingError) {
+
+        static Approval refused(ScaChallenge.Outcome outcome) {
+            return new Approval(outcome, null, null, null);
+        }
+
+        static Approval recorded(ScaChallenge.Outcome outcome, String scaStatus,
+                String consentStatus) {
+            return new Approval(outcome, scaStatus, consentStatus, null);
+        }
+
+        static Approval notRecorded(ScaChallenge.Outcome outcome, String why) {
+            return new Approval(outcome, null, null, why);
+        }
+    }
+
 }

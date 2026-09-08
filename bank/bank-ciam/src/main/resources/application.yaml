@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: bank-ciam
+
+server:
+  port: 9443
+
+sandbox:
+  bank:
+    # The XS2A process, for the §7.7 internal API.
+    # The Bank's internal connector, not its XS2A port: that one demands a client
+    # certificate on every connection and the CIAM has none.
+    internal-base-url: http://localhost:8081
+
+logging:
+  level:
+    ch.obya.psd2: INFO

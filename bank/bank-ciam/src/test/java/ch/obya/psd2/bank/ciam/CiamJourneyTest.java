@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -150,7 +151,13 @@ class CiamJourneyTest {
         ecdsa.update(challenge.messageToSign().getBytes(StandardCharsets.UTF_8));
         String signature = Base64.getUrlEncoder().withoutPadding().encodeToString(ecdsa.sign());
 
-        assertTrue(ciam.respond(challenge.challengeId(), "dev-anna-1", signature).isApproved());
+        CiamService.Approval approval =
+                ciam.respond(challenge.challengeId(), "dev-anna-1", signature);
+
+        assertTrue(approval.outcome().isApproved());
+        assertNotNull(approval.recordingError(),
+                "this fixture has no recorder, so the approval could not be reported - "
+                        + "the CIAM says so rather than claiming success");
 
         assertEquals(SessionStep.APPROVED, session.step());
         assertEquals(List.of("pwd", "hwk"), session.authenticationMethods());
