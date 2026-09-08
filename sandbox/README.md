@@ -56,6 +56,25 @@ dispatch rules from the contract on import:
 Adding a case is adding a named example on both sides. No code, no redeploy beyond
 re-importing the contract.
 
+## Requiring a bearer token — what works and what does not
+
+The ledger contract declares a `serviceToken` bearer scheme and the Bank's adapter sends
+it. Microcks does **not** enforce it yet, and the two obvious routes both fail:
+
+- **`security:` alone is documentation.** Microcks imports it but does not gate on it.
+- **A `required: true` Authorization header parameter** is rejected with `400 Parameter
+  Authorization is required` *before* dispatch, so it can never produce the contract's
+  401 — and Microcks derives its dispatch rules from path and query parameters only, so
+  the header is not matched even when present.
+
+The route that does exist is an `x-microcks-operation` **SCRIPT dispatcher** reading the
+header. The extension is honoured — Microcks reported `dispatcher=SCRIPT` after import.
+It was reverted here because a script whose accessors are wrong **fails silently**:
+every request, authenticated or not, fell back to one arbitrary example. A mock that
+answers confidently with the wrong account is worse than one that does not check tokens,
+so this needs the accessor names pinned down against the Microcks version in use before
+it goes back in.
+
 ## Making it dynamic later
 
 This is a static mock: fixed responses per named example. Microcks can go further when

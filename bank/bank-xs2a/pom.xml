@@ -20,6 +20,11 @@
   <dependencies>
     <dependency>
       <groupId>ch.obya.psd2</groupId>
+      <artifactId>mtls</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
       <artifactId>bank-xs2a-gateway</artifactId>
       <version>${project.version}</version>
     </dependency>

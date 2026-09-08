@@ -1,5 +1,7 @@
 package ch.obya.psd2.bank.gateway.adapter.in;
 
+import ch.obya.psd2.mtls.ChainOnlyTrustManager;
+
 
 import ch.obya.psd2.bank.tpp.appl.TppIdentification;
 import ch.obya.psd2.bank.tpp.domain.TppIdentity;

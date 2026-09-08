@@ -37,6 +37,19 @@ servers:
   - url: /api/bank-core/1.0.0
     description: Microcks serves the mock under this base path
 
+# The ledger is not an open API: the adapter authenticates as a service, and the
+# adapter sends the token.
+#
+# NOTE: this declaration documents the requirement, it does not yet enforce it. Microcks
+# derives its dispatch from path and query parameters only, so a header is not matched by
+# the default rules, and a `required: true` header parameter is rejected with 400 before
+# dispatch rather than 401. Enforcing it needs an x-microcks-operation SCRIPT dispatcher
+# reading the Authorization header — attempted here and reverted, because a script whose
+# accessors are wrong fails silently and Microcks falls back to an arbitrary example,
+# which is worse than no enforcement. See sandbox/README.md.
+security:
+  - serviceToken: []
+
 tags:
   - name: customers
   - name: accounts
@@ -280,6 +293,16 @@ paths:
                         pending: false
 
 components:
+
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        A service token the Bank's adapter holds. Not a PSD2 access token: no TPP ever
+        calls the ledger, so this never carries a consent.
+
   schemas:
 
     AccountList:

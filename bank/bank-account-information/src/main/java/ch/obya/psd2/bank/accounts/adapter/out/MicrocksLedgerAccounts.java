@@ -35,11 +35,14 @@ public class MicrocksLedgerAccounts implements LedgerAccounts {
             .connectTimeout(Duration.ofSeconds(3)).build();
     private final ObjectMapper json = JsonMapper.builder().build();
     private final String baseUrl;
+    private final String serviceToken;
 
     public MicrocksLedgerAccounts(
             @Value("${sandbox.ledger.base-url:http://localhost:8585/rest/Bank+core+ledger/1.0.0}")
-            String baseUrl) {
+            String baseUrl,
+            @Value("${sandbox.ledger.service-token:ledger-service-token}") String serviceToken) {
         this.baseUrl = baseUrl;
+        this.serviceToken = serviceToken;
     }
 
     @Override
@@ -75,6 +78,10 @@ public class MicrocksLedgerAccounts implements LedgerAccounts {
         try {
             HttpResponse<String> response = http.send(
                     HttpRequest.newBuilder(URI.create(baseUrl + path))
+                            // The ledger's contract declares a bearer service token.
+                            // Sent unconditionally: the mock does not check it yet, but
+                            // the day it does, nothing here changes.
+                            .header("Authorization", "Bearer " + serviceToken)
                             .timeout(Duration.ofSeconds(3)).GET().build(),
                     HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {

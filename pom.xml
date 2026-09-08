@@ -29,6 +29,7 @@
   <modules>
     <module>shared/spec-primitives</module>
     <module>shared/authorisation-kernel</module>
+    <module>shared/mtls</module>
     <module>pki</module>
     <module>bank/bank-tpp-identification</module>
     <module>bank/bank-consent</module>

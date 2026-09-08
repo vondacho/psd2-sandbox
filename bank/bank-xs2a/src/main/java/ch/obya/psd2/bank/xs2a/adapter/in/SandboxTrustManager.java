@@ -1,7 +1,8 @@
 package ch.obya.psd2.bank.xs2a.adapter.in;
 
+import ch.obya.psd2.mtls.ChainOnlyTrustManager;
 
-import ch.obya.psd2.bank.gateway.adapter.in.ChainOnlyTrustManager;
+
 import java.net.Socket;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;

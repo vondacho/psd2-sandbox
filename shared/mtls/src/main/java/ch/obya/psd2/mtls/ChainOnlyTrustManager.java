@@ -1,4 +1,4 @@
-package ch.obya.psd2.bank.gateway.adapter.in;
+package ch.obya.psd2.mtls;
 
 
 import java.net.Socket;
@@ -20,7 +20,7 @@ import javax.net.ssl.X509ExtendedTrustManager;
  * {@code tppMessages} body. The default trust manager cannot give both, because it fails
  * the handshake on an expired certificate too.
  *
- * <p>So: chain and signature here, everything semantic in {@code TppIdentification}.
+ * <p>So: chain and signature here, everything semantic in the application's certificate validation.
  * Nothing is weakened — a certificate this accepts is still one the sandbox CA signed.
  */
 public final class ChainOnlyTrustManager extends X509ExtendedTrustManager {
