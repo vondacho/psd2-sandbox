@@ -8,7 +8,7 @@
 context "TPP identification" {
 
   enum "Psd2Role" {
-    "AISP" "PISP" "PIISP" "ASPSP"
+    "AISP" "PISP" "PIISP"
   }
 
   enum "CertificateKind" {
