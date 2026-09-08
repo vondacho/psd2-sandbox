@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>ch.obya.psd2</groupId>
+    <artifactId>psd2-sandbox</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>bank-tpp-identification</artifactId>
+  <name>TPP identification</name>
+  <!-- The "TPP identification" bounded context. open-host-service to consent
+       management, token issuance and payment initiation: "one service is cheaper
+       than three certificate parsers". It runs in-process for now but is reached
+       through TppIdentification, which an HTTP adapter will front. -->
+
+  <dependencies>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>spec-primitives</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>pki</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

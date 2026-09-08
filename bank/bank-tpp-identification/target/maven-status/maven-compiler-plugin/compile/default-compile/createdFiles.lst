@@ -1,0 +1,11 @@
+ch/obya/psd2/bank/tpp/TppIdentity.class
+ch/obya/psd2/bank/tpp/Psd2Role.class
+ch/obya/psd2/bank/tpp/TppIdentification$RevocationSource.class
+ch/obya/psd2/bank/tpp/QcStatementDetails.class
+ch/obya/psd2/bank/tpp/TppIdentification$BlockList.class
+ch/obya/psd2/bank/tpp/TppIdentification$MalformedIdentifier.class
+ch/obya/psd2/bank/tpp/TppIdentification$MissingStatement.class
+ch/obya/psd2/bank/tpp/TppIdentification.class
+ch/obya/psd2/bank/tpp/CertificateChainDetails.class
+ch/obya/psd2/bank/tpp/CertificateKind.class
+ch/obya/psd2/bank/tpp/CertificateVerdict.class
