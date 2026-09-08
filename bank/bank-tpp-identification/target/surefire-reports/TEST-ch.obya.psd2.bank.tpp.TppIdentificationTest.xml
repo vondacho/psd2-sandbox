@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.863" tests="16" errors="0" skipped="0" failures="0" flakes="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.801" tests="16" errors="0" skipped="0" failures="0" flakes="0">
   <properties>
     <property name="java.specification.version" value="25"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -13,7 +13,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="GB"/>
     <property name="sun.boot.library.path" value="/Users/olivier/.sdkman/candidates/java/25.0.2-tem/lib"/>
-    <property name="sun.java.command" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/surefire/surefirebooter-20260908060122951_10.jar /Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/surefire 2026-09-08T06-01-19_316-jvmRun1 surefire-20260908060122951_8tmp surefire_2-20260908060122951_9tmp"/>
+    <property name="sun.java.command" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/surefire/surefirebooter-20260908061352106_10.jar /Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/surefire 2026-09-08T06-13-48_527-jvmRun1 surefire-20260908061352106_8tmp surefire_2-20260908061352106_9tmp"/>
     <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/test-classes:/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/classes:/Users/olivier/Labor/github/berlin-psd2-sandbox/shared/spec-primitives/target/spec-primitives-0.1.0-SNAPSHOT.jar:/Users/olivier/.m2/repository/org/bouncycastle/bcpkix-jdk18on/1.85/bcpkix-jdk18on-1.85.jar:/Users/olivier/.m2/repository/org/bouncycastle/bcutil-jdk18on/1.85/bcutil-jdk18on-1.85.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter/6.0.3/junit-jupiter-6.0.3.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter-api/6.0.3/junit-jupiter-api-6.0.3.jar:/Users/olivier/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/Users/olivier/.m2/repository/org/junit/platform/junit-platform-commons/6.0.3/junit-platform-commons-6.0.3.jar:/Users/olivier/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/Users/olivier/.m2/repository/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter-params/6.0.3/junit-jupiter-params-6.0.3.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter-engine/6.0.3/junit-jupiter-engine-6.0.3.jar:/Users/olivier/.m2/repository/org/junit/platform/junit-platform-engine/6.0.3/junit-platform-engine-6.0.3.jar:/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/pki-0.1.0-SNAPSHOT.jar:/Users/olivier/.m2/repository/org/bouncycastle/bcprov-jdk18on/1.85/bcprov-jdk18on-1.85.jar:"/>
@@ -30,7 +30,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/surefire/surefirebooter-20260908060122951_10.jar"/>
+    <property name="surefire.real.class.path" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-tpp-identification/target/surefire/surefirebooter-20260908061352106_10.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.runtime.version" value="25.0.2+10-LTS"/>
@@ -61,19 +61,19 @@
     <property name="java.class.version" value="69.0"/>
   </properties>
   <testcase name="malformedIdentifierIsRefused" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.036"/>
-  <testcase name="validQwacIsIdentified" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.005"/>
-  <testcase name="notYetValidCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.003"/>
-  <testcase name="revokedCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.003"/>
-  <testcase name="sealAndQwacAgreeOnTheTpp" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.005"/>
-  <testcase name="renewedCertificateKeepsTheIdentity" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.008"/>
-  <testcase name="aispOnlyMayNotPay" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.003"/>
-  <testcase name="sealIsDistinguishable" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
-  <testcase name="noStatementIsRefused" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.02"/>
-  <testcase name="blockedCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
+  <testcase name="validQwacIsIdentified" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.004"/>
+  <testcase name="notYetValidCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
+  <testcase name="revokedCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
+  <testcase name="sealAndQwacAgreeOnTheTpp" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.003"/>
+  <testcase name="renewedCertificateKeepsTheIdentity" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.006"/>
+  <testcase name="aispOnlyMayNotPay" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
+  <testcase name="sealIsDistinguishable" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.003"/>
+  <testcase name="noStatementIsRefused" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.018"/>
+  <testcase name="blockedCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.003"/>
   <testcase name="aispAndPispMayCreateConsents" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
-  <testcase name="thumbprintIsBase64UrlUnpadded" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
+  <testcase name="thumbprintIsBase64UrlUnpadded" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.001"/>
   <testcase name="identifierIsTheTppId" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
   <testcase name="pispOnlyMayNotCreateConsents" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
   <testcase name="expiredCertificate" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.002"/>
-  <testcase name="piispOnlyMayNotReadAccounts" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.004"/>
+  <testcase name="piispOnlyMayNotReadAccounts" classname="ch.obya.psd2.bank.tpp.TppIdentificationTest" time="0.005"/>
 </testsuite>

@@ -32,6 +32,7 @@
     <module>pki</module>
     <module>bank/bank-tpp-identification</module>
     <module>bank/bank-consent</module>
+    <module>bank/bank-ciam</module>
     <module>bank/bank-xs2a-gateway</module>
     <module>bank/bank-xs2a</module>
     <module>oidc-provider</module>

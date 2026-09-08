@@ -1,0 +1,14 @@
+ch/obya/psd2/bank/ciam/SessionStep.class
+ch/obya/psd2/bank/ciam/DynamicLink.class
+ch/obya/psd2/bank/ciam/CiamService.class
+ch/obya/psd2/bank/ciam/DynamicLink$SelectedAccount.class
+ch/obya/psd2/bank/ciam/DeviceStatus.class
+ch/obya/psd2/bank/ciam/AuthenticationMethod.class
+ch/obya/psd2/bank/ciam/PsuIdentity$Status.class
+ch/obya/psd2/bank/ciam/PsuIdentity.class
+ch/obya/psd2/bank/ciam/ChallengeStatus.class
+ch/obya/psd2/bank/ciam/ScaChallenge$Outcome.class
+ch/obya/psd2/bank/ciam/ChallengeSubjectKind.class
+ch/obya/psd2/bank/ciam/RegisteredDevice.class
+ch/obya/psd2/bank/ciam/AuthenticationSession.class
+ch/obya/psd2/bank/ciam/ScaChallenge.class

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="ch.obya.psd2.pki.SandboxCaTest" time="0.572" tests="14" errors="0" skipped="0" failures="0" flakes="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="ch.obya.psd2.pki.SandboxCaTest" time="0.568" tests="14" errors="0" skipped="0" failures="0" flakes="0">
   <properties>
     <property name="java.specification.version" value="25"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -13,7 +13,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="GB"/>
     <property name="sun.boot.library.path" value="/Users/olivier/.sdkman/candidates/java/25.0.2-tem/lib"/>
-    <property name="sun.java.command" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/surefire/surefirebooter-20260908060121327_7.jar /Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/surefire 2026-09-08T06-01-19_316-jvmRun1 surefire-20260908060121327_5tmp surefire_1-20260908060121327_6tmp"/>
+    <property name="sun.java.command" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/surefire/surefirebooter-20260908061350561_7.jar /Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/surefire 2026-09-08T06-13-48_527-jvmRun1 surefire-20260908061350561_5tmp surefire_1-20260908061350561_6tmp"/>
     <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/test-classes:/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/classes:/Users/olivier/.m2/repository/org/bouncycastle/bcpkix-jdk18on/1.85/bcpkix-jdk18on-1.85.jar:/Users/olivier/.m2/repository/org/bouncycastle/bcutil-jdk18on/1.85/bcutil-jdk18on-1.85.jar:/Users/olivier/.m2/repository/org/bouncycastle/bcprov-jdk18on/1.85/bcprov-jdk18on-1.85.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter/6.0.3/junit-jupiter-6.0.3.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter-api/6.0.3/junit-jupiter-api-6.0.3.jar:/Users/olivier/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/Users/olivier/.m2/repository/org/junit/platform/junit-platform-commons/6.0.3/junit-platform-commons-6.0.3.jar:/Users/olivier/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/Users/olivier/.m2/repository/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter-params/6.0.3/junit-jupiter-params-6.0.3.jar:/Users/olivier/.m2/repository/org/junit/jupiter/junit-jupiter-engine/6.0.3/junit-jupiter-engine-6.0.3.jar:/Users/olivier/.m2/repository/org/junit/platform/junit-platform-engine/6.0.3/junit-platform-engine-6.0.3.jar:"/>
@@ -30,7 +30,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/surefire/surefirebooter-20260908060121327_7.jar"/>
+    <property name="surefire.real.class.path" value="/Users/olivier/Labor/github/berlin-psd2-sandbox/pki/target/surefire/surefirebooter-20260908061350561_7.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.runtime.version" value="25.0.2+10-LTS"/>
@@ -60,18 +60,18 @@
     <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.class.version" value="69.0"/>
   </properties>
-  <testcase name="pispOnlyListsOneRole" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.041"/>
+  <testcase name="pispOnlyListsOneRole" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.04"/>
   <testcase name="qsealIsDistinguishableFromAQwac" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.007"/>
   <testcase name="futureNotBeforeIsNotYetValid" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.006"/>
-  <testcase name="statementIdIsTheEtsiPsd2Oid" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.005"/>
-  <testcase name="revocationListsTheSerial" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.012"/>
+  <testcase name="statementIdIsTheEtsiPsd2Oid" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.004"/>
+  <testcase name="revocationListsTheSerial" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.013"/>
   <testcase name="qwacCarriesTheWebQcType" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.004"/>
-  <testcase name="noRoleIsRefused" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.002"/>
+  <testcase name="noRoleIsRefused" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.001"/>
   <testcase name="defaultValidityIsOneYear" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.003"/>
-  <testcase name="unknownRoleIsRefused" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.001"/>
+  <testcase name="unknownRoleIsRefused" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.002"/>
   <testcase name="revokingAnUnknownAliasFails" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.001"/>
   <testcase name="qwacCarriesSubjectRolesSanAndClientAuth" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.004"/>
   <testcase name="crlIsSignedAndBounded" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.005"/>
   <testcase name="anotherCaIsNotTheSandboxCa" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.006"/>
-  <testcase name="shortValidityIsHonoured" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.003"/>
+  <testcase name="shortValidityIsHonoured" classname="ch.obya.psd2.pki.SandboxCaTest" time="0.004"/>
 </testsuite>
