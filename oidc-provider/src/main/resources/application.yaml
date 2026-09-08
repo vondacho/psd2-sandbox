@@ -6,6 +6,9 @@ server:
   port: 7443
 
 sandbox:
+  pki:
+    # Written by bank-xs2a at startup; only ca.pem is read, as a trust anchor.
+    directory: /tmp/psd2-pki
   oidc:
     issuer: https://oidc-provider.sandbox
     audience: https://api.bank.sandbox/psd2

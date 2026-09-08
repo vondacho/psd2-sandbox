@@ -22,6 +22,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>10.9.1</version>
+    </dependency>
+    <dependency>
       <groupId>ch.obya.psd2</groupId>
       <artifactId>mtls</artifactId>
       <version>${project.version}</version>
