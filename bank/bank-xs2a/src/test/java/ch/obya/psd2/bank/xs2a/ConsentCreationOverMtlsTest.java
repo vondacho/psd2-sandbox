@@ -41,7 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 // No server.ssl.* properties: the connector is configured in TlsConfiguration, because
 // a custom trust manager cannot be expressed declaratively.
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        // The internal connector is a fixed port in production, so a test running
+        // beside a live instance would fight it for 8081. Random here.
+        properties = "sandbox.bank.internal-port=0")
 class ConsentCreationOverMtlsTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();

@@ -49,6 +49,8 @@ public class TlsConfiguration {
      * <p>Nothing is opened up by this. The QWAC filter still guards {@code /psd2}, and on
      * this connector there is no certificate on the request, so an XS2A call arriving
      * here is refused with {@code 401 CERTIFICATE_MISSING}.
+     *
+     * <p>The port is fixed, so two instances collide. Tests set it to 0.
      */
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> internalConnector(

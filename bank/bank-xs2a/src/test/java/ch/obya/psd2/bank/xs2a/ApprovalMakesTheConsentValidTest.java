@@ -37,7 +37,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>This is the join between two bounded contexts over HTTP rather than by import, so it
  * is worth an end-to-end test even though both halves have unit tests.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        // The internal connector is a fixed port in production, so a test running
+        // beside a live instance would fight it for 8081. Random here.
+        properties = "sandbox.bank.internal-port=0")
 class ApprovalMakesTheConsentValidTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
