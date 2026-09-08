@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>ch.obya.psd2</groupId>
+    <artifactId>psd2-sandbox</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>authorisation-kernel</artifactId>
+  <name>Authorisation shared kernel</name>
+  <!-- THE shared kernel of psd2-access-to-account.ddd: "the specification defines
+       one authorisation process for AIS and PIS. Two copies would drift; neither
+       context can be downstream of the other."
+
+       Deliberately holds NO aggregate root. consent-management.ddm's Authorisation
+       and payment-initiation.ddm's PaymentAuthorisation have divergent invariants
+       (exempted is terminal for consent but not for payment; payment embeds a
+       PaymentDynamicLink). Only the true intersection belongs here, and the
+       terminal set is supplied by the owning context.
+
+       No jakarta.persistence, no Spring. Enforced by ArchUnit. -->
+
+  <dependencies>
+    <dependency>
+      <groupId>ch.obya.psd2</groupId>
+      <artifactId>spec-primitives</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+    </dependency>
+  </dependencies>
+</project>
