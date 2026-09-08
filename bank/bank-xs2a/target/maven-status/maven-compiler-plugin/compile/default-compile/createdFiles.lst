@@ -1,0 +1,12 @@
+ch/obya/psd2/bank/xs2a/TlsConfiguration.class
+ch/obya/psd2/bank/xs2a/SandboxTrustManager.class
+ch/obya/psd2/bank/xs2a/GatewayConfiguration.class
+ch/obya/psd2/bank/xs2a/InternalConsentsController.class
+ch/obya/psd2/bank/xs2a/SandboxPki.class
+ch/obya/psd2/bank/xs2a/InternalConsentsController$ResourceStatus.class
+ch/obya/psd2/bank/xs2a/ConsentConfiguration.class
+ch/obya/psd2/bank/xs2a/BankXs2aApplication.class
+ch/obya/psd2/bank/xs2a/GatewayConfiguration$CertificateStatusRegistry.class
+ch/obya/psd2/bank/xs2a/ConsentsController.class
+ch/obya/psd2/bank/xs2a/ConsentsController$CreateConsent$Access.class
+ch/obya/psd2/bank/xs2a/ConsentsController$CreateConsent.class
