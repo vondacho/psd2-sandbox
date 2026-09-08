@@ -1,9 +1,0 @@
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/AuthorizationDecision.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/ClientRegistration.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/ConsentLookup.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/Psd2Role.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/RequestedScope.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/ResourceStatus.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/ScopeKind.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/ScopeTarget.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/oidc-provider/src/main/java/ch/obya/psd2/oidc/ScopeValidation.java

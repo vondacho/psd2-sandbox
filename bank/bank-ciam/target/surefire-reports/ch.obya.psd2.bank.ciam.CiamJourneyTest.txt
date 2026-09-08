@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: ch.obya.psd2.bank.ciam.CiamJourneyTest
--------------------------------------------------------------------------------
-Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.042 s -- in ch.obya.psd2.bank.ciam.CiamJourneyTest

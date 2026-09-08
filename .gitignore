@@ -24,3 +24,6 @@ hs_err_pid*
 replay_pid*
 /.idea/
 /docs/design/likec4/.likec4/
+
+# Maven build output
+target/

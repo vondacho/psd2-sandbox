@@ -130,9 +130,20 @@ public final class Consent {
      * is finalised" — so this is called by the authorisation, not by the TPP.
      */
     void grantAccessTo(Collection<AccessibleAccount> chosen, LocalDate on) {
+        recordAccessibleAccounts(chosen, on);
+        status = ConsentStatus.VALID;
+    }
+
+    /**
+     * Records what the PSU chose without making the consent valid.
+     *
+     * <p>Used when a confirmation link was returned: the accounts are known, but §7.6.4
+     * reserves the last step for the TPP, so the consent stays {@code received} until the
+     * confirmation call arrives.
+     */
+    void recordAccessibleAccounts(Collection<AccessibleAccount> chosen, LocalDate on) {
         accessibleAccounts.clear();
         accessibleAccounts.addAll(chosen);
-        status = ConsentStatus.VALID;
         lastActionDate = on;
     }
 

@@ -118,6 +118,20 @@ public class ConsentsController {
     }
 
     /**
+     * The TPP's confirmation call (§7.6.4): {@code PUT} on the authorisation, which
+     * finalises it and makes the consent valid. Only reachable when the Bank returned a
+     * {@code confirmation} link in the first place.
+     */
+    @org.springframework.web.bind.annotation.PutMapping(
+            "/{consentId}/authorisations/{authorisationId}")
+    public Map<String, Object> confirm(@PathVariable String consentId,
+            @PathVariable String authorisationId, HttpServletRequest request) {
+        return Map.of("scaStatus", consents.confirm(new ConsentId(consentId),
+                new AuthorisationId(authorisationId),
+                identityOf(request).organizationIdentifier()).scaStatus().wireName());
+    }
+
+    /**
      * Renders a refusal as §4.13 requires. {@code CONSENT_UNKNOWN} is 403 and everything
      * else here is 400, which is what the scenarios assert.
      */
@@ -160,8 +174,17 @@ public class ConsentsController {
             Integer frequencyPerDay, Boolean combinedServiceIndicator) {
 
         AccountAccess toAccess() {
-            return access == null ? null : new AccountAccess(
-                    List.of(), List.of(), List.of(),
+            if (access == null) {
+                return null;
+            }
+            // Presence of the key, not its contents, decides which access types were
+            // requested: {"accounts": []} asks for the account list, an absent
+            // "transactions" key asks for nothing. Mapping all three to an empty list
+            // would silently grant transactions on every consent.
+            return new AccountAccess(
+                    access.accounts() == null ? null : List.of(),
+                    access.balances() == null ? null : List.of(),
+                    access.transactions() == null ? null : List.of(),
                     access.availableAccounts(), access.availableAccountsWithBalance(),
                     access.allPsd2());
         }

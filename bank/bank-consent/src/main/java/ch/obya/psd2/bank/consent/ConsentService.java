@@ -1,13 +1,18 @@
 package ch.obya.psd2.bank.consent;
 
+import ch.obya.psd2.authorisation.ScaStatus;
 import ch.obya.psd2.spec.OrganizationIdentifier;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
@@ -112,6 +117,79 @@ public final class ConsentService {
         return Math.min(request.frequencyPerDay(), limits.maxFrequencyPerDay());
     }
 
+    /**
+     * Records an approved authorisation: the PSU, the accessible accounts, and how far
+     * the authorisation may move.
+     *
+     * <p>Two rules do the work. Access types are <strong>trimmed</strong> to what the
+     * consent actually requested — the CIAM is not the authority on that, so an outcome
+     * claiming {@code transactions} for an accounts-and-balances consent is cut down
+     * rather than refused, and the discrepancy is reported. And the authorisation stops
+     * at {@code unconfirmed} when a confirmation link was returned: only the TPP's
+     * confirmation call may finalise it, which is what §7.6.4 means.
+     *
+     * @return what was trimmed, empty when the outcome matched the request
+     */
+    public Recorded recordOutcome(ConsentId consentId, AuthorisationId authorisationId,
+            AuthorisationOutcome outcome) {
+        Consent consent = consents.get(consentId.value());
+        if (consent == null) {
+            throw ConsentRequestException.consentUnknown(consentId.value());
+        }
+        Authorisation authorisation = requireAuthorisation(consentId, authorisationId);
+
+        Instant now = clock.instant();
+        LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        Set<AccessType> permitted = consent.access().requestedTypes();
+        List<String> trimmed = new ArrayList<>();
+
+        List<Consent.AccessibleAccount> accessible = new ArrayList<>();
+        for (AuthorisationOutcome.ChosenAccount chosen : outcome.accounts()) {
+            Set<AccessType> granted = EnumSet.noneOf(AccessType.class);
+            for (AccessType type : chosen.accessTypes()) {
+                if (permitted.contains(type)) {
+                    granted.add(type);
+                } else {
+                    trimmed.add(chosen.account().iban() + ":" + type.wireName());
+                }
+            }
+            accessible.add(new Consent.AccessibleAccount(
+                    // A fresh opaque handle: never derived from the IBAN, so a resource
+                    // id discloses nothing if it leaks.
+                    UUID.randomUUID().toString(),
+                    chosen.account(), chosen.currency(), List.copyOf(granted)));
+        }
+
+        consent.identifyPsu(outcome.psuId());
+        authorisation.identifyPsu(outcome.psuId());
+        authorisation.bindChallenge(outcome.challengeId());
+
+        if (authorisation.confirmationRequired()) {
+            // §7.6.4: the TPP still has to confirm, so the consent stays received.
+            authorisation.moveTo(ScaStatus.UNCONFIRMED, now);
+            consent.recordAccessibleAccounts(accessible, today);
+        } else {
+            authorisation.moveTo(ScaStatus.FINALISED, now);
+            consent.grantAccessTo(accessible, today);
+        }
+        return new Recorded(consent, authorisation, List.copyOf(trimmed));
+    }
+
+    /**
+     * The TPP's confirmation call (§7.6.4), which finalises an authorisation that was
+     * left {@code unconfirmed} and makes the consent valid.
+     */
+    public Authorisation confirm(ConsentId consentId, AuthorisationId authorisationId,
+            OrganizationIdentifier caller) {
+        Consent consent = require(consentId, caller);
+        Authorisation authorisation = requireAuthorisation(consentId, authorisationId);
+        Instant now = clock.instant();
+        authorisation.moveTo(ScaStatus.FINALISED, now);
+        consent.grantAccessTo(consent.accessibleAccounts(),
+                LocalDate.ofInstant(now, ZoneOffset.UTC));
+        return authorisation;
+    }
+
     public Optional<Consent> find(ConsentId id) {
         return Optional.ofNullable(consents.get(id.value()));
     }
@@ -164,5 +242,15 @@ public final class ConsentService {
      */
     public record Created(Consent consent, Authorisation authorisation,
             boolean confirmationRequired) {
+    }
+
+    /**
+     * What recording an outcome produced.
+     *
+     * @param trimmedAccessTypes access the CIAM proposed that the consent had not asked
+     *     for; empty in the ordinary case, and worth a warning when it is not
+     */
+    public record Recorded(Consent consent, Authorisation authorisation,
+            List<String> trimmedAccessTypes) {
     }
 }

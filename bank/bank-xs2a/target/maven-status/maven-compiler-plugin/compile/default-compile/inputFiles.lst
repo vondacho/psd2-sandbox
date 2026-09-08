@@ -1,8 +1,0 @@
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/BankXs2aApplication.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/ConsentConfiguration.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/ConsentsController.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/GatewayConfiguration.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/InternalConsentsController.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/SandboxPki.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/SandboxTrustManager.java
-/Users/olivier/Labor/github/berlin-psd2-sandbox/bank/bank-xs2a/src/main/java/ch/obya/psd2/bank/xs2a/TlsConfiguration.java
