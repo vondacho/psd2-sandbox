@@ -3,10 +3,18 @@ import {
   connectionByState, connectionOf, type AccountView, type BankConnection,
 } from './connections.js';
 import * as xs2a from './xs2a.js';
-import { resolveSandboxUrl } from './sandbox-hosts.js';
+import { resolveBrowserUrl, resolveSandboxUrl } from './sandbox-hosts.js';
 
 const clientId = process.env['TPP_CLIENT_ID'] ?? 'PSDDE-BAFIN-123456';
-const redirectUri = process.env['TPP_REDIRECT_URI'] ?? 'https://tpp.sandbox/xs2a/callback/bank';
+/**
+ * Where the Bank sends the PSU back.
+ *
+ * The design's URI is `https://tpp.sandbox/...`, inside the QWAC's domain as §4.10
+ * requires. A browser on a laptop cannot resolve that without /etc/hosts, so the sandbox
+ * default is the address it can reach; set TPP_REDIRECT_URI to use the real one.
+ */
+const redirectUri =
+  process.env['TPP_REDIRECT_URI'] ?? 'http://localhost:5173/xs2a/callback/bank';
 
 /** A consent valid for the bank's maximum, which the Bank shortens if it is too long. */
 const defaultValidUntil = (bank: BankRegistryEntry): string => {
@@ -60,7 +68,8 @@ export const startConnection = async (
   connection.state = 'authorizing';
 
   // The endpoint comes from the metadata the Bank pointed us at, not from a constant.
-  const url = new URL(resolveSandboxUrl(metadata['authorization_endpoint'] ?? ''));
+  // The browser follows this one, so it resolves to the front channel.
+  const url = new URL(resolveBrowserUrl(metadata['authorization_endpoint'] ?? ''));
   url.search = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,

@@ -29,11 +29,15 @@ public class AuthorizeController {
 
     private final AuthorizationService authorization;
     private final String ciamBaseUrl;
+    private final String ownBrowserUrl;
 
     public AuthorizeController(AuthorizationService authorization,
-            @Value("${sandbox.ciam.base-url:http://localhost:9443}") String ciamBaseUrl) {
+            @Value("${sandbox.ciam.base-url:http://localhost:9443}") String ciamBaseUrl,
+            @Value("${sandbox.oidc.browser-base-url:http://localhost:7080}")
+            String ownBrowserUrl) {
         this.authorization = authorization;
         this.ciamBaseUrl = ciamBaseUrl;
+        this.ownBrowserUrl = ownBrowserUrl;
     }
 
     @GetMapping("/authorize")
@@ -70,15 +74,17 @@ public class AuthorizeController {
             return redirect(redirectUri, started.error(), started.errorDescription(), state);
         }
 
-        // Broker the PSU to the Bank's CIAM, naming the consent and its authorisation.
-        String brokerTo = ciamBaseUrl + "/authorize"
+        // Broker the PSU to the Bank's CIAM's own screens, naming the consent, its
+        // authorisation, and where to send the browser once the PSU has approved.
+        String brokerTo = ciamBaseUrl + "/ui/index.html"
                 + "?session_id=" + encode(started.requestId())
                 + "&request_id=" + encode(started.requestId())
                 + "&consent_id=" + encode(started.target().resourceId())
                 + "&authorisation_id=" + encode(
                         authorisationId == null ? "" : authorisationId)
                 + "&tpp_name=" + encode(authorization.client(clientId)
-                        .map(ClientRegistration::legalName).orElse("a third party"));
+                        .map(ClientRegistration::legalName).orElse("a third party"))
+                + "&return_to=" + encode(ownBrowserUrl + "/broker/callback");
 
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(brokerTo)).build();

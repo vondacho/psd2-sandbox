@@ -16,9 +16,38 @@ const mappings: ReadonlyArray<readonly [string, string]> = [
   ['https://ciam.bank.sandbox', process.env['CIAM_ORIGIN'] ?? 'http://localhost:9443'],
 ];
 
-export const resolveSandboxUrl = (url: string): string => {
-  for (const [name, actual] of mappings) {
-    if (url.startsWith(name)) return actual + url.slice(name.length);
+/**
+ * Where the *browser* is sent, which is not always where this process calls.
+ *
+ * The OIDC-provider's back channel is mTLS on 7443: the token endpoint must be, since the
+ * access token is bound to the certificate presented there. Its front channel cannot be —
+ * a browser has no QWAC, and a self-signed sandbox certificate would greet the PSU with
+ * an interstitial before the journey even starts. So `/authorize` has its own plain-HTTP
+ * connector, and only the URL handed to the browser resolves to it.
+ *
+ * In a real deployment both are the same public HTTPS origin and this list is empty.
+ */
+const browserMappings: ReadonlyArray<readonly [string, string]> = [
+  ['https://oidc-provider.sandbox', process.env['OIDC_BROWSER_ORIGIN'] ?? 'http://localhost:7080'],
+];
+
+const resolveWith = (
+  table: ReadonlyArray<readonly [string, string]>, url: string,
+): string | undefined => {
+  for (const [name, actual] of table) {
+    if (!url.startsWith(name)) continue;
+    // Only rewrite when the name is the whole authority. A plain prefix match would also
+    // fire on a URL that already names a port — the mapping adds one of its own, and
+    // `https://oidc-provider.sandbox:7443:7443/…` fails as an invalid URL far from here.
+    const rest = url.slice(name.length);
+    if (rest !== '' && !rest.startsWith('/') && !rest.startsWith('?')) continue;
+    return actual + rest;
   }
-  return url;
+  return undefined;
 };
+
+export const resolveSandboxUrl = (url: string): string => resolveWith(mappings, url) ?? url;
+
+/** Falls back to the back-channel mapping for every host that has no browser variant. */
+export const resolveBrowserUrl = (url: string): string =>
+  resolveWith(browserMappings, url) ?? resolveSandboxUrl(url);

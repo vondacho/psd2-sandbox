@@ -11,6 +11,11 @@ sandbox:
     # The Bank's internal connector, not its XS2A port: that one demands a client
     # certificate on every connection and the CIAM has none.
     internal-base-url: http://localhost:8081
+  ledger:
+    # The same Microcks mock account information reads — but as a conformist, so the
+    # ledger's own words reach the consent screen unchanged.
+    base-url: http://localhost:8585/rest/Bank+core+ledger/1.0.0
+    service-token: ledger-service-token
 
 logging:
   level:

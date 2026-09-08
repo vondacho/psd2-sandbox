@@ -47,6 +47,32 @@ const render = (...nodes: (HTMLElement | null)[]): void => {
   app.replaceChildren(...nodes.filter((node): node is HTMLElement => node !== null));
 };
 
+interface Me { userId: string | null; displayName?: string; choices?: { id: string; name: string }[]; }
+
+/** The TPP's own sign-in. Deliberately plain: the bank's page is the one that matters. */
+const signInScreen = (me: Me): void => {
+  const card = el('<div class="card"></div>');
+  for (const choice of me.choices ?? []) {
+    const row = el(`
+      <button class="bank">
+        <span class="logo" aria-hidden="true">👤</span>
+        <span><span class="name">${choice.name}</span><br />
+              <span class="sub">Continue as ${choice.name.split(' ')[0]}</span></span>
+        <span class="chev">→</span>
+      </button>`);
+    row.addEventListener('click', async () => {
+      await fetch(`/api/signin?userId=${choice.id}`, { method: 'POST' });
+      void route();
+    });
+    card.append(row);
+  }
+  render(
+    el('<h1>Welcome to TPP App</h1>'),
+    el('<p class="lede">All your accounts in one place. Pick a demo profile to begin — this is the app’s own sign-in, not your bank’s.</p>'),
+    card,
+  );
+};
+
 const stateLabel: Record<Bank['state'], { text: string; cls: string }> = {
   selected: { text: 'Not connected', cls: 'pending' },
   consentRequested: { text: 'Starting', cls: 'pending' },
@@ -58,7 +84,7 @@ const stateLabel: Record<Bank['state'], { text: string; cls: string }> = {
 
 // ---- screens ------------------------------------------------------------------------
 
-const banksScreen = async (): Promise<void> => {
+const banksScreen = async (me: Me): Promise<void> => {
   const { banks } = (await (await fetch('/api/banks')).json()) as { banks: Bank[] };
 
   const list = el('<div class="card"></div>');
@@ -88,10 +114,20 @@ const banksScreen = async (): Promise<void> => {
     list.append(row);
   }
 
+  const signOut = el('<button class="quiet">Sign out</button>');
+  signOut.addEventListener('click', async () => {
+    await fetch('/api/signout', { method: 'POST' });
+    void route();
+  });
+  const bar = el('<div class="row"></div>');
+  bar.append(el(`<span class="asof">Signed in as ${me.displayName ?? ''}</span>`),
+    el('<span class="spacer"></span>'), signOut);
+
   render(
     el('<h1>Your banks</h1>'),
     el('<p class="lede">Connect a bank to see your balances here. You approve each connection at your bank, and you can disconnect at any time.</p>'),
     list,
+    bar,
   );
 };
 
@@ -221,6 +257,9 @@ const skeletonCard = (rows: number): HTMLElement => {
 // ---- routing -------------------------------------------------------------------------
 
 const route = async (): Promise<void> => {
+  const me = (await (await fetch('/api/me')).json()) as Me;
+  if (me.userId === null) return signInScreen(me);
+
   const [, screen, argument] = location.hash.replace(/^#\//, '').split('/');
   if (screen === 'accounts' && argument) return accountsScreen(argument);
   if (screen === 'connected' && argument) return connectedScreen(argument);
@@ -228,7 +267,7 @@ const route = async (): Promise<void> => {
     const problem = (await (await fetch(`/api/problem/${argument ?? ''}`)).json()) as Problem;
     return problemScreen(problem);
   }
-  return banksScreen();
+  return banksScreen(me);
 };
 
 const start = (): void => {

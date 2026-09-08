@@ -27,9 +27,11 @@ public class AuthenticationController {
     static final String LOGIN_REFUSED = "Customer id or password is incorrect";
 
     private final CiamService ciam;
+    private final PaymentAccountDirectory directory;
 
-    public AuthenticationController(CiamService ciam) {
+    public AuthenticationController(CiamService ciam, PaymentAccountDirectory directory) {
         this.ciam = ciam;
+        this.directory = directory;
     }
 
     /**
@@ -64,6 +66,37 @@ public class AuthenticationController {
         return ResponseEntity.ok(Map.of("step", session.step().name(),
                 "psuId", session.psuId().orElseThrow(),
                 "amr", session.authenticationMethods()));
+    }
+
+    /**
+     * What the consent screen may offer: the PSU's accounts, read from the ledger.
+     *
+     * <p>Both kinds come back, and each says whether a consent may cover it. Hiding the
+     * loan account would leave the PSU wondering where it went; showing it greyed out
+     * with the reason answers the question before it is asked.
+     *
+     * <p>Keyed by the session rather than by a PSU-ID in the query, so the list can only
+     * be read by whoever has just logged in — the screen must not become a way to ask
+     * which accounts a stranger holds.
+     */
+    @GetMapping("/consent/accounts")
+    public ResponseEntity<Map<String, Object>> offerableAccounts(
+            @RequestParam("sessionId") String sessionId) {
+        AuthenticationSession session = ciam.session(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("no such session"));
+        if (session.psuId().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "log in first"));
+        }
+        List<Map<String, Object>> accounts =
+                directory.accountsOf(session.psuId().orElseThrow()).stream()
+                        .map(account -> Map.<String, Object>of(
+                                "iban", account.iban(),
+                                "currency", account.currency(),
+                                "name", account.productName(),
+                                "payment", account.paymentAccount()))
+                        .toList();
+        return ResponseEntity.ok(Map.of("accounts", accounts));
     }
 
     /** The consent screen: which accounts the PSU ticked. */

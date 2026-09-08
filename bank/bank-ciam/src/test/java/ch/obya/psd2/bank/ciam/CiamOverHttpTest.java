@@ -1,6 +1,7 @@
 package ch.obya.psd2.bank.ciam;
 
 import ch.obya.psd2.bank.ciam.appl.*;
+import ch.obya.psd2.bank.ciam.appl.PaymentAccountDirectory.LedgerAccount;
 import ch.obya.psd2.bank.ciam.domain.*;
 
 import java.nio.charset.StandardCharsets;
@@ -61,12 +62,32 @@ class CiamOverHttpTest {
         }
     }
 
+    /** A ledger holding Anna's three accounts, one of which no consent may cover. */
+    static final class LedgerDouble implements PaymentAccountDirectory {
+        @Override
+        public List<LedgerAccount> accountsOf(String customerId) {
+            if (!"anna.mueller".equals(customerId)) {
+                return List.of();
+            }
+            return List.of(
+                    new LedgerAccount("DE23100100100123456789", "EUR", "Girokonto", true),
+                    new LedgerAccount("DE89370400440532013000", "EUR", "Sparkonto", true),
+                    new LedgerAccount("DE44100100100999888777", "EUR", "Ratenkredit", false));
+        }
+    }
+
     @TestConfiguration
     static class Doubles {
         @Bean
         @Primary
         RecordingDouble recorder() {
             return new RecordingDouble();
+        }
+
+        @Bean
+        @Primary
+        PaymentAccountDirectory ledger() {
+            return new LedgerDouble();
         }
     }
 
@@ -169,6 +190,35 @@ class CiamOverHttpTest {
         assertEquals("anna.mueller", recorder.psuId);
         assertEquals(1, recorder.accounts.size());
         assertEquals("DE23100100100123456789", recorder.accounts.getFirst().iban());
+    }
+
+    @Test
+    @DisplayName("The consent screen offers the PSU's accounts, marking the ineligible one")
+    void accountsAreOfferedFromTheLedger() {
+        get("/authorize?session_id=s6&request_id=r6&consent_id=c&authorisation_id=a");
+        post("/login", Map.of("sessionId", "s6", "psuId", "anna.mueller",
+                "password", "correct horse"));
+
+        Answer offered = get("/consent/accounts?sessionId=s6");
+
+        assertEquals(200, offered.status());
+        List<?> accounts = (List<?>) offered.body().get("accounts");
+        assertEquals(3, accounts.size(), "the loan is shown, not hidden");
+        Map<?, ?> loan = (Map<?, ?>) accounts.get(2);
+        assertEquals("Ratenkredit", loan.get("name"));
+        assertEquals(false, loan.get("payment"),
+                "PSD2 access covers payment accounts, so the screen may not offer this one");
+    }
+
+    @Test
+    @DisplayName("The accounts are not readable before the PSU has logged in")
+    void accountsNeedALogin() {
+        get("/authorize?session_id=s7&request_id=r7&consent_id=c&authorisation_id=a");
+
+        Answer tooEarly = get("/consent/accounts?sessionId=s7");
+
+        assertEquals(401, tooEarly.status(),
+                "otherwise the screen answers which accounts a stranger holds");
     }
 
     @Test

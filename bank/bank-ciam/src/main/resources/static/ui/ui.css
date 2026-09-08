@@ -1,0 +1,65 @@
+/* The bank's own colours, unmistakably not the TPP's: a PSU typing a password must be
+   able to see whose page they are on. */
+:root {
+  --ink: #0d1b2a; --muted: #5b6b7d; --line: #dbe4ee; --card: #fff; --bg: #eef3f8;
+  --brand: #0b6b53; --brand-ink: #fff; --warn: #a8320f; --radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e8eef5; --muted: #93a3b5; --line: #24303d; --card: #131b24;
+          --bg: #0a1119; --brand: #35c79b; --brand-ink: #06131a; --warn: #ff9f8f; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh;
+  display: flex; flex-direction: column;
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+.bankbar { display: flex; align-items: center; gap: .6rem; padding: .95rem 1.2rem;
+  background: var(--brand); color: var(--brand-ink); font-weight: 650; }
+.bankbar .mark { font-size: 1.15rem; }
+.bankbar .secure { margin-left: auto; font-weight: 500; font-size: .8rem; opacity: .9; }
+
+main { flex: 1; width: 100%; max-width: 30rem; margin: 0 auto; padding: 1.6rem 1.1rem 3rem; }
+.foot { text-align: center; color: var(--muted); font-size: .78rem; padding: 0 1rem 2rem; }
+
+h1 { font-size: 1.35rem; margin: 0 0 .3rem; letter-spacing: -.02em; }
+.lede { color: var(--muted); margin: 0 0 1.3rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1.15rem 1.2rem; margin-bottom: 1rem; }
+
+.asking { display: flex; gap: .75rem; align-items: flex-start;
+  border-left: 3px solid var(--brand); padding-left: .8rem; margin-bottom: 1.2rem; }
+.asking .who { font-weight: 650; }
+.asking .what { color: var(--muted); font-size: .88rem; }
+
+label { display: block; margin: .85rem 0 .25rem; font-size: .85rem; color: var(--muted); }
+input[type=text], input[type=password] { width: 100%; padding: .7rem .75rem;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  color: var(--ink); font: inherit; }
+input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+.account { display: flex; align-items: center; gap: .8rem; padding: .85rem .2rem; }
+.account + .account { border-top: 1px solid var(--line); }
+.account input { width: 1.15rem; height: 1.15rem; accent-color: var(--brand); }
+.account .name { font-weight: 600; }
+.account .iban { color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.account.blocked { opacity: .5; }
+.account .why { margin-left: auto; font-size: .75rem; color: var(--muted); }
+
+button { border: 0; border-radius: 12px; padding: .78rem 1.15rem; font: inherit;
+  font-weight: 600; cursor: pointer; margin-top: 1rem; }
+.primary { background: var(--brand); color: var(--brand-ink); width: 100%; }
+.quiet { background: none; border: 1px solid var(--line); color: var(--ink); width: 100%; }
+button[disabled] { opacity: .45; cursor: not-allowed; }
+button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.error { color: var(--warn); font-size: .88rem; margin: .8rem 0 0; }
+.qr { display: block; margin: 1rem auto; background: #fff; padding: .8rem; border-radius: 12px; }
+.payload { display: block; font-family: ui-monospace, Menlo, monospace; font-size: .72rem;
+  word-break: break-all; background: var(--bg); padding: .55rem .65rem; border-radius: 8px;
+  color: var(--muted); }
+.countdown { text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+.waiting { text-align: center; color: var(--muted); font-size: .9rem; }
+.tick { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%;
+  background: var(--brand); margin-right: .4rem; animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }

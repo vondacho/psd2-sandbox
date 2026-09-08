@@ -42,6 +42,26 @@ public class TlsConfiguration {
     private static final Logger log = LoggerFactory.getLogger(TlsConfiguration.class);
     private static final String PASSWORD = "sandbox";
 
+    /**
+     * A plain-HTTP connector for the endpoints a browser reaches.
+     *
+     * {@code /authorize} is followed by the PSU's browser, which has no client
+     * certificate and would refuse the self-issued server certificate anyway. Only
+     * {@code /token} needs mTLS, and it keeps the TLS port. Same split as the Bank: the
+     * requirement belongs to the endpoint, not to the process.
+     */
+    @Bean
+    public WebServerFactoryCustomizer<TomcatServletWebServerFactory> browserConnector(
+            @Value("${sandbox.oidc.browser-port:7080}") int browserPort) {
+        return factory -> {
+            Connector connector = new Connector("org.apache.coyote.http11.Http11NioProtocol");
+            connector.setPort(browserPort);
+            connector.setScheme("http");
+            connector.setSecure(false);
+            factory.addAdditionalConnectors(connector);
+        };
+    }
+
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> mutualTls(
             @Value("${sandbox.pki.directory:target/pki}") String pkiDirectory)

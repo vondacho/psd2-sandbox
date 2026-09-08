@@ -10,6 +10,8 @@ sandbox:
     # Written by bank-xs2a at startup; only ca.pem is read, as a trust anchor.
     directory: /tmp/psd2-pki
   oidc:
+    browser-port: 7080
+    browser-base-url: http://localhost:7080
     issuer: https://oidc-provider.sandbox
     audience: https://api.bank.sandbox/psd2
   bank:

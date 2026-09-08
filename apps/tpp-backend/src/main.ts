@@ -16,8 +16,20 @@ import { problemFor } from './problems.js';
 const port = Number(process.env['PORT'] ?? 5173);
 const webRoot = process.env['WEB_ROOT'] ?? join(import.meta.dirname, '../../tpp-web/dist');
 
-/** One demo user; a real TPP would have sessions. */
-const currentUser = 'anna';
+/**
+ * Who is using the app.
+ *
+ * A cookie rather than a real session store — this is the TPP's own login, entirely
+ * separate from the bank authentication that happens later, and conflating the two is
+ * exactly the confusion the journey is meant to avoid.
+ */
+const users: Record<string, string> = { anna: 'Anna Müller', ben: 'Ben Weber' };
+
+const userOf = (request: IncomingMessage): string | undefined => {
+  const cookie = /(?:^|;\s*)tpp_user=([^;]+)/.exec(request.headers.cookie ?? '');
+  const user = cookie?.[1];
+  return user !== undefined && user in users ? user : undefined;
+};
 
 const json = (response: ServerResponse, status: number, body: unknown): void => {
   const text = JSON.stringify(body);
@@ -51,9 +63,35 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://localhost:${port}`);
 
   try {
+    // ---- who is signed in --------------------------------------------------------
+    if (url.pathname === '/api/me') {
+      const user = userOf(request);
+      return json(response, 200, user
+        ? { userId: user, displayName: users[user] }
+        : { userId: null, choices: Object.entries(users).map(([id, name]) => ({ id, name })) });
+    }
+
+    if (url.pathname === '/api/signin' && request.method === 'POST') {
+      const user = url.searchParams.get('userId') ?? '';
+      if (!(user in users)) return json(response, 400, { message: 'unknown user' });
+      response.setHeader('Set-Cookie', `tpp_user=${user}; Path=/; SameSite=Lax`);
+      return json(response, 200, { userId: user, displayName: users[user] });
+    }
+
+    if (url.pathname === '/api/signout' && request.method === 'POST') {
+      response.setHeader('Set-Cookie', 'tpp_user=; Path=/; Max-Age=0');
+      return json(response, 204, null);
+    }
+
+    // Everything below needs a signed-in user.
+    const currentUser = userOf(request);
+    if (url.pathname.startsWith('/api/') && currentUser === undefined) {
+      return json(response, 401, { message: 'sign in first' });
+    }
+
     // ---- the API the browser talks to -------------------------------------------
     if (url.pathname === '/api/banks') {
-      const connections = connectionsOf(currentUser);
+      const connections = connectionsOf(currentUser!);
       return json(response, 200, {
         banks: banks().map((bank) => {
           const connection = connections.find((c) => c.bankId === bank.bankId);
@@ -72,7 +110,7 @@ const server = createServer(async (request, response) => {
     if (url.pathname === '/api/connect' && request.method === 'POST') {
       const bankId = url.searchParams.get('bankId') ?? 'bank';
       try {
-        const started = await startConnection(currentUser, bankId, psuIpOf(request));
+        const started = await startConnection(currentUser!, bankId, psuIpOf(request));
         return json(response, 200, { authorizeUrl: started.authorizeUrl });
       } catch (failure) {
         return json(response, 502, { problem: problemFor(String((failure as Error).message)) });
@@ -95,25 +133,31 @@ const server = createServer(async (request, response) => {
           : `/#/problem/${connection.lastError ?? 'TOKEN_EXCHANGE_FAILED'}`;
         response.writeHead(302, { Location: target }).end();
         return;
-      } catch {
-        response.writeHead(302, { Location: '/#/problem/STATE_MISMATCH' }).end();
+      } catch (failure) {
+        // Only an unrecognised state is a state mismatch. Everything else — the Bank
+        // unreachable, TLS refused, the token endpoint erroring — used to be reported
+        // as one too, which sent whoever was debugging it looking in the wrong place.
+        const reason = String((failure as Error).message);
+        process.stderr.write(`callback failed: ${reason}\n`);
+        const problem = reason === 'STATE_MISMATCH' ? 'STATE_MISMATCH' : 'BANK_UNREACHABLE';
+        response.writeHead(302, { Location: `/#/problem/${problem}` }).end();
         return;
       }
     }
 
     if (url.pathname === '/api/accounts') {
       const bankId = url.searchParams.get('bankId') ?? 'bank';
-      const result = await accountsOf(currentUser, bankId, psuIpOf(request));
+      const result = await accountsOf(currentUser!, bankId, psuIpOf(request));
       return json(response, 200, {
         accounts: result.accounts,
         stale: result.stale,
         problem: result.problem ? problemFor(result.problem) : null,
-        state: connectionOf(currentUser, bankId).state,
+        state: connectionOf(currentUser!, bankId).state,
       });
     }
 
     if (url.pathname === '/api/disconnect' && request.method === 'POST') {
-      forget(currentUser, url.searchParams.get('bankId') ?? 'bank');
+      forget(currentUser!, url.searchParams.get('bankId') ?? 'bank');
       return json(response, 204, null);
     }
 

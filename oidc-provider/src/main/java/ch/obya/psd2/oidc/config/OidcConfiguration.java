@@ -50,7 +50,11 @@ public class OidcConfiguration {
         authorization.register(new ClientRegistration(
                 OrganizationIdentifier.parse("PSDDE-BAFIN-123456"), "TPP Fintech GmbH",
                 Set.of(Psd2Role.AISP, Psd2Role.PISP),
-                List.of("https://tpp.sandbox/xs2a/callback/bank"),
+                // Both the design's hostname and the address a browser can actually
+                // reach on a laptop. §4.10 wants redirect URIs inside the QWAC's domain;
+                // the second entry is a sandbox affordance, not a relaxation of that.
+                List.of("https://tpp.sandbox/xs2a/callback/bank",
+                        "http://localhost:5173/xs2a/callback/bank"),
                 Set.of()));
         authorization.register(new ClientRegistration(
                 OrganizationIdentifier.parse("PSDDE-BAFIN-654321"), "C Pay",
