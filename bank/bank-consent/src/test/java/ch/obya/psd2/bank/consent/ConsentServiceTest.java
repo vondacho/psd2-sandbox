@@ -1,5 +1,8 @@
 package ch.obya.psd2.bank.consent;
 
+import ch.obya.psd2.bank.consent.domain.*;
+import ch.obya.psd2.bank.consent.appl.*;
+
 import ch.obya.psd2.authorisation.ScaStatus;
 import ch.obya.psd2.spec.OrganizationIdentifier;
 import java.time.Clock;

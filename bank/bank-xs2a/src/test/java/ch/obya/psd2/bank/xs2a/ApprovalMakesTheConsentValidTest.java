@@ -1,5 +1,8 @@
 package ch.obya.psd2.bank.xs2a;
 
+import ch.obya.psd2.bank.xs2a.adapter.in.*;
+import ch.obya.psd2.bank.xs2a.config.*;
+
 import ch.obya.psd2.pki.IssuanceRequest;
 import ch.obya.psd2.pki.PkiFixtures;
 import ch.obya.psd2.pki.SandboxCa;

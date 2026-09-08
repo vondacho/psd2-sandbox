@@ -1,5 +1,8 @@
 package ch.obya.psd2.bank.tpp;
 
+import ch.obya.psd2.bank.tpp.domain.*;
+import ch.obya.psd2.bank.tpp.appl.*;
+
 import ch.obya.psd2.pki.CertificateKind;
 import ch.obya.psd2.pki.IssuanceRequest;
 import ch.obya.psd2.pki.PkiFixtures;
@@ -204,9 +207,9 @@ class TppIdentificationTest {
     @Test
     @DisplayName("A QSEAL is told apart from a QWAC by its QcType")
     void sealIsDistinguishable() {
-        assertEquals(ch.obya.psd2.bank.tpp.CertificateKind.QSEAL,
+        assertEquals(ch.obya.psd2.bank.tpp.domain.CertificateKind.QSEAL,
                 identification.identify(seal).kind());
-        assertEquals(ch.obya.psd2.bank.tpp.CertificateKind.QWAC,
+        assertEquals(ch.obya.psd2.bank.tpp.domain.CertificateKind.QWAC,
                 identification.identify(tpp).kind());
     }
 

@@ -1,5 +1,8 @@
 package ch.obya.psd2.bank.consent;
 
+import ch.obya.psd2.bank.consent.domain.*;
+import ch.obya.psd2.bank.consent.appl.*;
+
 import ch.obya.psd2.authorisation.ScaStatus;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;

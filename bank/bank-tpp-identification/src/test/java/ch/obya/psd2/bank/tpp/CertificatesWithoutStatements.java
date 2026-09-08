@@ -1,5 +1,8 @@
 package ch.obya.psd2.bank.tpp;
 
+import ch.obya.psd2.bank.tpp.domain.*;
+import ch.obya.psd2.bank.tpp.appl.*;
+
 import ch.obya.psd2.pki.SandboxCa;
 import java.math.BigInteger;
 import java.security.KeyPair;

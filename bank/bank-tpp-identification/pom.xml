@@ -33,6 +33,10 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+    </dependency>
+    <dependency>
       <groupId>ch.obya.psd2</groupId>
       <artifactId>pki</artifactId>
       <version>${project.version}</version>

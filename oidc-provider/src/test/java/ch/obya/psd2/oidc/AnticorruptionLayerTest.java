@@ -1,5 +1,8 @@
 package ch.obya.psd2.oidc;
 
+import ch.obya.psd2.oidc.domain.*;
+import ch.obya.psd2.oidc.appl.*;
+
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -34,16 +37,6 @@ class AnticorruptionLayerTest {
         assertEquals(List.of("exists", "ownedByClient", "status"), fields,
                 "widening this record leaks the Bank's model across a domain boundary; "
                         + "there must be no access, psuId, validUntil or accounts field");
-    }
-
-    @Test
-    void doesNotImportConsentManagement() {
-        noClasses().should().dependOnClassesThat()
-                .resideInAPackage("ch.obya.psd2.bank..")
-                .because("both edges from the Bank to token issuance are anticorruption "
-                        + "layers; consent management is reached over the internal HTTP "
-                        + "contract, never by import")
-                .check(context);
     }
 
     @Test

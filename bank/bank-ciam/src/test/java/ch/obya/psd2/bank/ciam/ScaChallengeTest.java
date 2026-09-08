@@ -1,6 +1,9 @@
 package ch.obya.psd2.bank.ciam;
 
-import ch.obya.psd2.bank.ciam.DynamicLink.SelectedAccount;
+import ch.obya.psd2.bank.ciam.domain.*;
+import ch.obya.psd2.bank.ciam.appl.*;
+
+import ch.obya.psd2.bank.ciam.domain.DynamicLink.SelectedAccount;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;

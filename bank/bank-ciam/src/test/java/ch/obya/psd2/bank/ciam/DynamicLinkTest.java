@@ -1,6 +1,9 @@
 package ch.obya.psd2.bank.ciam;
 
-import ch.obya.psd2.bank.ciam.DynamicLink.SelectedAccount;
+import ch.obya.psd2.bank.ciam.domain.*;
+import ch.obya.psd2.bank.ciam.appl.*;
+
+import ch.obya.psd2.bank.ciam.domain.DynamicLink.SelectedAccount;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

@@ -1,5 +1,8 @@
 package ch.obya.psd2.oidc;
 
+import ch.obya.psd2.oidc.domain.*;
+import ch.obya.psd2.oidc.appl.*;
+
 import ch.obya.psd2.spec.OrganizationIdentifier;
 import java.util.ArrayList;
 import java.util.List;
