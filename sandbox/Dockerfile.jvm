@@ -1,0 +1,14 @@
+# One image for all three Spring Boot services; the jar is chosen at build time.
+#
+# It copies a jar the reactor has already built rather than running Maven inside the
+# image. A multi-stage build would be more self-contained, but it re-resolves the whole
+# dependency tree on every change, and `mvn package` is a step you take anyway.
+FROM eclipse-temurin:25-jre
+
+ARG JAR
+COPY ${JAR} /app/service.jar
+
+# The sandbox PKI: bank-xs2a writes it, the others read ca.pem from it.
+VOLUME /pki
+
+ENTRYPOINT ["java", "-jar", "/app/service.jar"]

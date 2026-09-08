@@ -1,16 +1,36 @@
-# The sandbox's mocked dependencies.
+# The whole sandbox: five services, on one network where the design's hostnames resolve.
 #
-#   podman machine start
-#   export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
-#   podman compose -f sandbox/compose.yaml up -d
+#   mvn -DskipTests package && npm run build --workspaces   # the artefacts
+#   docker compose -f sandbox/compose.yaml up -d --build
 #
-# The mock is whatever contracts/ says. Changing a response means adding a named
-# example to the contract, not writing code.
+# (podman: `podman machine start`, then
+#  `export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"`)
+#
+# Two kinds of address appear below, and confusing them is the usual way this stops
+# working:
+#
+#   * **Between services** the design's own names — `api.bank.sandbox`,
+#     `ciam.bank.sandbox`, `oidc-provider.sandbox`, `tpp.sandbox` — which are network
+#     aliases here and would be DNS in a real deployment. The server certificates carry
+#     exactly these names in their SANs, so mTLS verifies the hostname rather than
+#     skipping the check.
+#   * **For the browser** `localhost:<published port>`, because the browser is outside
+#     this network and resolves none of those names. Every URL that ends up in a redirect
+#     the PSU follows is therefore a localhost one.
+#
+# `sandbox/up.sh` runs the same topology as local processes, which is faster to iterate
+# on. This file is the one to trust about how the pieces are wired.
 services:
+
+  # ---- the mocked core banking ledger ------------------------------------------------
+  #
+  # The mock is whatever contracts/ says. Changing a response means adding a named
+  # example to the contract, not writing code.
 
   bank-core:
     image: quay.io/microcks/microcks-uber:latest
     container_name: bank-core
+    networks: [sandbox]
     ports:
       - "8585:8080"
     environment:
@@ -27,6 +47,7 @@ services:
   bank-core-contracts:
     image: quay.io/curl/curl:latest
     container_name: bank-core-contracts
+    networks: [sandbox]
     depends_on:
       bank-core:
         condition: service_healthy
@@ -41,3 +62,152 @@ services:
           curl -sS -X POST http://bank-core:8080/api/artifact/upload \
                -F "file=@$$contract" -w ' (HTTP %{http_code})\n'
         done
+
+  # ---- the Bank ----------------------------------------------------------------------
+
+  # Serves the XS2A API on 8443 behind mTLS, and generates the sandbox PKI into the
+  # shared volume on the way up — which is why everything else waits for it.
+  bank-xs2a:
+    build:
+      context: ..
+      dockerfile: sandbox/Dockerfile.jvm
+      args:
+        JAR: bank/bank-xs2a/target/bank-xs2a-0.1.0-SNAPSHOT.jar
+    container_name: bank-xs2a
+    depends_on:
+      bank-core-contracts:
+        condition: service_completed_successfully
+    networks:
+      sandbox:
+        aliases: [api.bank.sandbox]
+    ports:
+      - "8443:8443"   # XS2A, client certificate required
+      - "8081:8081"   # the §7.7 internal API, plain HTTP, not published in earnest
+    volumes:
+      - pki:/pki
+    environment:
+      SANDBOX_PKI_DIRECTORY: /pki
+      SANDBOX_LEDGER_BASEURL: http://bank-core:8080/rest/Bank+core+ledger/1.0.0
+      SANDBOX_OIDC_JWKSURL: https://oidc-provider.sandbox:7443/jwks
+    healthcheck:
+      # Probe the port, not the PKI files. Those survive in the volume between runs, so
+      # `test -f /pki/ca.pem` passes the instant the container starts — and the others
+      # then read the *previous* run's CA while this one is overwriting it, which shows
+      # up much later as a `certificate unknown` alert on a perfectly good QWAC.
+      # The internal connector listens only after the PKI has been written, so a TCP
+      # connect to it means the CA on disk is this run's.
+      # bash, because /dev/tcp is a bash feature and CMD-SHELL is dash here. The image
+      # carries no curl, and this needs no network tooling at all.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081"]
+      interval: 2s
+      timeout: 2s
+      retries: 45
+
+  # The PSU-facing side of the Bank: sign-in, the consent screen, SCA, and the device
+  # simulator it serves as static files. Deliberately a separate process from the XS2A
+  # port, whose connector demands a client certificate the browser has not got.
+  bank-ciam:
+    build:
+      context: ..
+      dockerfile: sandbox/Dockerfile.jvm
+      args:
+        JAR: bank/bank-ciam/target/bank-ciam-0.1.0-SNAPSHOT.jar
+    container_name: bank-ciam
+    depends_on:
+      bank-xs2a:
+        condition: service_healthy
+    networks:
+      sandbox:
+        aliases: [ciam.bank.sandbox]
+    ports:
+      - "9443:9443"
+    environment:
+      SANDBOX_BANK_INTERNALBASEURL: http://api.bank.sandbox:8081
+      SANDBOX_LEDGER_BASEURL: http://bank-core:8080/rest/Bank+core+ledger/1.0.0
+    healthcheck:
+      # Plain HTTP throughout: nothing here is reached with a client certificate.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9443"]
+      interval: 2s
+      timeout: 2s
+      retries: 45
+
+  # ---- the authorization server ------------------------------------------------------
+
+  # Two connectors, for the two channels. The back channel is mTLS on 7443 because the
+  # access token is bound to the certificate presented there; the front channel is plain
+  # HTTP on 7080 because a browser has no QWAC to present.
+  oidc-provider:
+    build:
+      context: ..
+      dockerfile: sandbox/Dockerfile.jvm
+      args:
+        JAR: oidc-provider/target/oidc-provider-0.1.0-SNAPSHOT.jar
+    container_name: oidc-provider
+    depends_on:
+      bank-xs2a:
+        condition: service_healthy
+    networks:
+      sandbox:
+        aliases: [oidc-provider.sandbox]
+    ports:
+      - "7443:7443"   # token, JWKS — mTLS
+      - "7080:7080"   # /authorize and the broker callback — the browser's port
+    volumes:
+      - pki:/pki
+    environment:
+      SANDBOX_PKI_DIRECTORY: /pki
+      SANDBOX_BANK_INTERNALBASEURL: http://api.bank.sandbox:8081
+      # Browser-facing, so localhost: the PSU's browser is not on this network.
+      SANDBOX_OIDC_BROWSERBASEURL: http://localhost:7080
+      SANDBOX_CIAM_BASEURL: http://localhost:9443
+    healthcheck:
+      # The browser connector, which comes up with the rest of the application.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/7080"]
+      interval: 2s
+      timeout: 2s
+      retries: 45
+
+  # ---- the third party ---------------------------------------------------------------
+
+  # Holds the QWAC, the tokens and the PKCE verifier; the browser holds none of them.
+  # It reads the TPP identity out of the shared PKI volume.
+  tpp:
+    build:
+      context: ..
+      dockerfile: sandbox/Dockerfile.node
+    container_name: tpp
+    # It calls both the Bank and the OIDC-provider on the very first click, so it waits
+    # for both rather than failing the first connection attempt of every fresh start.
+    depends_on:
+      bank-xs2a:
+        condition: service_healthy
+      oidc-provider:
+        condition: service_healthy
+    networks:
+      sandbox:
+        aliases: [tpp.sandbox]
+    ports:
+      - "5173:5173"
+    volumes:
+      - pki:/pki
+    environment:
+      PKI_DIR: /pki
+      BANK_ORIGIN: https://api.bank.sandbox:8443
+      BANK_XS2A_URL: https://api.bank.sandbox:8443/psd2
+      OIDC_ORIGIN: https://oidc-provider.sandbox:7443
+      # The design's name, unported: the mapping above supplies the port. Naming it here
+      # too would leave the resolver nothing to do and the URL two ports.
+      OIDC_METADATA_URL: https://oidc-provider.sandbox/.well-known/oauth-authorization-server
+      # The two the browser follows.
+      OIDC_BROWSER_ORIGIN: http://localhost:7080
+      CIAM_ORIGIN: http://localhost:9443
+      TPP_REDIRECT_URI: http://localhost:5173/xs2a/callback/bank
+
+networks:
+  sandbox:
+    driver: bridge
+
+volumes:
+  # bank-xs2a writes the CA, the CRL and the test QWACs; the OIDC-provider reads the CA
+  # as a trust anchor and the TPP reads its own certificate and key.
+  pki:

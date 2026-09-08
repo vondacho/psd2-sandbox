@@ -1,4 +1,63 @@
-# Sandbox dependencies
+# Running the sandbox
+
+Five services make the sandbox, and the journey needs all of them. There are two ways to
+start them, and they describe the same topology.
+
+## Everything in containers
+
+```sh
+export PATH="$HOME/.rd/bin:$PATH"        # Rancher's docker is not on the default PATH
+mvn -DskipTests package                  # the jars the images copy in
+npm run build --workspaces               # and the bundled TPP
+docker compose -f sandbox/compose.yaml up -d --build
+```
+
+Then open **http://localhost:5173**, sign in as Anna, and connect the bank.
+
+| | Where | What it is |
+|---|---|---|
+| TPP | http://localhost:5173 | the third party: sign in, connect a bank, see accounts |
+| Bank sign-in and consent | http://localhost:9443/ui/index.html | reached by redirect, not by hand |
+| Device simulator | http://localhost:9443/simulator/index.html | enrol a device, then approve |
+| OIDC-provider | http://localhost:7080 (browser), :7443 (mTLS) | two channels, on purpose |
+| XS2A API | https://localhost:8443/psd2 | needs a client certificate |
+| Microcks console | http://localhost:8585 | the mocked ledger |
+
+Two kinds of address appear in `compose.yaml`, and mixing them up is how this breaks:
+
+- **Between services**, the design's own names — `api.bank.sandbox`, `ciam.bank.sandbox`,
+  `oidc-provider.sandbox`, `tpp.sandbox` — which are network aliases here and would be
+  DNS in a real deployment. The server certificates carry exactly these names, so mTLS
+  verifies the hostname instead of skipping the check.
+- **For the browser**, `localhost:<published port>`, because the browser is not on that
+  network. Every URL the PSU's browser follows is a localhost one.
+
+## Everything as local processes
+
+Faster to iterate on, and the logs are plain files:
+
+```sh
+sdk use java 25.0.2-tem && nvm use --lts
+mvn -DskipTests package && npm run build --workspaces
+./sandbox/up.sh            # ./sandbox/up.sh down to stop
+```
+
+Only the ledger stays a container. Logs land in `/tmp/psd2-logs`.
+
+## Checking it without clicking
+
+`sandbox/journey.mjs` walks the whole journey the way a browser would — following every
+redirect by hand, replaying both pages' fetches in order, and signing the challenge with
+a real P-256 key from Node's WebCrypto:
+
+```sh
+node sandbox/journey.mjs
+```
+
+It prints one line per hop and ends with the accounts Anna sees. A failure here is a
+failure a person clicking through would also hit.
+
+# The mocked ledger
 
 The core banking ledger is **mocked, contract-first**. There is no `bank-core-mock`
 module and there should not be one: `psd2-access-to-account.ddd` marks "Accounts ledger"
@@ -9,16 +68,13 @@ we do not have.
 So the ledger is [`contracts/bank-core-ledger.openapi.yaml`](../contracts/bank-core-ledger.openapi.yaml),
 served by [Microcks](https://microcks.io).
 
-## Running it
-
-Rancher Desktop is installed on this machine, so the short path is:
+## Running the ledger alone
 
 ```sh
-export PATH="$HOME/.rd/bin:$PATH"     # Rancher's docker is not on the default PATH
-docker compose -f sandbox/compose.yaml up -d
+docker compose -f sandbox/compose.yaml up -d bank-core bank-core-contracts
 ```
 
-With podman instead:
+With podman instead of Rancher:
 
 ```sh
 podman machine start
@@ -29,6 +85,13 @@ podman compose -f sandbox/compose.yaml up -d
 
 Both were verified. `up -d` waits for Microcks to become healthy, then imports every
 contract; re-running it after editing a contract re-imports it.
+
+Two contexts read this mock, through **different kinds of relationship**, and the code
+shows the difference on purpose. Account information sits behind an anticorruption layer
+(`MicrocksLedgerAccounts` translates every field into its own vocabulary); the CIAM is a
+**conformist** (`MicrocksPaymentAccounts` hands the ledger's shape straight through),
+because the `.ddd` calls that edge "a read-only list; not worth a translation layer of
+its own".
 
 The mock is at `http://localhost:8585/rest/Bank+core+ledger/1.0.0`, and the Microcks UI
 at `http://localhost:8585`.

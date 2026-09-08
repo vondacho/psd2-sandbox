@@ -1,0 +1,13 @@
+# The TPP: its backend-for-frontend plus the SPA it serves.
+#
+# Both are already bundled by esbuild into single files, so there is nothing to install
+# here — no node_modules, no package.json in the image.
+FROM node:24-alpine
+
+COPY apps/tpp-backend/dist /app/backend
+COPY apps/tpp-web/dist /app/web
+
+ENV WEB_ROOT=/app/web
+VOLUME /pki
+
+ENTRYPOINT ["node", "/app/backend/main.js"]
