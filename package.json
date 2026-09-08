@@ -1,0 +1,11 @@
+{
+  "name": "psd2-sandbox",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run build && node apps/tpp-backend/dist/main.js",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

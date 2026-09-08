@@ -1,0 +1,115 @@
+/* One accent, one neutral ramp, generous space. A money app earns trust by being calm. */
+:root {
+  --ink: #12151a;
+  --muted: #626b7a;
+  --line: #e3e7ee;
+  --card: #ffffff;
+  --bg: #f6f8fb;
+  --accent: #1f5fd6;
+  --accent-ink: #ffffff;
+  --good: #10714b;
+  --bad: #b3261e;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgb(18 21 26 / 6%), 0 8px 24px rgb(18 21 26 / 6%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #eef1f6; --muted: #9aa4b4; --line: #262c36; --card: #171b22;
+    --bg: #0f1218; --accent: #6f9dff; --accent-ink: #0f1218;
+    --good: #63d3a4; --bad: #ff9a90;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.masthead {
+  display: flex; align-items: baseline; gap: .6rem;
+  padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--line); background: var(--card);
+}
+.brand { font-weight: 650; letter-spacing: -0.01em; }
+.by { color: var(--muted); font-size: .82rem; }
+
+main { max-width: 44rem; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+
+h1 { font-size: 1.5rem; letter-spacing: -0.02em; margin: .4rem 0 .3rem; }
+.lede { color: var(--muted); margin: 0 0 1.5rem; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+}
+
+.bank {
+  display: flex; align-items: center; gap: 1rem; width: 100%;
+  padding: 1.05rem 1.15rem; border: 0; background: none; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.bank + .bank { border-top: 1px solid var(--line); }
+.bank:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.bank:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.bank .logo { font-size: 1.6rem; line-height: 1; }
+.bank .name { font-weight: 600; }
+.bank .sub { color: var(--muted); font-size: .85rem; }
+.bank .chev { margin-left: auto; color: var(--muted); }
+
+.pill {
+  display: inline-block; font-size: .72rem; font-weight: 600; letter-spacing: .02em;
+  padding: .18rem .5rem; border-radius: 999px; text-transform: uppercase;
+}
+.pill.connected { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+.pill.pending   { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.pill.attention { background: color-mix(in srgb, var(--bad) 13%, transparent); color: var(--bad); }
+
+.account { display: flex; align-items: center; gap: 1rem; padding: 1.05rem 1.15rem; }
+.account + .account { border-top: 1px solid var(--line); }
+.account .name { font-weight: 600; }
+/* Tabular figures so IBANs and amounts line up down the column. */
+.account .iban { color: var(--muted); font-size: .84rem; font-variant-numeric: tabular-nums; }
+.amount { margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.amount .ccy { color: var(--muted); font-weight: 500; font-size: .8rem; margin-left: .25rem; }
+.amount.negative { color: var(--bad); }
+.amount.none { color: var(--muted); font-weight: 500; font-size: .86rem; }
+
+button.primary {
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px;
+  padding: .7rem 1.15rem; font: inherit; font-weight: 600; cursor: pointer;
+}
+button.primary:hover { filter: brightness(1.06); }
+button.quiet {
+  background: none; border: 1px solid var(--line); border-radius: 10px; color: var(--ink);
+  padding: .45rem .8rem; font: inherit; font-size: .86rem; cursor: pointer;
+}
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.row { display: flex; align-items: center; gap: .75rem; margin: 1.1rem 0 .5rem; }
+.row .spacer { margin-left: auto; }
+.asof { color: var(--muted); font-size: .8rem; }
+
+.notice {
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  background: var(--card); border-radius: var(--radius); padding: 1rem 1.15rem; margin: 1rem 0;
+}
+.notice.warn { border-left-color: var(--bad); }
+.notice h2 { font-size: 1.02rem; margin: 0 0 .3rem; }
+.notice p { margin: 0 0 .8rem; color: var(--muted); }
+
+/* Skeletons rather than a spinner: the shape of the answer appears before the answer. */
+.skeleton { padding: 1.05rem 1.15rem; display: flex; gap: 1rem; align-items: center; }
+.skeleton + .skeleton { border-top: 1px solid var(--line); }
+.bar { height: .7rem; border-radius: 4px; background: var(--line); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+.stale { opacity: .62; transition: opacity .2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
