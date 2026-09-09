@@ -2,7 +2,7 @@
 The [Berlin Group NextGenPSD2](https://www.berlin-group.org/psd2-access-to-bank-accounts) is a joint initiative for a PSD2-compliant XS2A interface.
 
 # What
-This project should provide a sandbox based on the [NextGenPSD2 XS2A Framework](https://c2914bdb-1b7a-4d22-b792-c58ac5d6648e.usrfiles.com/ugd/c2914b_f7066c0ffa2e4242b8a25e7b31f1278a.pdf) specification to implement an PSD2-compliant ASPSP/AIS/PIS system.
+This project aims to provide a sandbox based on the [NextGenPSD2 XS2A Framework](https://c2914bdb-1b7a-4d22-b792-c58ac5d6648e.usrfiles.com/ugd/c2914b_f7066c0ffa2e4242b8a25e7b31f1278a.pdf) specification to implement an PSD2-compliant ASPSP/AIS/PIS system.
 
 # Design
 - [XS2A sandbox — system design](docs/design/xs2a-sandbox-system-design.md): roles, decisions, flows, contracts, security controls and sandbox layout for the PSU journeys the sandbox serves. A PSU reads the accounts held at the Bank through the TPP, and pays from one of them, both with SCA by password and a QR code approved on a registered device, and with access tokens issued by an OpenID Connect provider.
