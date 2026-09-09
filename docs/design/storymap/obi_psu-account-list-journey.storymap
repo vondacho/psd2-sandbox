@@ -486,6 +486,7 @@ storymap "PSU account list journey" {
     persona "PSU"
     persona "TPP operator"
     persona "Bank product owner"
+    persona "Bank security officer"
     step "Reuse the connection" +tpp +oidc-provider +bank-xs2a +"ES column 14" {
       story "Refresh an expired access token" @MVP +tpp +oidc-provider +"spec 13.5" {
         as "PSU"
