@@ -15,7 +15,8 @@ It provides secure access to banking services and APIs.
 It must comply with PSD2 (Payment Services Directive 2) regulatory requirements.
 
 ## Bank Mobile App
-We develop our own mobile banking application that allows customers to access their accounts, perform transactions, and manage their finances on the go. 
+We develop our own mobile banking application that allows customers to access their accounts, perform transactions, and manage their finances on the go.
+The app only serves as a channel for the last authentication factor in the SCA process.
 The app integrates with our ASPSP gateway and CIAM solution to provide a secure and user-friendly experience.
 The app must comply with PSD2 regulatory requirements and support strong customer authentication (SCA) methods.
 
@@ -33,14 +34,20 @@ It acts as an intermediary between our ASPSP and third-party providers (TPPs), e
 It implements OIDC (OpenID Connect) and OAuth 2.0 protocols for authentication and authorization, enabling TPPs to access customer accounts with proper consent.
 
 ## PSU consent lifecycle management
-Not decided yet.
 The consent lifecycle management includes features such as consent expiration, revocation, and auditing, ensuring compliance with PSD2 requirements and enhancing customer trust in our banking services.
 
+### Consent screen
+The consent screen is a crucial component of the user consent lifecycle management process. It allows customers to grant or revoke access to their accounts for TPPs in a secure and user-friendly manner.
+It is presented in the TPP web application.
+It is not yet decided whether the frontend and backend parts of the consent screen will be implemented in our ASPSP gateway or in Finologee's PSD2 gateway.
+
 ### In house solution
-Our current IDP and CIAM solutions should provide a built-in user consent lifecycle management feature, which is essential for managing customer consents in compliance with PSD2 regulations.
+The frontend and backend parts may be provided by our ASPSP gateway, which communicates with our IDP and CIAM solutions to manage customer consents.
+Our current IDP and CIAM solutions may provide a built-in user consent lifecycle management feature, which is essential for managing customer consents in compliance with PSD2 regulations.
 
 ### Third-party solution
-We are considering using Finologee's user consent lifecycle management feature to handle customer consents for TPPs.
+The frontend and backend parts may be provided by Finologee's PSD2 gateway, which provides a built-in consent management feature.
+We may consider using Finologee's user consent lifecycle management feature to handle customer consents for TPPs.
 
 Finologee provides a user consent lifecycle management feature that allows customers to grant and revoke access to their accounts for TPPs.
 This feature ensures that customers have control over their data and can manage their consents in a secure manner.
