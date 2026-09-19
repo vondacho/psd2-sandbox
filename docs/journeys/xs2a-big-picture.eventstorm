@@ -3,9 +3,10 @@
 // Sources: SRC-IG (NextGenPSD2 IG v1.3.16), SRC-ADR, SRC-Q, SRC-TERM — see problem-analysis.md.
 // Every hotspot is an open question in docs/traceability/questions-and-assumptions.md (tag +Q-xx).
 // Pivotal events carry their stable id as a tag (+EVT-...); they cut the story-map backbone.
-// Iteration 3 (SRC-ADR 87c72b8): the mobile app carries only the last SCA factor; granting and
-// revoking access happens on a consent screen (ASPSP gateway or Finologee). The hotspot "overview
-// in the mobile app" (Q-26) and its opportunity were closed by that ADR and removed.
+// Iteration 4 (SRC-ADR 7ed3eb1): Ping owns the login screen, the consent screen (ASPSP gateway or
+// Finologee, D-01) grants and revokes account access, and the bank app shows the SCA screen on
+// demand from the CIAM. Hotspots closed by that ADR (Q-26, Q-44, Q-45, Q-07 split) were removed;
+// what each answer was is recorded in docs/traceability/questions-and-assumptions.md.
 eventstorm "PSD2 access to account — Big Picture" {
 
   lane "Account holder (PSU)" {
@@ -106,37 +107,42 @@ eventstorm "PSD2 access to account — Big Picture" {
     system "Ping Federate" @7
     system "Transmit" @7
     context "Customer Identity and SCA" @7
-    event "PSU authenticated" @7
-    hotspot "Ping and Transmit both authenticate; nobody has said which one runs the \
-             SCA journey, the dynamic linking and the OAuth authorisation server" @7 +"ask iam" +Q-07
-    event "PSU authenticated with the amount and payee linked" @18
+    event "PSU authenticated by the IDP" @7 {
+      note "Ping owns the login screen and authenticates the PSU (SRC-ADR 7ed3eb1)."
+    }
+    event "SCA requested on an enrolled device" @8 {
+      note "The CIAM manages device enrolment and asks the app for the SCA screen."
+    }
+    hotspot "Nobody has said who signs the SCA assertion the ASPSP gateway trusts, nor \
+             which factor category each step contributes" @8 +"ask iam" +Q-07
+    event "SCA result bound to the amount and payee" @18
   }
 
   lane "Consent screen (ASPSP gateway or Finologee)" {
-    hotspot "Is the consent screen a page the TPP redirects to, or a component embedded \
-             in the TPP web application?" @5 +"ask architecture" +Q-44
+    event "PSU authenticated on the bank login screen" @7
     event "Consent details approved on the consent screen" @8
     event "Access revoked by the PSU on the consent screen" @14
     hotspot "How does the PSU reach the consent screen to revoke, and is a revocation \
              there made towards the ASPSP (§14.15)?" @14 +"ask product" +Q-43
-    event "Payment approved on the consent screen" @18
-    hotspot "Does a payment go through the consent screen at all? The ADR names only \
-             access consent" @18 +"ask product" +Q-46
+    hotspot "Nobody has confirmed that a payment needs no browser approval page: the ADR \
+             gives the consent screen no role in payments" @18 +"ask compliance" +Q-46
   }
 
-  lane "Mobile app (last factor only)" {
+  lane "Mobile app (SCA screen)" {
     context "Mobile Banking" @8
-    event "Last authentication factor confirmed in the mobile app" @8
-    hotspot "Which factors come before the app's last factor, and how is the app \
-             triggered (push, QR code, app link)?" @8 +"ask iam" +Q-45
-    event "Payment confirmed with the last factor in the mobile app" @18
+    event "SCA screen presented on the enrolled device" @8 {
+      note "The CIAM asks the app to present it (SRC-ADR 7ed3eb1). Device enrolment is a \
+            precondition (A-16, Q-49)."
+    }
+    event "Identity and consent confirmed on the SCA screen" @8
+    event "Payment confirmed on the SCA screen with the amount and payee shown" @18
   }
 
   lane "Core banking" {
-    system "Core banking" @11
+    system "DCP Digital Client Platform" @11
     context "Core Banking" @11
-    hotspot "No core-banking interface for accounts, balances, transactions or \
-             payments is known" @11 +"ask core banking" +Q-06
+    hotspot "DCP is named as the core banking platform, but no interface for accounts, \
+             balances, transactions or payments is known" @11 +"ask core banking" +Q-06
     event "Payment booked on the debtor account" @21
   }
 }

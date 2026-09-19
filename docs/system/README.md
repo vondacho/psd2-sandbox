@@ -5,12 +5,12 @@
 > **Recommendation** are AI recommendations and **not decisions**. The decisions in §4 belong to
 > the people named in each "Decides" row.
 >
-> **Iteration 3** follows `SRC-ADR` revision `87c72b8`:
+> **Iteration 4** follows `SRC-ADR` revision `7ed3eb1` and answers the two open items the context
+> raises:
 >
-> - the mobile app only carries the last SCA factor;
-> - a consent screen — provided by the ASPSP gateway or by Finologee — lets the PSU grant and revoke access.
->
-> Sections 2, 3.1, 3.2a, 4 (`D-01`, `D-03`, `D-09`, new `D-10`) and 6 changed.
+> - Ping owns the **login screen**; Transmit owns **device enrolment**; the bank app presents the **SCA screen** on demand from the CIAM; core banking is **DCP**;
+> - [`D-01`](decisions/d-01-consent-management.md) evaluates the **make-or-buy** of consent management (`docs/context/evaluations.md`) — recommendation **Make**;
+> - [`D-02`](decisions/d-02-token-compatibility.md) answers **token compatibility** (`docs/context/questions.md`) — two trust domains bridged by token exchange at Ping.
 
 ## 1. Scope
 
@@ -30,18 +30,18 @@ does **not** design:
 
 Those stay as unscheduled stories on the [story map](../stories/xs2a-access-to-account.storymap).
 
-## 2. Current state (facts from `SRC-ADR` revision `87c72b8`, `SRC-Q`)
+## 2. Current state (facts from `SRC-ADR` revision `7ed3eb1`, `SRC-Q`, `SRC-EVAL`)
 
 | Element | Fact | Open |
 | --- | --- | --- |
 | Finologee | PSD2 gateway provider; intermediary between ASPSP and TPPs; implements OIDC/OAuth 2.0 | Integration contract, consent module use, token model (`Q-01`, `Q-02`, `Q-04`) |
 | ASPSP gateway | Built in house; must comply with PSD2 | Everything about its shape |
-| Ping Federate | Bank IDP; internal access-token issuer | Role in SCA and token exchange (`Q-07`, `D-02`) |
-| Transmit | CIAM; registration, authentication, device management | Division of SCA work with Ping (`Q-07`) |
-| Mobile app | Built in house; integrates with ASPSP gateway and CIAM; **in the PSD2 journey it only carries the last SCA authentication factor** | How it is triggered and which factors come first (`Q-45`, `D-10`) |
+| Ping Federate | Bank IDP; authenticates the PSU and **owns the login screen** in the browser; issues bank tokens | Token-exchange support (`D-02` `V1`) |
+| Transmit | CIAM; **device enrolment and device management**; asks the bank app to present the SCA screen | Factor categories, assertion signer (`Q-07`, `Q-45`) |
+| Mobile app | Built in house; presents the **SCA screen** on demand from the CIAM, where the PSU confirms identity and consent | How it is triggered in detail (`Q-45`) |
 | SCA | In house, through the bank's IDP and CIAM | Which approach TPPs see (`D-03`) |
-| Consent screen | Lets the PSU grant or revoke a TPP's access; "presented in the TPP web application"; frontend and backend from the ASPSP gateway or Finologee | Provider (`D-01`); redirect or embedded (`Q-44`); reach for revocation (`Q-43`); payments (`Q-46`) |
-| Consent lifecycle | **Not decided** — in-house (ASPSP gateway, possibly using IDP/CIAM built-in features) or Finologee | `D-01` |
+| Consent screen | Lets the PSU grant or revoke a TPP's access; **presented in the web browser** | Provider (`D-01`); reach for revocation (`Q-43`); payments excluded (`Q-46`, `Q-48`) |
+| Consent lifecycle | Make or buy, as framed in `docs/context/evaluations.md` | `D-01` — evaluated, recommendation **Make** |
 
 ## 3. Proposed future state
 
@@ -52,7 +52,7 @@ The structure lives in the LikeC4 model [`c4/xs2a.likec4`](c4/xs2a.likec4). Prev
 - `containers`
 - `gateway` (components)
 - `walkingSkeleton`
-- `psuScreens` (every PSU screen inside the element that manages it: the consent screen, whose provider is undecided, and the mobile app's last-factor screen)
+- `psuScreens` (every PSU screen inside the element that manages it: the IDP login screen, the consent screen whose provider is undecided, and the app's SCA screen)
 - `mvp`
 
 ### 3.1 Allocation of bounded contexts to components
@@ -61,12 +61,12 @@ The structure lives in the LikeC4 model [`c4/xs2a.likec4`](c4/xs2a.likec4). Prev
 | --- | --- | --- |
 | `CTX-TPP-ACCESS` | `CMP-FINOLOGEE-GW` (vendor), `CMP-XS2A-ADAPTER` (anticorruption layer) | Split proposed: `D-05` |
 | `CTX-CONSENT` | `CMP-CONSENT`, and the grant/revoke part of `CMP-CONSENT-SCREEN` | **Undecided**: `D-01` — ASPSP gateway (drawn) or Finologee |
-| `CTX-TXN-AUTHORISATION` | `CMP-AUTHORISATION`, `CMP-CONSENT-SCREEN` (UI), `CMP-PSU-CHANNEL-API` (consent-screen backend if in-house; last-factor prompt) | Proposed; consent-screen provider open: `D-01` |
+| `CTX-TXN-AUTHORISATION` | `CMP-AUTHORISATION`, `CMP-CONSENT-SCREEN` (UI), `CMP-PSU-CHANNEL-API` (consent-screen backend if in-house; SCA prompt) | Proposed; consent-screen provider open: `D-01` |
 | `CTX-PAYMENT-INITIATION` | `CMP-PAYMENT` | Proposed |
 | `CTX-ACCOUNT-INFORMATION` | `CMP-ACCOUNT-INFO`, `CMP-CORE-ADAPTER` | Proposed |
-| `CTX-CUSTOMER-IDENTITY` | `CMP-PING`, `CMP-TRANSMIT` | Fact (`SRC-ADR`); division of work open (`Q-07`) |
-| `CTX-MOBILE-BANKING` | `CMP-MOBILE-APP` — last SCA factor only | Fact (`SRC-ADR` `87c72b8`) |
-| `CTX-CORE-BANKING` | `CMP-CORE-BANKING` | Named only (`Q-06`) |
+| `CTX-CUSTOMER-IDENTITY` | `CMP-PING` (login screen, tokens), `CMP-TRANSMIT` (device enrolment, SCA trigger) | Fact (`SRC-ADR` `7ed3eb1`) |
+| `CTX-MOBILE-BANKING` | `CMP-MOBILE-APP` — the SCA screen, presented on demand by the CIAM | Fact (`SRC-ADR` `7ed3eb1`) |
+| `CTX-CORE-BANKING` | `CMP-CORE-BANKING` — the in-house **DCP Digital Client Platform** | Named (`SRC-ADR` `7ed3eb1`); interfaces open (`Q-06`) |
 
 Every component in the C4 model carries `metadata.ctx` (owning context) and
 `metadata.stories` (justification). The traceability manifest checks both.
@@ -75,42 +75,44 @@ Every component in the C4 model carries `metadata.ctx` (owning context) and
 
 - [`uml/sequence/ws-01-ais-consent-redirect.puml`](uml/sequence/ws-01-ais-consent-redirect.puml): the walking-skeleton AIS path.
 - [`uml/sequence/ws-01-pis-sct-redirect.puml`](uml/sequence/ws-01-pis-sct-redirect.puml): the walking-skeleton PIS path.
-- [`uml/sequence/mvp-psu-revoke.puml`](uml/sequence/mvp-psu-revoke.puml): PSU revokes access in the bank app.
+- [`uml/sequence/mvp-psu-revoke.puml`](uml/sequence/mvp-psu-revoke.puml): PSU revokes access on the consent screen.
 - [`uml/sequence/d-02-token-options.puml`](uml/sequence/d-02-token-options.puml): the three token options for `D-02`.
 - [`uml/state/consent-status.puml`](uml/state/consent-status.puml), [`sca-status.puml`](uml/state/sca-status.puml) and [`transaction-status.puml`](uml/state/transaction-status.puml): the three status models the spec fixes.
-- [`uml/ux/`](uml/ux/) (iteration 2): screen flows for authorisation and TPP access, plus low-fi wireframes of the three decision screens.
+- [`uml/ux/`](uml/ux/): screen flows for authorisation and TPP access, plus low-fi wireframes of the consent screen, the app SCA screen and the manage/withdraw pages.
 
-### 3.2a PSU screens and read models (iterations 2–3)
+### 3.2a PSU screens and read models
 
 The [service blueprint](../journeys/service-blueprint.md) defines every PSU-facing screen
-(`SCR-*`) and every read model (`RM-*`). Each read model names:
+(`SCR-*`) and every read model (`RM-*`), each with its consumer, decision, data, owner and
+consistency need. After `SRC-ADR` `7ed3eb1` there are **three bank surfaces**:
 
-- who decides what with it;
-- its data and sources;
-- its owning component;
-- its consistency need.
+| Surface | Managed by | Screens |
+| --- | --- | --- |
+| Login screen | `CMP-PING` (the IDP, in-house) | `SCR-IDP-LOGIN` |
+| Consent screen (browser) | `CMP-CONSENT-SCREEN` — provider is `D-01` | Grant access, wait for the app, outcome, request unavailable, no enrolled device (unscheduled), manage this TPP's access, withdraw confirmation |
+| SCA screen (bank app) | `CMP-MOBILE-APP`, presented on demand by `CMP-TRANSMIT` | `SCR-APP-SCA`, plus device enrolment (unscheduled, `A-16`) |
 
-After `SRC-ADR` `87c72b8`:
+Consequences worth stating:
 
-- **The consent screen (`CMP-CONSENT-SCREEN`) manages 9 screens:** identify, grant access, approve payment (assumed, `Q-46`), wait for the app, outcome, request unavailable, no registered app (unscheduled), manage this TPP's access, and the withdraw confirmation. It is a neutral element in the C4 model, because its provider (ASPSP gateway or Finologee) is `D-01`.
-- **The mobile app manages 1 screen:** `SCR-APP-LAST-FACTOR`, fed by the new read model `RM-LAST-FACTOR-PROMPT`.
-- **The TPP manages** the request and result screens.
-- **SCA often spans two devices:** the consent screen in a browser, and the last factor in the app. A proposed UX requirement, `UX-08`, makes that hand-over explicit.
-- **`CMP-PSU-CHANNEL-API` has two roles:**
-  - the consent-screen backend, only if `D-01` goes in-house (operations tagged `x-conditional-on: D-01`);
-  - serving the app's last-factor prompt, unless Transmit does it (`Q-45`, `D-10`).
-- **The subject digest still binds** what the PSU approved on the consent screen to what the last factor signs (`INV-AUT-05`).
-- **Consistency needs are unchanged:**
-  - strong: `RM-ACCESS-DECISION` (revocation) and `RM-REDIRECT-SESSION` (single use);
-  - eventual: `RM-SCA-DEADLINES` and `RM-CONSENTS-DUE-TO-EXPIRE`.
+- **A payment has no browser approval page.** Amount and payee are shown on the SCA screen, where the PSU "confirms his identity and his consent" (`Q-46`, `Q-48`). The browser only carries login, waiting and outcome.
+- **The subject digest** still binds what the PSU approved to what SCA signs (`INV-AUT-05`), now across three surfaces.
+- **`CMP-PSU-CHANNEL-API`** is the consent-screen backend only if `D-01` goes in-house (`x-conditional-on: D-01`); it always serves the app's SCA prompt.
+- **Consistency needs are unchanged:** strong for `RM-ACCESS-DECISION` (revocation) and `RM-REDIRECT-SESSION` (single use); eventual for the two scheduled ones.
 
-**Withdrawn in iteration 3:**
+**Withdrawn components:**
 
 | Withdrawn id | Why | Replaced by |
 | --- | --- | --- |
-| `CMP-SCA-REDIRECT-UI` | The PSU now lands on the consent screen; there is no app-to-app hand-off page | `CMP-CONSENT-SCREEN` |
+| `CMP-SCA-REDIRECT-UI` | The PSU lands on the login screen and then the consent screen; there is no app-to-app hand-off page | `CMP-PING` (login) and `CMP-CONSENT-SCREEN` |
 
-The 11 withdrawn screen ids are listed in the blueprint, §7.
+Sixteen withdrawn screen and read-model ids are listed in the blueprint, §7.
+
+### 3.2b Decision write-ups
+
+| Document | Answers | Recommendation |
+| --- | --- | --- |
+| [`decisions/d-01-consent-management.md`](decisions/d-01-consent-management.md) | `docs/context/evaluations.md` — consent screen and consent state, make or buy | **Make**, with a two-day verification of the Buy option; the deciding criteria are the access decision on every read and immediate revocation |
+| [`decisions/d-02-token-compatibility.md`](decisions/d-02-token-compatibility.md) | `docs/context/questions.md` — Finologee tokens vs Ping tokens | Keep two trust domains; bridge with RFC 8693 token exchange at Ping over mTLS; the gateway trusts only Ping |
 
 ### 3.3 Interfaces
 
@@ -120,20 +122,22 @@ The 11 withdrawn screen ids are listed in the blueprint, §7.
 | `API-XS2A-EVENTS` — internal status-change events | [`api/asyncapi/xs2a-domain-events.yaml`](api/asyncapi/xs2a-domain-events.yaml) | Event-storm policies across contexts; audit (`OBJ-04`). Conditional on `D-04` |
 | Finologee ↔ ASPSP gateway | **not written** | Vendor contract unknown (`Q-04`) |
 | ASPSP gateway ↔ core banking | **not written** | Core interface unknown (`Q-06`) |
-| `API-PSU-CHANNEL` — consent-screen backend (in-house option of `D-01`) and the app's last-factor prompt | [`api/openapi/psu-channel.yaml`](api/openapi/psu-channel.yaml) | Every operation names its screens (`x-screens`), its read model (`x-read-model`), its stories, and — where it applies — `x-conditional-on` (`D-01`, `Q-45`) |
+| `API-PSU-CHANNEL` — consent-screen backend (in-house option of `D-01`) and the app's SCA prompt | [`api/openapi/psu-channel.yaml`](api/openapi/psu-channel.yaml) | Every operation names its screens (`x-screens`), its read model (`x-read-model`), its stories, and — where it applies — `x-conditional-on` (`D-01`, `Q-45`) |
 
 ## 4. Decisions that need human authority
 
-### D-01 — Where the AIS consent lifecycle and the consent screen live (`Q-01`)
+### D-01 — Consent management: make or buy (`Q-01`, `docs/context/evaluations.md`)
+
+Evaluated in full in [`decisions/d-01-consent-management.md`](decisions/d-01-consent-management.md):
+11 weighted criteria, both options scored.
 
 | | |
 | --- | --- |
 | Decides | Architecture board, with product and compliance |
-| Options (per `SRC-ADR` `87c72b8`) | **A — in-house:** the ASPSP gateway provides the consent screen frontend and backend and the consent lifecycle, talking to the IDP and CIAM (possibly using their built-in consent features) · **B — Finologee:** Finologee's PSD2 gateway provides the consent screen and its built-in consent lifecycle |
-| Criteria | Fidelity to the XS2A consent semantics (`INV-CNS-01..06`, frequency counting on every read); where the access decision runs on each TPP read (`RM-ACCESS-DECISION`); binding of the consent-screen approval to the last factor in the bank app (`INV-AUT-05`); audit evidence; domain and branding of the consent screen (`Q-47`); vendor lock-in; time to MVP; *proven* capability |
-| Evidence gap | Neither the IDP/CIAM "may provide" (`C-03`) nor Finologee's feature has been checked against the XS2A consent model |
-| **Recommendation (revised in iteration 3)** | **No preference until a two-day capability check** of both options against `INV-CNS-01..06` and the example maps `EXMAP-CONSENT-DEDICATED`, `EXMAP-ENFORCE-FREQUENCY`, `EXMAP-PSU-REVOKE` and `EXMAP-SCA-REDIRECT-APP`. The iteration-1 argument for A — "the mobile app overview needs bank-owned data" — **no longer holds**: the app carries only the last factor. Two arguments remain. For **B**: Finologee already sits on the TPP path and could enforce the access decision itself. For **A**: the approval must be bound to an SCA result produced by the bank's own Transmit/Ping (`INV-AUT-05`), which is simpler if the approval backend is the bank's. The check should settle which one weighs more |
-| Blocks | WS-01 build start (the skeleton needs a consent store and a consent screen) |
+| Options | **Make** — ASPSP gateway, IDP and CIAM · **Buy** — Finologee's built-in consent management |
+| **Recommendation** | **Make.** The decisive criteria are that the bank must answer "may this TPP read this account now?" without calling a vendor, and that a revocation must bite on the TPP's next read. Buy wins on standard fit and time to market; those are recoverable, vendor-held consent state is not |
+| Conditions | A two-day verification of the Buy option (revocation propagation, white-label domain, audit export, OIDC delegation to Ping) before committing; write the consent example maps as acceptance tests first; keep screen and state separable |
+| Blocks | WS-01 build start |
 
 ### D-02 — Token model between Finologee and the ASPSP gateway (`Q-02`)
 
@@ -151,7 +155,7 @@ The 11 withdrawn screen ids are listed in the blueprint, §7.
 | --- | --- |
 | Decides | Product and architecture, with compliance |
 | Options | Redirect to the consent screen · OAuth2 SCA · Decoupled (no consent screen; push to the app) · Embedded |
-| **Recommendation (revised in iteration 3)** | MVP: **redirect with implicit start to the consent screen**, with the **last factor pushed to the bank app** (`D-10`). To the TPP this is the Redirect approach (§5.1.3, §6.1.1.1). This matches `SRC-ADR` `87c72b8`, *if* "presented in the TPP web application" means a redirect and not embedding (`Q-44`). An embedded consent screen would weaken phishing resistance. **Embedded SCA (PSU credentials through the TPP) is not recommended.** Compliance must confirm against [EBA-OP2], which was not supplied |
+| **Answer (iteration 4)** | **REDIRECT.** `SRC-ADR` `7ed3eb1` puts the login screen and the consent screen in the web browser, and SCA in the bank app, which is exactly the Redirect SCA approach (§5.1.3, §6.1.1.1). `Q-44` is closed: these are bank pages the TPP redirects to, not components embedded in the TPP application, so `RSK-07` falls away. Decoupled and embedded are not offered; OAuth 2.0 stays between the TPP and Finologee. Compliance confirms against [EBA-OP2], which was not supplied |
 | Blocks | WS-01 scenario, example maps `EXMAP-SCA-REDIRECT-APP` and `EXMAP-PIS-*` |
 
 ### D-04 — Propagating status changes between contexts
@@ -179,21 +183,19 @@ The 11 withdrawn screen ids are listed in the blueprint, §7.
 
 ### D-09 — Who renders the PSU's authentication and approval screens — **superseded**
 
-Taken over by `SRC-ADR` `87c72b8` (iteration 3). The PSU approves on the **consent screen**,
-not in the app, and the app carries only the last factor. Iteration 2 recommended native app
-approval screens (option A); that is no longer possible. The remaining choice — who provides
-the consent screen — is part of `D-01`. The factor split is `D-10`.
+Taken over by the ADR revisions. The PSU authenticates on the IDP login screen, approves account
+access on the consent screen, and confirms on the app's SCA screen. Iteration 2 recommended native
+app approval screens; that is no longer possible. Who provides the consent screen is part of
+`D-01`; how the factors are split is `D-10`.
 
-### D-10 — How SCA is split between the consent screen and the bank app (iteration 3)
+### D-10 — How SCA is split across the three surfaces
 
 | | |
 | --- | --- |
 | Decides | IAM with product, security and compliance |
-| Question | Which factor(s) are collected on the consent screen before the last factor (`Q-45`)? How is the app asked for the last factor: push notification, QR code, or app link? What does the app prompt show (`Q-46`)? |
-| Options | **A** consent screen collects a knowledge factor (via a Transmit / Ping web journey); the app gives possession + inherence via **push** · **B** as A, but the app is reached by a **QR code** shown on the consent screen (no push dependency) · **C** consent screen collects no factor; identification, then **push** to the app, which carries both factors |
-| Criteria | Two independent factors under the RTS (text not supplied); phishing resistance; two-device UX (`H-01`, `UX-08`); push reliability; Transmit capability (`Q-07`) |
-| **Recommendation** | None yet — it depends on Transmit's journey capabilities and the bank's current factor model, neither of which was supplied. Whichever option is chosen, the app prompt must show what is confirmed, including amount and payee for payments (`UX-01`, `INV-AUT-05`) |
-| Blocks | WS-01 (`SCR-CONSENT-IDENTIFY`, `SCR-APP-LAST-FACTOR`) |
+| **Answered by `SRC-ADR` `7ed3eb1`** | The PSU authenticates on the **IDP login screen** (Ping) in the browser; the **CIAM** then asks the **bank app** to present the **SCA screen** on an enrolled device, where the PSU confirms identity and consent. The app implements the SCA methods (MFA, biometrics, OTP) |
+| **Still open** | Which factor category each step contributes and whether they are independent under the RTS (`Q-45`); who signs the SCA assertion the gateway trusts — proposed: Ping (`A-18`, `Q-07`); what a PSU without an enrolled device is offered (`Q-21`, `Q-49`) |
+| Blocks | WS-01 (`SCR-IDP-LOGIN`, `SCR-APP-SCA`) |
 
 ### Product decisions (not architecture)
 
@@ -220,6 +222,7 @@ the consent screen — is part of `D-01`. The factor split is `D-10`.
 | `RSK-02` | Ping/Transmit cannot bind SCA to the approved subject (dynamic linking) | Capability check inside WS-01 (`INV-AUT-05`) |
 | `RSK-03` | Core banking read/submit interfaces are slow or missing (`Q-06`) | Core adapter stub in WS-01, real interface in MVP-01; anticorruption layer |
 | `RSK-04` | The MVP omits a mandatory endpoint (funds confirmation, `Q-14`) | Compliance decision before go-live (`D-08`) |
-| `RSK-06` | Two-device SCA — consent screen in the browser, last factor in the app — increases drop-off (`H-01`) | `UX-08`; measure approve → last-factor drop-off in `RM-OPS-SCA-FUNNEL` from WS-01 onwards |
-| `RSK-07` | A consent screen *embedded* in the TPP page (`Q-44`) cannot prove the bank's identity to the PSU and is exposed to clickjacking | Prefer redirect to a bank- or Finologee-owned domain; security review before `D-01` / `D-03` |
+| `RSK-06` | Three surfaces and often two devices — login and consent in the browser, SCA in the app — increase drop-off (`H-01`) | `UX-08`; measure approve → last-factor drop-off in `RM-OPS-SCA-FUNNEL` from WS-01 onwards |
+| `RSK-07` | ~~Consent screen embedded in the TPP page~~ — **closed** by `SRC-ADR` `7ed3eb1`: the login and consent screens are presented in the web browser as bank pages | closed; no mitigation needed |
+| `RSK-08` | Token exchange (`D-02`) adds a hop on every forwarded TPP request; if Ping cannot do RFC 8693 the fallback changes the integration late | Verify `V1` in WS-01 preparation; cache bank tokens per (TPP, consent) |
 | `RSK-05` | The Berlin Group licence (CC BY-ND) restricts publishing a derived profile (`Q-23`) | Legal review before this repo is shared outside the bank |

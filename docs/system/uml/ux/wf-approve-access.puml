@@ -1,6 +1,7 @@
 @startsalt wf-approve-access
 ' Low-fi wireframe — SCR-CONSENT-ACCESS (web consent screen), fed by RM-CONSENT-APPROVAL.
-' PROPOSAL, AI, 2026-09-19; iteration 3 moved it from the app to the consent screen (SRC-ADR 87c72b8).
+' PROPOSAL, AI; iteration 4: reached after the IDP login screen; the approval is then confirmed on
+' the SCA screen in the bank app (SRC-ADR 7ed3eb1).
 ' Every field maps to a read-model field; the copy is placeholder, not UX-approved (gate G1).
 ' Data: spec example consent (SRC-IG §6.3.1.1); "Sandbox AISP Ltd" is a placeholder (A-09).
 title SCR-CONSENT-ACCESS — consent screen, low-fi wireframe (proposal)
@@ -25,7 +26,7 @@ title SCR-CONSENT-ACCESS — consent screen, low-fi wireframe (proposal)
   "Your bank does not share your login details with Sandbox AISP Ltd."
   ..
   { [  Decline  ] | [  Allow  ] }
-  "After 'Allow' you confirm in your bank app."
+  "After 'Allow' you confirm on the SCA screen in your bank app."
   ..
   "Request expires in ⟨SCA window — Q-29⟩"
 }

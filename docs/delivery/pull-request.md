@@ -77,6 +77,34 @@ gateway or Finologee, which is still undecided.
   - new questions `Q-43`…`Q-47` (how the PSU reaches the consent screen to revoke; redirect or embedded; factor split; payments on the consent screen; domain and branding);
   - new contradictions `C-11` and `C-12`, and new risks `RSK-06` (two-device drop-off) and `RSK-07` (embedding).
 
+## Iteration 4 — reworked context: answers and evaluations
+
+You reworked `docs/context/**` (committed as `7ed3eb1`) and asked for the options to be evaluated
+and the questions answered.
+
+**Answers delivered:**
+
+| Asked in | Answer |
+| --- | --- |
+| `evaluations.md` — consent management, make or buy | [`D-01`](../system/decisions/d-01-consent-management.md): 11 weighted criteria, both options scored. **Recommendation: Make**, because the bank must decide every account read and every revocation without calling a vendor. Buy wins on standard fit and time to market. Conditional on a two-day verification of Finologee's capabilities; the document says what evidence would flip it |
+| `questions.md` — token compatibility | [`D-02`](../system/decisions/d-02-token-compatibility.md): do **not** make the tokens compatible. Keep two trust domains — Finologee's token for the TPP, a Ping token inside — bridged once by RFC 8693 token exchange over mTLS, with the claim set spelled out. Four items to verify, and a fallback if Ping cannot do it |
+
+**Answered by the ADR itself** (recorded in the ledger): who owns the login screen and the SCA
+screen (`Q-07`, `Q-45`), that the screens are browser pages rather than embedded (`Q-44`), and the
+consent-screen domain question (`Q-47`). Narrowed: `Q-04`, `Q-05`, `Q-06` (core banking is DCP),
+`Q-21`.
+
+**Proposed answers awaiting confirmation:** SCA approach is REDIRECT (`Q-03`), `PSU-ID` is not
+required from TPPs (`Q-31`), the consent screen is reached after the login screen from the TPP and
+from bank channels (`Q-43`), and a payment is approved on the SCA screen with no browser page
+(`Q-46`, new `Q-48`).
+
+**Artefacts reworked:** three PSU surfaces now — `SCR-IDP-LOGIN` (Ping), the consent screen
+(access only), and `SCR-APP-SCA` (bank app, where payments are approved). `RM-SCA-PROMPT` replaces
+the last-factor prompt; five more ids are withdrawn. Storms, story map, example maps, context map,
+C4, sequences, screen flows, wireframes, the PSU-channel API, both packs and the manifest follow.
+New: `Q-48`, `Q-49`, `A-16`…`A-18`, `RSK-08`; `RSK-07` closed.
+
 ## Artefacts added
 
 | Area | Files |
@@ -89,6 +117,7 @@ gateway or Finologee, which is still undecided.
 | Architecture | `docs/system/README.md` (solution design and decisions `D-01`…`D-10`, `D-09` superseded); `docs/system/c4/xs2a.likec4` (6 views); 13 × `docs/system/uml/**.puml` (6 of them UX) |
 | Contracts | `docs/system/api/openapi/xs2a-profile.yaml` (19 operations, OAS 3.1); `docs/system/api/openapi/psu-channel.yaml` (7 operations, internal, largely conditional on `D-01`); `docs/system/api/asyncapi/xs2a-domain-events.yaml` (internal, conditional on `D-04`) |
 | Delivery packs | `docs/delivery/walking-skeleton.md` (WS-01), `docs/delivery/mvp.md` (MVP-01) |
+| Decisions | `docs/system/decisions/d-01-consent-management.md` (make or buy), `d-02-token-compatibility.md` (token bridge) |
 | Traceability | `docs/traceability/manifest.yaml`, `docs/traceability/questions-and-assumptions.md`, `docs/traceability/validation-report.md` |
 | Projections | 8 × `tests/acceptance/features/*.feature`: generated from the example maps, each recording its source sha256 |
 | Tooling | `tools/sdlc/dsl.py`, `validate.py`, `examplemap_to_feature.py` |
@@ -169,12 +198,12 @@ It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-10`**. Screens involved:
 
 - the in-house DSL parsers;
 - LikeC4 1.59.3 `validate` and `export`;
-- PlantUML 1.2025.4 `-checkonly` (13/13);
+- PlantUML 1.2025.4 `-checkonly` (12/12);
 - openapi-spec-validator 0.9.0 and Redocly 2.53.3 on both OpenAPI files (0 warnings);
 - @asyncapi/parser 3.6.3;
 - @cucumber/gherkin 42.0.1 (51/51 scenarios).
 
-28 warnings are documented in [`validation-report.md`](../traceability/validation-report.md). The most important:
+29 warnings are documented in [`validation-report.md`](../traceability/validation-report.md). The most important:
 
 - `W-DSL-01` — the DSL parsers are re-implementations: **open every notation file in doc-es / doc-sm / doc-em / ba-cm before merging**;
 - `W-SM-01` — funds confirmation is empty in every slice;
@@ -184,8 +213,8 @@ It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-10`**. Screens involved:
 
 ## Assumptions and unresolved questions
 
-- 13 active assumptions and 46 open questions (`Q-01`…`Q-47`) are in [`questions-and-assumptions.md`](../traceability/questions-and-assumptions.md).
-- 34 hotspots on the storms and 41 red cards on the example maps stay red. None was answered by the AI.
+- 16 active assumptions and 39 fully open questions of `Q-01`…`Q-49` are in [`questions-and-assumptions.md`](../traceability/questions-and-assumptions.md).
+- 31 hotspots on the storms and 39 red cards on the example maps stay red. None was answered by the AI.
 - Questions that block WS-01: `Q-01`, `Q-02`, `Q-03`, `Q-04`, `Q-05`, `Q-07`, `Q-22`.
 - `Q-23` (can a CC BY-ND-derived profile be published here?) needs legal before this repository is shared.
 

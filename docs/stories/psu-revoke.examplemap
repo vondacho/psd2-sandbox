@@ -10,8 +10,9 @@ examplemap "Withdraw a TPP's access on the consent screen" {
     so   "the TPP cannot read my accounts any more"
     note "Red card Q-26 ('is revoking in the mobile app in scope?') was answered by SRC-ADR 87c72b8: \
           revocation happens on the consent screen, not in the app. What remains open is Q-43."
-    question "How does the PSU reach the consent screen to revoke, and is that a revocation towards \
-              the ASPSP (§14.15)?" +"ask product" +Q-43
+    note "Iteration 4 proposal (Q-43): the consent screen is reached after the IDP login screen, from a \
+          link the TPP offers and from the bank's own channels; a revocation there is towards the ASPSP."
+    question "Product has not confirmed the entry points, nor whether any channel shows all TPPs at once" +"ask product" +Q-43
     question "Which system holds the consent the consent screen revokes — ASPSP gateway or Finologee?" +"ask architecture" +Q-01
     question "Should the TPP be told when the PSU revokes (resource status notification is not in the \
               supplied spec)?" +"ask product" +Q-24

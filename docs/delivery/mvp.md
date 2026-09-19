@@ -8,15 +8,15 @@
 
 A bank customer can let a licensed **AISP** see the accounts, balances and transactions they
 chose. They can let a licensed **PISP** pay a merchant from their account by SEPA credit
-transfer. Both requests are approved on the bank's consent screen and confirmed with the bank
-app as the last factor. The customer can withdraw a TPP's access on the consent screen
-(iteration 3, `SRC-ADR` `87c72b8`).
+transfer. The customer logs in at the bank, grants account access on the consent screen, and
+confirms on the SCA screen in the bank app — which is also where a payment's amount and payee are
+shown. The customer can withdraw a TPP's access on the consent screen (iteration 4, `SRC-ADR` `7ed3eb1`).
 
 ## Learning hypothesis
 
 | | |
 | --- | --- |
-| We believe | that approving TPP requests on the consent screen and confirming them with the bank app as the last factor (`D-03`, `D-10`) lets PSUs complete consents and payments without abandoning, even across two devices (`H-01`, `OBJ-03`) |
+| We believe | that the three-surface journey — login screen, consent screen, SCA screen in the app (`D-03`, `D-10`) — lets PSUs complete consents and payments without abandoning, even across two devices (`H-01`, `OBJ-03`) |
 | We will know when | at least **[X] %** of authorisations started through XS2A reach `scaStatus = finalised`, and at least **[Y] %** of those finish within **[Z] minutes**, per TPP, over **[period]** |
 | Owner of X, Y, Z, period | Product (`Q-20`). No target was supplied, and the AI does not set one |
 | Second hypothesis | PSUs who reach the consent screen to manage a TPP's access use it to withdraw access they no longer want (`OBJ-02`, `H-03`). Measured by manage-screen views, revocations, and support contacts about TPP access (baseline unknown). Depends on how the PSU reaches it (`Q-43`) |
@@ -124,12 +124,11 @@ The [service blueprint](../journeys/service-blueprint.md) is the source for this
 
 | Screen | Managed by | Read model |
 | --- | --- | --- |
-| `SCR-CONSENT-IDENTIFY` | `CMP-CONSENT-SCREEN` (provider `D-01`) + Transmit/Ping (`D-10`) | `RM-REDIRECT-SESSION`, `RM-SCA-CONTEXT` |
-| `SCR-CONSENT-ACCESS` | `CMP-CONSENT-SCREEN` | `RM-CONSENT-APPROVAL` |
-| `SCR-CONSENT-PAYMENT` (assumed, `Q-46`) | `CMP-CONSENT-SCREEN` | `RM-PAYMENT-APPROVAL` |
+| `SCR-IDP-LOGIN` | `CMP-PING` (the IDP owns it) | — |
+| `SCR-CONSENT-ACCESS` | `CMP-CONSENT-SCREEN` (provider `D-01`) | `RM-CONSENT-APPROVAL` |
 | `SCR-CONSENT-AWAIT-APP`, `SCR-CONSENT-OUTCOME`, `SCR-CONSENT-UNAVAILABLE` | `CMP-CONSENT-SCREEN` | `RM-AUTHORISATION-OUTCOME` (+ `RM-REDIRECT-SESSION`) |
 | `SCR-CONSENT-MANAGE`, `SCR-CONSENT-REVOKE-CONFIRM` | `CMP-CONSENT-SCREEN` | `RM-PSU-TPP-ACCESS` (this TPP only) |
-| `SCR-APP-LAST-FACTOR` | `CMP-MOBILE-APP` + Transmit | `RM-LAST-FACTOR-PROMPT` |
+| `SCR-APP-SCA` | `CMP-MOBILE-APP`, presented by `CMP-TRANSMIT` | `RM-SCA-PROMPT`, `RM-PAYMENT-APPROVAL` |
 
 **Backstage read models the MVP depends on:**
 
@@ -138,14 +137,14 @@ The [service blueprint](../journeys/service-blueprint.md) is the source for this
 - `RM-CONSENTS-DUE-TO-EXPIRE`;
 - `RM-OPS-SCA-FUNNEL` — the source of the learning-hypothesis measure.
 
-**Open screen-content questions that block MVP screens:** `Q-35`–`Q-47`, together with
-`Q-29` and `Q-16`.
+**Open screen-content questions that block MVP screens:** `Q-35`–`Q-43`, `Q-47`–`Q-49`, together
+with `Q-29` and `Q-16`. `Q-44`, `Q-45` and `Q-46` are answered.
 
 ## UX and accessibility evidence
 
-- Usability sessions on the consent screen (access, payment, manage and revoke) and the app's last-factor prompt. Include the **two-device hand-over** (`UX-08`, `RSK-06`). Test `H-01`, `H-02` and `H-03` and the proposed requirements `UX-01`…`UX-08` of the service blueprint; UX sets the sample size. The low-fi wireframes in `docs/system/uml/ux/` are the starting point, not a design.
-- An accessibility audit of the consent screen and the app's last-factor prompt against the applicable standard (`Q-42`).
-- The path for a PSU without a registered bank app (`Q-21`).
+- Usability sessions on the consent screen (access, manage, revoke) and the app's SCA screen, including the payment variant. Include the **two-device hand-over** (`UX-08`, `RSK-06`). Test `H-01`, `H-02` and `H-03` and the proposed requirements `UX-01`…`UX-08` of the service blueprint; UX sets the sample size. The low-fi wireframes in `docs/system/uml/ux/` are the starting point, not a design.
+- An accessibility audit of the login screen, the consent screen and the app's SCA screen against the applicable standard (`Q-42`).
+- The path for a PSU without an enrolled device (`Q-21`, `Q-49`).
 
 ## Operational measures
 
@@ -158,6 +157,6 @@ The [service blueprint](../journeys/service-blueprint.md) is the source for this
 
 ## Risks, dependencies and unanswered questions
 
-- **Decisions:** `D-01`–`D-08` and `D-10` (`D-09` superseded).
-- **Blocking questions:** `Q-06`, `Q-08`, `Q-09`, `Q-11`, `Q-12`, `Q-13`, `Q-14`, `Q-16`, `Q-18`, `Q-20`, `Q-21`, `Q-25`, `Q-27`, `Q-28`, `Q-29`, `Q-30`, `Q-34`, `Q-35`–`Q-47`.
+- **Decisions:** `D-01` (evaluated), `D-02` (answered), `D-04`–`D-08`; `D-03` and `D-10` answered by the ADR; `D-09` superseded.
+- **Blocking questions:** `Q-06`, `Q-08`, `Q-09`, `Q-11`, `Q-12`, `Q-13`, `Q-14`, `Q-16`, `Q-18`, `Q-20`, `Q-21`, `Q-25`, `Q-27`, `Q-28`, `Q-29`, `Q-30`, `Q-34`, `Q-35`–`Q-43`, `Q-47`–`Q-49`.
 - **Risks:** `RSK-01`–`RSK-05` ([solution design §6](../system/README.md#6-risks)).

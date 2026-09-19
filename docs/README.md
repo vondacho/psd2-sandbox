@@ -24,6 +24,7 @@ it is accepted intent until the review gates in the
 | 6 | [stories/*.examplemap](stories/) | Rules, examples and red cards per story |
 | 7 | [domain/xs2a-access-to-account.ddd](domain/xs2a-access-to-account.ddd), [domain/*/*.ddm](domain/) | Boundaries, power, invariants |
 | 8 | [system/README.md](system/README.md) | Solution design and the decisions that need you |
+| 8a | [system/decisions/](system/decisions/) | The two write-ups: consent management make-or-buy, and token compatibility |
 | 9 | [system/c4/](system/c4/), [system/uml/](system/uml/), [system/api/](system/api/) | Structure (LikeC4 view `psuScreens`), dynamics, screen flows and wireframes (`uml/ux/`), contracts |
 | 10 | [delivery/walking-skeleton.md](delivery/walking-skeleton.md), [delivery/mvp.md](delivery/mvp.md) | What to build first, and how we will know it worked |
 | 11 | [traceability/](traceability/) | Manifest, question ledger, validation report |

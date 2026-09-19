@@ -80,14 +80,15 @@ map "PSD2 XS2A access to account" {
     }
 
     subdomain generic "Customer identity and authentication" {
-      intent "Identify and strongly authenticate PSUs on their devices. Bought: Ping Federate (IDP)
-              and Transmit (CIAM) (SRC-ADR)."
+      intent "Authenticate the PSU (Ping Federate, login screen) and carry strong authentication on an
+              enrolled device (Transmit device management, SCA screen in the bank app). Both are
+              commercial products operated in house (SRC-ADR 7ed3eb1)."
       owner  "Bank IAM team (assumed, A-12)"
 
       context "Customer Identity and SCA" {
-        intent   "Authenticate the PSU with two factors, on a registered device, bound to what is approved."
-        language "PSU identity" "authentication journey" "registered device" "SCA method"
-                 "bank access token" "dynamic linking"
+        intent   "Authenticate the PSU and bind strong authentication on an enrolled device to what was approved."
+        language "PSU identity" "login screen" "device enrolment" "enrolled device" "SCA method"
+                 "bank access token" "token exchange" "dynamic linking"
         owner    "Bank IAM team (assumed, A-12)"
         status   unmodelled
       }

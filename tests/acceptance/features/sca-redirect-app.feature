@@ -1,13 +1,13 @@
 # GENERATED from docs/stories/sca-redirect-app.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: ec3a6ec424abe7a06cfba914fa02f4a67132d9ed54b98b350dadc6ec175db6e2
+# source-sha256: ba4a151166d563445c12399b9b9232cd0c841e899afb23130db9f3527287eec9
 # generator: tools/sdlc/examplemap_to_feature.py
-# 8 open question(s) on the map have no Gherkin and are NOT represented here.
+# 6 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.
 @STORY-SCA-REDIRECT-APP
-Feature: Approve a TPP's request on the consent screen and confirm it in my bank app
+Feature: Approve a TPP's request on the consent screen and confirm it on the SCA screen
   As Account holder
-  I want to approve the TPP's request on the consent screen and confirm it with my bank app as the last factor
-  So that I never give my bank credentials to the TPP, and only my registered device can complete the approval
+  I want to log in at my bank, approve the TPP's request on the consent screen and confirm it on the SCA screen in my bank app
+  So that I never give my bank credentials to the TPP, and only my enrolled device can complete the approval
 
   # Rule R-SCA-01: A received consent comes back with a redirect link and an implicitly created authorisation
 
@@ -38,7 +38,7 @@ Feature: Approve a TPP's request on the consent screen and confirm it in my bank
   @WS-01 @R-SCA-03
   Scenario: The PSU approves
     Given consent 123cons456 in status received with authorisation 123auth567 in status received
-    When the PSU approves on the consent screen and confirms with the last factor in the bank app
+    When the PSU approves on the consent screen and confirms on the SCA screen in the bank app
     Then authorisation 123auth567 has scaStatus finalised
     And consent 123cons456 has consentStatus valid
     And the PSU is sent to https://www.example-TPP.com/xs2a-client/v1/cb
@@ -51,9 +51,9 @@ Feature: Approve a TPP's request on the consent screen and confirm it in my bank
     And consent 123cons456 has consentStatus rejected
 
   @MVP-01 @R-SCA-03 @edge-case
-  Scenario: The PSU fails the last factor
+  Scenario: The PSU rejects it on the SCA screen
     Given consent 123cons456 in status received
-    When the PSU fails the last factor in the bank app
+    When the PSU rejects the request on the SCA screen
     Then authorisation 123auth567 has scaStatus failed
     And consent 123cons456 has consentStatus rejected
 

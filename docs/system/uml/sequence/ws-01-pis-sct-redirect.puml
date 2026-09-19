@@ -2,8 +2,9 @@
 ' WS-01 walking-skeleton path, PIS part; reused unchanged by MVP-01. PROPOSAL, AI, 2026-09-19.
 ' Stories: STORY-PIS-INITIATE-SCT, STORY-PIS-SCA-REDIRECT-APP, STORY-PIS-STATUS.
 ' Redirect, implicit start (SRC-IG §5.1.3). VoP not shown (Q-16).
-' Iteration 3 (SRC-ADR 87c72b8): payment approval assumed on the consent screen (Q-46); the mobile
-' app carries only the last factor and shows amount and payee (dynamic linking, Q-46).
+' Iteration 4 (SRC-ADR 7ed3eb1): the payment is approved on the SCA screen in the bank app, where
+' amount and payee are shown (dynamic linking). The browser carries the login screen and the
+' waiting / outcome pages only (Q-46, Q-48 — proposals awaiting confirmation).
 title WS-01 — single SEPA credit transfer with redirect SCA
 
 actor "Account holder\n(test PSU)" as PSU
@@ -15,9 +16,10 @@ box "ASPSP gateway (CMP-ASPSP-GW)" #F5F5F5
   participant "Authorisation\n(CMP-AUTHORISATION)" as AUT
   participant "Core adapter\n(stub)" as CORE
 end box
-participant "Consent screen\n(provider D-01)" as CS
-participant "Mobile app\n(last factor only)" as APP
-participant "Transmit / Ping" as IAM
+participant "Bank web journey\n(login, waiting, outcome)" as CS
+participant "Mobile app\n(SCA screen)" as APP
+participant "Ping (IDP)" as PING
+participant "Transmit (CIAM)" as CIAM
 
 TPP -> FIN : POST /v1/payments/sepa-credit-transfers\n123.50 EUR, DE40…8608 -> Merchant123 DE02…8603
 FIN -> ADP : identified request
@@ -26,15 +28,15 @@ PAY -> AUT : start authorisation (implicit)
 PAY --> TPP : 201 transactionStatus=RCVD, paymentId,\n_links: scaRedirect, self, status, scaStatus
 
 TPP -> PSU : redirect to scaRedirect
-PSU -> CS : open consent screen; first factor(s) (Q-45)
-CS -> AUT : payment details (RM-PAYMENT-APPROVAL)
-PSU -> CS : approve 123.50 EUR to Merchant123
-CS -> AUT : approve + subject digest
-AUT -> IAM : request last factor, amount and payee linked (INV-AUT-05)
-IAM -> APP : push / QR / app link (Q-45)
-PSU -> APP : confirm 123.50 EUR to Merchant123 (SCR-APP-LAST-FACTOR)
-APP -> IAM : last factor
-IAM -> AUT : SCA result bound to subject digest
+PSU -> PING : SCR-IDP-LOGIN (login screen)
+PING --> CS : authenticated PSU — SCR-CONSENT-AWAIT-APP (Q-48)
+AUT -> CIAM : ask for SCA, amount and payee linked (INV-AUT-05)
+CIAM -> APP : present the SCA screen
+APP -> AUT : read RM-SCA-PROMPT (amount, payee)
+PSU -> APP : confirm 123.50 EUR to Merchant123 (SCR-APP-SCA)
+APP -> CIAM : SCA result
+CIAM -> PING : SCA assertion
+PING -> AUT : SCA result bound to subject digest
 AUT -> PAY : authorisation finalised
 PAY -> CORE : submit payment (stub, Q-06)
 CORE --> PAY : accepted

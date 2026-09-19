@@ -12,13 +12,13 @@ depend on the answer.
 
 | ID | Question | Ask | Raised in | Blocks |
 | --- | --- | --- | --- | --- |
-| `Q-01` | Where does PSU consent lifecycle management live — the ASPSP gateway (possibly using IDP/CIAM built-in features) or Finologee — and with it, who provides the consent screen frontend and backend? (`SRC-Q`; reframed by `SRC-ADR` `87c72b8`) | architecture | Big Picture @4; `psu-revoke.examplemap`; `.ddd` Consent owner; C4 `consentScreen`; `D-01` | WS-01 |
-| `Q-02` | Is the Finologee TPP token exchanged for a bank (Ping) token, or used directly? (`SRC-Q`) | architecture, iam | Big Picture @10; `d-02-token-options.puml`; `D-02` | WS-01 |
-| `Q-03` | Which SCA approaches does the bank offer: redirect, OAuth2, decoupled, embedded? | architecture, product | Big Picture @5; AIS storm @3; `D-03` | WS-01 |
-| `Q-04` | What is Finologee's integration contract towards the ASPSP gateway, and which of the two exposes the Berlin Group API to TPPs? | architecture, Finologee | `.ddd` TPP Access relationships; C4 `finologee -> edge`; `D-05` | WS-01 |
-| `Q-05` | Who validates the QWAC, TPP roles and NCA register status? Does the bank require QSealC request signing (§4.2)? | architecture | Big Picture @2; `tpp-identify.examplemap`; `STORY-TPP-SIGNATURE` | WS-01 |
-| `Q-06` | What core-banking interfaces exist for accounts, balances, transactions and payment submission? | core banking | Big Picture @11; PIS storm @12; C4 `coreAdapter` | MVP-01 |
-| `Q-07` | How do Ping and Transmit divide the SCA work? Who runs the journey, performs dynamic linking and acts as OAuth authorisation server? | iam | Big Picture @7; AIS storm @6; `sca-redirect-app.examplemap` | WS-01 |
+| `Q-01` | ~~Where does consent lifecycle management live?~~ **Evaluated in iteration 4** — [`D-01`](../system/decisions/d-01-consent-management.md) answers `docs/context/evaluations.md`: recommendation **Make** (ASPSP gateway owns consent state and screen), with a two-day verification of the Buy option. **The board still decides** | architecture | `D-01`; Big Picture @4 | WS-01 |
+| `Q-02` | ~~Finologee token exchanged for a bank token, or used directly?~~ **Answered in iteration 4** — [`D-02`](../system/decisions/d-02-token-compatibility.md): two trust domains bridged by RFC 8693 token exchange at Ping, over mTLS; the gateway trusts only Ping. Verify `V1`–`V4` | architecture, iam | `D-02`; `d-02-token-options.puml` | WS-01 |
+| `Q-03` | ~~Which SCA approaches?~~ **Answered (proposed) in iteration 4**: **REDIRECT only** — `scaRedirect` leads to the bank web journey (IDP login screen, consent screen, SCA in the app). Decoupled and embedded are not offered; OAuth2 stays between TPP and Finologee. Confirm at G4 | architecture, product | `D-03`; `SRC-ADR` login/consent/SCA screens | WS-01 |
+| `Q-04` | What is Finologee's integration contract towards the ASPSP gateway? **Narrowed by `SRC-ADR` `7ed3eb1`**: Finologee is the intermediary, authenticates the TPP from its eIDAS certificate and runs OIDC/OAuth 2.0 towards TPPs. The request contract towards the gateway, and its OIDC client role towards Ping, are still unknown | architecture, Finologee | `.ddd` TPP Access; `D-02` `V2`; `D-05` | WS-01 |
+| `Q-05` | ~~Who validates the QWAC and TPP roles?~~ **Answered**: Finologee authenticates the TPP from its eIDAS certificate (`docs/context/questions.md`). **Still open:** who checks the NCA register status, and whether the bank requires QSealC request signing (§4.2) | architecture, compliance | Big Picture @2; `tpp-identify.examplemap` | MVP-01 |
+| `Q-06` | **Narrowed by `SRC-ADR` `7ed3eb1`**: core banking is the in-house **DCP Digital Client Platform**. Which DCP interfaces serve accounts, balances, transactions and payment submission is still unknown | core banking | Big Picture @11; C4 `coreAdapter` | MVP-01 |
+| `Q-07` | ~~How do Ping and Transmit divide the SCA work?~~ **Answered by `SRC-ADR` `7ed3eb1`**: **Ping** authenticates the PSU and owns the login screen; **Transmit** manages device enrolment and asks the bank app to show the SCA screen; the app implements the SCA methods. **Still open:** who signs the SCA assertion the gateway trusts (proposed: Ping, `D-02` step 2) | iam | AIS storm @6; `D-10` | WS-01 |
 | `Q-08` | When a new recurring consent is authorised, does the former one become `expired` (§6.3.1.1) or `terminatedByTpp` (§4.14.2)? | compliance | Big Picture @9; AIS storm @11; `consent-dedicated.examplemap` R-CNS-06; `consent-status.puml` | MVP-01 |
 | `Q-09` | Which HTTP and message code does a TPP get when it reads with a consent the PSU revoked? | architecture | Big Picture @15; `psu-revoke.examplemap` R-REV-02 | MVP-01 |
 | `Q-10` | Which consent models are offered besides dedicated accounts: available accounts, bank-offered, global? | product | `consent-dedicated.examplemap` R-CNS-01; unscheduled stories | — |
@@ -32,7 +32,7 @@ depend on the answer.
 | `Q-18` | Is the MVP a production go-live to TPPs or a testing-facility release, and which obligations apply at go-live? | product, compliance | MVP pack; `D-08` | MVP-01 |
 | `Q-19` | Which jurisdiction and NCA apply, which currencies, and are multicurrency accounts relevant (§4.5)? The spec's examples are German IBANs | compliance | Problem analysis | — |
 | `Q-20` | What are the business objectives, owners and success targets? None were supplied | product | `OBJ-*`; MVP learning hypothesis; `.ddd` domain owner | MVP-01 acceptance |
-| `Q-21` | What UX research exists? What accessibility standard applies to the consent screen and the app's last-factor prompt? What happens when the PSU has **no registered bank app** at all (the last factor needs it — `SRC-ADR`)? | product, UX | Journey map; `sca-redirect-app.examplemap`; `STORY-SCA-NO-APP` | MVP-01 |
+| `Q-21` | What UX research exists, and which accessibility standard applies (see `Q-42`)? **Narrowed:** SCA needs a device enrolled with the CIAM (`SRC-ADR`), so the open part is what a PSU **without an enrolled device** is offered — enrol now, or another SCA method | product, UX | Journey map; `SCR-CONSENT-NO-DEVICE`; `STORY-SCA-NO-APP` | MVP-01 |
 | `Q-22` | Which delivery platform, CI/CD, environments, event transport and observability stack? None were supplied | engineering | C4 `observability`; AsyncAPI server; WS-01 | WS-01 |
 | `Q-23` | May a profile derived from the CC BY-ND Berlin Group IG be published in this repository? | legal | OpenAPI `info.license`; `RSK-05` | Sharing the repo |
 | `Q-24` | Will the bank support the resource status notification service (`TPP-Notification-URI`)? `[XS2A-RSNS]` was not supplied | product | `STORY-PIS-NOTIFY`; `psu-revoke.examplemap` | — |
@@ -42,7 +42,7 @@ depend on the answer.
 | `Q-28` | Which end status does the bank report (ACTC, ACCP, ACFC, ACSC)? Is it a batch- or real-time-booking bank? | core banking | Big Picture @21; PIS storm @14; `transaction-status.puml` | MVP-01 |
 | `Q-29` | How long is the SCA window before a payment becomes RJCT, or before a consent is rejected? | product | PIS storm @10; `pis-status`, `sca-redirect-app` example maps | MVP-01 |
 | `Q-30` | Error format: NextGenPSD2 `tppMessages` or RFC 7807 (§4.13.3)? | architecture | OpenAPI `Error`; A-07 | MVP-01 |
-| `Q-31` | Does the bank require the `PSU-ID` header, and how does it map to the Transmit identity? | iam | OpenAPI `PSU-ID` | — |
+| `Q-31` | ~~Does the bank require the `PSU-ID` header?~~ **Answered (proposed) in iteration 4**: no — the PSU authenticates on the bank login screen, so the bank identifies the PSU itself. `PSU-ID` stays optional and is only cross-checked when a TPP sends it. Confirm at G4 | iam | OpenAPI `PSU-ID` | — |
 | `Q-32` | Will the bank apply SCA exemptions (`scaStatus exempted`), and which ones? | compliance | `sca-status.puml` | — |
 | `Q-33` | Will the bank deliver the account owner name, and does it need an explicit consent extension? | product | `STORY-CONSENT-OWNER-NAME` | — |
 | `Q-34` | Does the bank require the authorisation confirmation call (§7.6; `unconfirmed` → `finalised`)? | architecture | AIS storm @9; `sca-redirect-app.examplemap` R-SCA-05; OpenAPI PUT operations | MVP-01 |
@@ -52,13 +52,15 @@ depend on the answer.
 | `Q-38` | Is a TPP brand shown next to the legal name, and from which source (certificate OU, a registry, a bank-maintained list)? `TPP-Brand-Logging-Information` is for logging only (§5.3.1) | product, UX | `H-02`; `UX-03`; approval and access screens | MVP-01 |
 | `Q-39` | After the decision, does the **consent screen** show an outcome, or return to the TPP at once? (was "does the app", before `SRC-ADR` `87c72b8`) | product, UX | AIS storm @10; `SCR-CONSENT-OUTCOME` | MVP-01 |
 | `Q-40` | Should the consent screen show when the TPP last read data? How fresh must it and the revocation effect be? | product | `RM-PSU-TPP-ACCESS`; `SCR-CONSENT-MANAGE` | MVP-01 |
-| `Q-41` | Are fees and currency conversion shown on the payment approval screen? | product, compliance | PIS storm @7; `RM-PAYMENT-APPROVAL` | MVP-01 |
+| `Q-41` | Are fees and currency conversion shown before approval? **Reframed in iteration 4**: the payment is approved on the **app SCA screen**, so this is about that screen, not a browser page | product, compliance | PIS storm; `RM-PAYMENT-APPROVAL` | MVP-01 |
 | `Q-42` | Which accessibility standard applies to bank screens (bank standard; the European Accessibility Act — compliance to confirm), and in which languages are they rendered (app language vs forwarded `PSU-Accept-Language`, §4.8)? | compliance, UX | Service blueprint §5 | MVP-01 |
-| `Q-43` | How does a PSU reach the consent screen to **revoke** a TPP's access: from inside the TPP's web application only, or also through a bank channel? Is a revocation made there "revoked by the PSU towards the ASPSP" (§14.15)? Is there any cross-TPP overview? (`C-12`) | product, compliance | Big Picture @14; `psu-revoke.examplemap`; `SCR-CONSENT-MANAGE` | MVP-01 |
-| `Q-44` | "Presented in the TPP web application" (`C-11`): is the consent screen a bank- or Finologee-hosted page the TPP **redirects** to, or a component **embedded** in the TPP page? What about TPPs with native mobile apps? | architecture, product, security | Big Picture @5; C4 `consentScreen`; `D-03` | WS-01 |
-| `Q-45` | Which authentication factor(s) come **before** the app's last factor, and where are they collected (consent screen via a Transmit web journey or Ping, or elsewhere)? How is the app triggered — push notification, QR code, app link? | iam, product | AIS storm @6; `SCR-CONSENT-IDENTIFY`; `D-10` | WS-01 |
-| `Q-46` | Does a **payment** authorisation also go through the consent screen (the ADR names only access consent)? Does the app's last-factor prompt show amount and payee for dynamic linking? | product, compliance, iam | PIS storm @7; `SCR-CONSENT-PAYMENT`; `RM-LAST-FACTOR-PROMPT` | WS-01 |
-| `Q-47` | On which domain and with which branding is the consent screen served: bank or Finologee? (PSU trust, phishing resistance, `UX-03`) | product, security | `SCR-CONSENT-*`; `D-01` | MVP-01 |
+| `Q-43` | How does a PSU reach the consent screen to revoke? **Answered (proposed) in iteration 4**: the consent screen is a bank web page reached after the IDP login screen, from a link the TPP offers **and** from the bank's own channels; a revocation there is towards the ASPSP (§14.15). Cross-TPP overview is still a product question | product, compliance | `psu-revoke.examplemap`; `SCR-CONSENT-MANAGE` | MVP-01 |
+| `Q-44` | ~~Redirect or embedded in the TPP page?~~ **Answered by `SRC-ADR` `7ed3eb1`**: the consent screen and the login screen "must be presented to PSU in the web browser" — a redirect to bank pages, not a component embedded in the TPP application. `C-11` is resolved and `RSK-07` closed | architecture | Big Picture @5; `D-03` | — |
+| `Q-45` | ~~Which factors come before the app, and how is the app triggered?~~ **Answered by `SRC-ADR` `7ed3eb1`**: PSU authenticates on the **IDP login screen** in the browser; the **CIAM** then asks the **bank app** to present the SCA screen on an enrolled device. **Still open:** which factor categories each step contributes, and their independence under the RTS | iam, compliance | AIS storm @6; `D-10` | WS-01 |
+| `Q-46` | ~~Do payments go through the consent screen?~~ **Answered (proposed) in iteration 4**: **no** — `SRC-ADR` defines the consent screen for granting and revoking *account access*. A payment is approved on the **app SCA screen**, where the PSU "confirms his identity and his consent" and where amount and payee are shown (dynamic linking). Confirm with compliance at G2 | compliance, product | PIS storm @7; `SCR-APP-SCA`; `Q-48` | WS-01 |
+| `Q-47` | ~~Domain and branding of the consent screen?~~ **Answered conditionally**: under `D-01` **Make** it is a bank domain with bank branding. Under Buy it must be white-labelled on a bank domain, which becomes a vendor requirement | product, security | `D-01` C8 | MVP-01 |
+| `Q-48` | For a **payment**, where does `scaRedirect` land in the browser? The ADR defines the consent screen for access consent only. Proposed: the same bank web journey — login screen, then "confirm in your app", then outcome — with no payment approval page | architecture, product | PIS storm; `SCR-CONSENT-AWAIT-APP` | WS-01 |
+| `Q-49` | Is **device enrolment** (CIAM) a precondition the XS2A journey can assume, or must the bank web journey offer enrolment inside an authorisation? | product, iam | `A-16`; `SCR-APP-DEVICE-ENROLMENT` | MVP-01 |
 
 ## Assumptions
 
@@ -82,6 +84,9 @@ reversible and needs confirmation.
 | `A-13` | IBAN is the only account reference type in the MVP | OpenAPI `AccountReference` | product |
 | `A-14` | **Withdrawn** — contradicted by `SRC-ADR` `87c72b8`. It assumed native approval and access screens in the mobile app; the app now carries only the last factor, and approval happens on the consent screen | — | — |
 | `A-15` | **Withdrawn** — contradicted by `SRC-ADR` `87c72b8`. It assumed no web approval path in the MVP; the consent screen *is* the web approval path | — | — |
+| `A-16` | The PSU has a device already enrolled with the CIAM before using a TPP; enrolment itself is a bank-wide capability outside the XS2A scope | Flows assume the SCA screen can be presented | product, iam (`Q-49`) |
+| `A-17` | A payment authorisation shows amount and payee on the app SCA screen, and there is no payment approval page in the browser | PIS flows, `SCR-APP-SCA` | compliance (`Q-46`) |
+| `A-18` | Ping issues the assertion that SCA happened, and the ASPSP gateway trusts Ping only | `D-02`; `INV-AUT-05` | iam (`Q-07`) |
 
 ## Hypotheses (product)
 
@@ -95,4 +100,4 @@ reversible and needs confirmation.
 
 ## Decisions pending
 
-`D-01`…`D-10` are described in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).
+`D-01`…`D-10` are described (with `D-01` and `D-02` written up in full under [`docs/system/decisions/`](../system/decisions/)) in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).

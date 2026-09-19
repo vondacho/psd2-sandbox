@@ -57,12 +57,14 @@ examplemap "Initiate a SEPA credit transfer" {
   }
 
   rule "The PSU approves exactly the amount and payee that were submitted" +R-PIS-05 {
-    question "Does a payment go through the consent screen at all, and does the bank app's last-factor \
-              prompt repeat amount and payee?" +"ask product" +Q-46
+    note "Iteration 4 (SRC-ADR 7ed3eb1): the payment is approved on the SCA screen in the bank app, \
+          where amount and payee are shown; the ADR gives the consent screen no role in payments."
+    question "Compliance has not confirmed that a payment needs no browser approval page before the \
+              SCA screen" +"ask compliance" +Q-46
     note "Dynamic linking; SRC-IG §5.1.9 mentions it, the RTS article was not supplied."
-    example "The payment approval shows amount and payee" @"Walking skeleton" {
+    example "The SCA screen shows amount and payee" @"Walking skeleton" {
       given "payment 1234-wertiq-983 of 123.50 EUR to Merchant123, DE02100100109307118603"
-      when  "the PSU opens the payment approval on the consent screen"
+      when  "the PSU opens the SCA screen in the bank app"
       then  "the screen shows 123.50 EUR, Merchant123 and DE02100100109307118603"
     }
   }

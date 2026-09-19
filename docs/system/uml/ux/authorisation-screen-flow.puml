@@ -1,42 +1,40 @@
 @startuml authorisation-screen-flow
-' Screen flow — authorise a TPP request (consent or payment). PROPOSAL, AI, 2026-09-19.
-' Iteration 3 (SRC-ADR 87c72b8): approval on the consent screen (provider D-01); the mobile app
-' carries only the last SCA factor, often on another device than the browser.
+' Screen flow — authorise a TPP request (consent or payment). PROPOSAL, AI.
+' Iteration 4 (SRC-ADR 7ed3eb1): three surfaces — the IDP login screen (Ping), the consent screen
+' (provider D-01) and the SCA screen in the bank app, presented on demand by the CIAM on an enrolled
+' device. A payment has no browser approval page: it is approved on the SCA screen (Q-46, Q-48).
 ' Screens (SCR-*) and read models (RM-*) are defined in docs/journeys/service-blueprint.md.
 title Authorise a TPP request — screens, managing component, read model
 
 state "SCR-TPP-REQUEST\n<i>TPP</i>" as TppReq
 state "Redirect token valid?" as Link <<choice>>
 state "SCR-CONSENT-UNAVAILABLE\n<i>CMP-CONSENT-SCREEN · RM-REDIRECT-SESSION</i>" as Unavailable
-state "SCR-CONSENT-IDENTIFY\n<i>CMP-CONSENT-SCREEN · RM-SCA-CONTEXT (factors: Q-45)</i>" as Identify
+state "SCR-IDP-LOGIN\n<i>CMP-PING — login screen, in the browser</i>" as Login
 state "Purpose" as Purpose <<choice>>
 state "SCR-CONSENT-ACCESS\n<i>CMP-CONSENT-SCREEN · RM-CONSENT-APPROVAL</i>" as Access
-state "SCR-CONSENT-PAYMENT\n<i>CMP-CONSENT-SCREEN · RM-PAYMENT-APPROVAL (Q-46)</i>" as Payment
-state "Registered app?" as HasApp <<choice>>
-state "SCR-CONSENT-NO-APP\n<i>CMP-CONSENT-SCREEN — unscheduled, Q-21</i>" as NoApp #line.dashed
-state "Last factor" as LF {
+state "Enrolled device?" as HasDevice <<choice>>
+state "SCR-CONSENT-NO-DEVICE\n<i>CMP-CONSENT-SCREEN — unscheduled, Q-21 / Q-49</i>" as NoDevice #line.dashed
+state "Strong customer authentication" as SCA {
   state "SCR-CONSENT-AWAIT-APP\n<i>browser · CMP-CONSENT-SCREEN · RM-AUTHORISATION-OUTCOME</i>" as Await
-  state "SCR-APP-LAST-FACTOR\n<i>bank app · CMP-MOBILE-APP · RM-LAST-FACTOR-PROMPT</i>" as AppLF
-  Await -right-> AppLF : push / QR / app link (Q-45)
+  state "SCR-APP-SCA\n<i>bank app · CMP-MOBILE-APP · RM-SCA-PROMPT</i>" as AppSca
+  Await -right-> AppSca : the CIAM presents the SCA screen\non an enrolled device
 }
 state "SCR-CONSENT-OUTCOME\n<i>CMP-CONSENT-SCREEN · RM-AUTHORISATION-OUTCOME</i>" as Outcome
 state "SCR-TPP-RESULT\n<i>TPP · RM-TPP-CONSENT-STATUS / RM-TPP-PAYMENT-STATUS</i>" as TppResult
 
 [*] --> TppReq
-TppReq --> Link : follow scaRedirect\n(redirect or embedded, Q-44)
-Link --> Identify : open, SCA window open
+TppReq --> Link : follow scaRedirect
+Link --> Login : open, SCA window open
 Link --> Unavailable : unknown / expired / used
-Identify --> Purpose : identified
-Identify --> Outcome : failed / cancelled
+Login --> Purpose : authenticated
+Login --> Outcome : failed / cancelled
 Purpose --> Access : consent
-Purpose --> Payment : payment
-Access --> HasApp : approve
-Payment --> HasApp : approve
+Purpose --> HasDevice : payment — no browser\napproval page (Q-46, Q-48)
+Access --> HasDevice : approve
 Access --> Outcome : decline
-Payment --> Outcome : decline
-HasApp --> LF : yes
-HasApp --> NoApp : no
-LF --> Outcome : confirmed / rejected /\ntimed out (Q-29)
+HasDevice --> SCA : yes
+HasDevice --> NoDevice : no
+SCA --> Outcome : confirmed / rejected /\ntimed out (Q-29)
 Outcome --> TppResult : "Back to ⟨TPP⟩"\n(Redirect-URI or Nok-URI)
 Unavailable --> TppResult : "Back to ⟨TPP⟩" (Nok-URI)
 TppResult --> [*]
@@ -47,5 +45,9 @@ note right of Outcome
 end note
 note left of Access
   Partial approval — Q-36. Account not held — Q-35.
+end note
+note bottom of SCA
+  For a payment the SCA screen shows amount and payee
+  (dynamic linking, INV-AUT-05, UX-01).
 end note
 @enduml

@@ -7,10 +7,10 @@
 // Iteration 2: PSU-facing screens are elements of kind appScreen / webScreen nested inside
 // the container that manages them; metadata.scr and metadata.readmodels use the SCR-/RM- ids
 // defined in docs/journeys/service-blueprint.md.
-// Iteration 3 (SRC-ADR 87c72b8): the consent screen (grant / revoke, presented in the TPP web
-// application) replaces the SCA redirect entry point; its provider — ASPSP gateway or Finologee —
-// is undecided (D-01), so it is modelled as a neutral system tagged #undecided. The mobile app keeps
-// only the last-factor screen. Withdrawn ids: docs/system/README.md §3.2a and blueprint §7.
+// Iteration 4 (SRC-ADR 7ed3eb1): Ping owns the login screen; the consent screen (grant / revoke of
+// account access, plus the shared waiting and outcome pages) is provided by the ASPSP gateway or by
+// Finologee — undecided (D-01), so it is a neutral system tagged #undecided; the bank app presents the
+// SCA screen on demand from the CIAM. Withdrawn ids: docs/system/README.md §3.2a and blueprint §7.
 
 specification {
   element actor {
@@ -105,36 +105,20 @@ model {
 
   consentScreen = system 'Consent screen' {
     #undecided #proposed #skeleton #mvp
-    technology 'Web frontend + backend, presented in the TPP web application (redirect or embedded: Q-44)'
-    description 'Lets the PSU grant or revoke a TPP access and approve requests (SRC-ADR). Provided by the ASPSP gateway (in-house) or by Finologee — undecided (D-01)'
+    technology 'Web frontend + backend, presented to the PSU in the web browser (SRC-ADR 7ed3eb1)'
+    description 'Lets the PSU grant or revoke a TPP access, and carries the waiting and outcome pages of an authorisation (SRC-ADR 7ed3eb1). Provided by the ASPSP gateway (in-house, recommended) or by Finologee — undecided (D-01)'
     metadata {
       cmp 'CMP-CONSENT-SCREEN'
       ctx 'CTX-CONSENT'
-      decisions 'D-01 Q-44 Q-47'
+      decisions 'D-01 Q-47 Q-48'
       stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-SCA-CONSENT-DETAILS STORY-SCA-OUTCOME STORY-SCA-REQUEST-UNAVAILABLE STORY-SCA-NO-APP STORY-PSU-REVOKE'
     }
 
-    identify = webScreen 'Identify yourself' {
-      #skeleton #mvp #undecided
-      description 'First factor(s) before the app last factor — which and how: Q-45'
-      metadata {
-        scr 'SCR-CONSENT-IDENTIFY'
-        readmodels 'RM-REDIRECT-SESSION RM-SCA-CONTEXT'
-      }
-    }
     grantAccess = webScreen 'Grant access' {
       #skeleton #mvp
       metadata {
         scr 'SCR-CONSENT-ACCESS'
         readmodels 'RM-CONSENT-APPROVAL'
-      }
-    }
-    approvePayment = webScreen 'Approve payment' {
-      #skeleton #mvp #undecided
-      description 'Assumed: the ADR names only access consent (Q-46)'
-      metadata {
-        scr 'SCR-CONSENT-PAYMENT'
-        readmodels 'RM-PAYMENT-APPROVAL'
       }
     }
     awaitApp = webScreen 'Confirm in your bank app' {
@@ -158,11 +142,11 @@ model {
         readmodels 'RM-REDIRECT-SESSION RM-AUTHORISATION-OUTCOME'
       }
     }
-    noApp = webScreen 'You need the bank app to confirm' {
+    noDevice = webScreen 'You need an enrolled device' {
       #undecided
-      description 'Unscheduled — options open (Q-21)'
+      description 'Unscheduled — what is offered instead is open (Q-21, Q-49)'
       metadata {
-        scr 'SCR-CONSENT-NO-APP'
+        scr 'SCR-CONSENT-NO-DEVICE'
         readmodels 'RM-SCA-CONTEXT'
       }
     }
@@ -262,12 +246,12 @@ model {
 
       psuChannel = component 'PSU channel API' {
         #proposed #skeleton #mvp
-        description 'Backend of the consent screen if D-01 goes in-house; in any case serves the app last-factor prompt (API-PSU-CHANNEL)'
+        description 'Backend of the consent screen if D-01 goes in-house; in any case serves the app SCA prompt (API-PSU-CHANNEL)'
         metadata {
           cmp 'CMP-PSU-CHANNEL-API'
           ctx 'CTX-TXN-AUTHORISATION'
           decisions 'D-01 D-10'
-          readmodels 'RM-CONSENT-APPROVAL RM-PAYMENT-APPROVAL RM-AUTHORISATION-OUTCOME RM-PSU-TPP-ACCESS RM-REDIRECT-SESSION RM-LAST-FACTOR-PROMPT'
+          readmodels 'RM-CONSENT-APPROVAL RM-PAYMENT-APPROVAL RM-AUTHORISATION-OUTCOME RM-PSU-TPP-ACCESS RM-REDIRECT-SESSION RM-SCA-PROMPT'
           interfaces 'API-PSU-CHANNEL'
           stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-SCA-CONSENT-DETAILS STORY-SCA-OUTCOME STORY-SCA-REQUEST-UNAVAILABLE STORY-PSU-REVOKE'
         }
@@ -294,37 +278,55 @@ model {
 
     mobileApp = container 'Mobile banking app' {
       #bank #skeleton #mvp
-      description 'Own mobile app; in the PSD2 journey it only carries the last SCA authentication factor (SRC-ADR 87c72b8)'
+      description 'Own mobile app; in the PSD2 journey it presents the SCA screen on demand from the CIAM (SRC-ADR 7ed3eb1)'
       metadata {
         cmp 'CMP-MOBILE-APP'
         ctx 'CTX-MOBILE-BANKING'
-        decisions 'D-10 Q-45'
+        decisions 'D-10 Q-49'
         stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP'
       }
 
-      lastFactor = appScreen 'Confirm it is you' {
+      sca = appScreen 'SCA screen' {
         #skeleton #mvp
-        description 'Biometric / PIN on the registered device; shows what is being confirmed (amount and payee for payments: Q-46)'
+        description 'Presented on demand by the CIAM on an enrolled device; the PSU confirms identity and consent, and for a payment sees amount and payee (SRC-ADR 7ed3eb1)'
         metadata {
-          scr 'SCR-APP-LAST-FACTOR'
-          readmodels 'RM-LAST-FACTOR-PROMPT'
+          scr 'SCR-APP-SCA'
+          readmodels 'RM-SCA-PROMPT RM-PAYMENT-APPROVAL'
+        }
+      }
+      enrolment = appScreen 'Device enrolment' {
+        #undecided
+        description 'CIAM device enrolment — a bank-wide capability assumed to exist (A-16, Q-49)'
+        metadata {
+          scr 'SCR-APP-DEVICE-ENROLMENT'
+          readmodels 'RM-SCA-CONTEXT'
         }
       }
     }
 
+
     ping = container 'Ping Federate' {
       #vendor #skeleton #mvp
-      description 'Bank IDP and internal access-token issuer (SRC-ADR, SRC-Q)'
+      description 'Bank IDP: authenticates the PSU, owns the login screen, issues bank tokens and performs the token exchange (SRC-ADR 7ed3eb1, D-02)'
       metadata {
         cmp 'CMP-PING'
         ctx 'CTX-CUSTOMER-IDENTITY'
         decisions 'D-02 Q-07'
+        stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP'
+      }
+
+      loginScreen = webScreen 'Login screen' {
+        #skeleton #mvp
+        description 'Managed in house by the IDP; presented to the PSU in the web browser (SRC-ADR 7ed3eb1)'
+        metadata {
+          scr 'SCR-IDP-LOGIN'
+        }
       }
     }
 
     transmit = container 'Transmit' {
       #vendor #skeleton #mvp
-      description 'CIAM: authentication journeys and device management (SRC-ADR)'
+      description 'CIAM: device enrolment and device management; asks the bank app to present the SCA screen (SRC-ADR 7ed3eb1)'
       metadata {
         cmp 'CMP-TRANSMIT'
         ctx 'CTX-CUSTOMER-IDENTITY'
@@ -332,9 +334,9 @@ model {
       }
     }
 
-    core = container 'Core banking' {
+    core = container 'DCP Digital Client Platform' {
       #bank
-      description 'Accounts, bookings, payment execution. Interface unknown (Q-06)'
+      description 'In-house core banking: PSU accounts, transactions and payment services. Interfaces unknown (Q-06)'
       metadata {
         cmp 'CMP-CORE-BANKING'
         ctx 'CTX-CORE-BANKING'
@@ -354,14 +356,16 @@ model {
 
   // ---- relationships
   psu -> tpp 'uses the TPP service'
-  psu -> consentScreen 'grants / revokes access, approves requests'
-  psu -> bank.mobileApp 'confirms with the last factor'
+  psu -> bank.ping 'logs in at the bank'
+  psu -> consentScreen 'grants / revokes account access'
+  psu -> bank.mobileApp 'confirms identity and consent on the SCA screen'
 
   tpp -> finologee 'calls XS2A over mTLS with QWAC' {
     #skeleton
   }
   finologee -> trust 'validates certificates? (Q-05)'
-  finologee -> bank.gateway.edge 'forwards identified TPP requests (contract unknown, Q-04)' {
+  finologee -> bank.ping 'token exchange: bank token for the forwarded request (D-02)'
+  finologee -> bank.gateway.edge 'forwards identified TPP requests with a Ping-issued token (D-02; vendor contract Q-04)' {
     #skeleton #undecided
   }
 
@@ -392,19 +396,20 @@ model {
 
   // ---- screens, read models and the consent-screen backend (iterations 2–3)
   psu -> tpp.tppRequest 'starts at the TPP'
-  tpp.tppRequest -> consentScreen.identify 'scaRedirect (redirect or embedded, Q-44)'
-  consentScreen.identify -> bank.transmit 'first factor(s) (Q-45)' {
-    #undecided
-  }
+  tpp.tppRequest -> bank.ping.loginScreen 'scaRedirect: the PSU authenticates at the bank first'
+  bank.ping.loginScreen -> consentScreen.grantAccess 'authenticated PSU, purpose = consent'
+  bank.ping.loginScreen -> consentScreen.awaitApp 'authenticated PSU, purpose = payment (Q-48)'
   consentScreen -> bank.gateway.psuChannel 'backend if in-house (D-01)' {
     #undecided
   }
   consentScreen -> finologee 'backend if Finologee (D-01)' {
     #undecided
   }
-  consentScreen.awaitApp -> bank.mobileApp.lastFactor 'last factor on the registered device (push / QR / app link, Q-45)'
-  bank.mobileApp.lastFactor -> bank.transmit 'last factor (RM-SCA-CONTEXT)'
-  bank.mobileApp.lastFactor -> bank.gateway.psuChannel 'reads RM-LAST-FACTOR-PROMPT (D-10)'
+  consentScreen.awaitApp -> bank.transmit 'ask for SCA on an enrolled device'
+  bank.transmit -> bank.mobileApp.sca 'present the SCA screen (SRC-ADR)'
+  bank.mobileApp.sca -> bank.transmit 'SCA result'
+  bank.mobileApp.sca -> bank.gateway.psuChannel 'reads RM-SCA-PROMPT; confirm / reject'
+  bank.mobileApp.enrolment -> bank.transmit 'device enrolment (A-16)'
   consentScreen.outcome -> tpp.tppResult 'back to TPP-Redirect-URI / Nok URI'
   consentScreen.unavailable -> tpp.tppResult 'back to TPP-Nok-Redirect-URI'
   bank.gateway.psuChannel -> bank.gateway.authorisationModule 'approval requests, decisions, redirect sessions, last-factor prompts'
@@ -466,6 +471,8 @@ views {
       tpp.*,
       consentScreen,
       consentScreen.*,
+      bank.ping,
+      bank.ping.*,
       finologee,
       bank.mobileApp,
       bank.mobileApp.*,

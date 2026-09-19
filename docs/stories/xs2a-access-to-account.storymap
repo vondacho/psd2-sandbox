@@ -6,9 +6,9 @@
 // Stable story ids are tags (+STORY-...). No #ticket and no ~status is written: the ticketing
 // system owns both, and none has been issued.
 // Activity "Confirm available funds" is deliberately empty in both bands — see Q-14.
-// Iteration 3 (SRC-ADR 87c72b8): approval and revocation happen on the consent screen; the mobile
-// app carries only the last SCA factor. Story ids are kept where the intent is unchanged; titles
-// and clauses were realigned. STORY-PSU-ACCESS-OVERVIEW lost its channel and is now unscheduled.
+// Iteration 4 (SRC-ADR 7ed3eb1): the IDP owns the login screen, the consent screen grants and
+// revokes account access, and the bank app shows the SCA screen on an enrolled device. Payments
+// are approved on the SCA screen (Q-46). Story ids are kept where the intent is unchanged.
 storymap "PSD2 XS2A access to account" {
 
   delivery "Walking skeleton" release {
@@ -99,12 +99,12 @@ storymap "PSD2 XS2A access to account" {
       }
     }
     step "Authorise at the bank" {
-      story "Approve a TPP's request on the consent screen and confirm it in my bank app" @"Walking skeleton" +skeleton +STORY-SCA-REDIRECT-APP {
+      story "Approve a TPP's request on the consent screen and confirm it on the SCA screen" @"Walking skeleton" +skeleton +STORY-SCA-REDIRECT-APP {
         as   "Account holder"
-        want "to approve the TPP's request on the consent screen and confirm it with my bank app as the last factor"
-        so   "I never give my bank credentials to the TPP, and only my registered device can complete the approval"
-        note "SRC-ADR 87c72b8 (consent screen; app = last factor). Default proposal for D-03 (redirect \
-              to the consent screen). Example map: EXMAP-SCA-REDIRECT-APP."
+        want "to log in at my bank, approve the TPP's request on the consent screen and confirm it on the SCA screen in my bank app"
+        so   "I never give my bank credentials to the TPP, and only my enrolled device can complete the approval"
+        note "SRC-ADR 7ed3eb1: IDP login screen, consent screen, SCA screen on an enrolled device. \
+              D-03 = redirect. Example map: EXMAP-SCA-REDIRECT-APP."
       }
       story "See exactly what a TPP will access before I approve" @"MVP" +STORY-SCA-CONSENT-DETAILS {
         as   "Account holder"
@@ -125,12 +125,19 @@ storymap "PSD2 XS2A access to account" {
         so   "I am not left on a dead end or tempted to approve twice"
         note "Iterations 2–3: SCR-CONSENT-UNAVAILABLE; INV-AUT-01, Q-29."
       }
-      story "Complete SCA when I have no registered bank app" +STORY-SCA-NO-APP +"ask product" {
+      story "Complete SCA when I have no enrolled device" +STORY-SCA-NO-APP +"ask product" {
         as   "Account holder"
-        want "to complete a TPP's request when I have no bank app registered for the last factor"
-        so   "not having the app does not lock me out of PSD2 services"
-        note "Reframed in iteration 3: the consent screen is web, so the app may sit on another device; \
-              what remains is the PSU with no registered app at all (SCR-CONSENT-NO-APP). Q-21, D-10."
+        want "to complete a TPP's request when I have no device enrolled for SCA"
+        so   "not having an enrolled device does not lock me out of PSD2 services"
+        note "Reframed in iteration 4: SCA needs a device enrolled with the CIAM (SRC-ADR 7ed3eb1), so \
+              the open case is the PSU without one (SCR-CONSENT-NO-DEVICE). Q-21, Q-49."
+      }
+      story "Enrol a device for SCA" +STORY-DEVICE-ENROLMENT +"ask product" {
+        as   "Account holder"
+        want "to register a device with the bank so it can be used for SCA"
+        so   "I can confirm TPP requests on the SCA screen"
+        note "Iteration 4: the CIAM owns device enrolment (SRC-ADR 7ed3eb1). A bank-wide capability, \
+              assumed to exist before XS2A (A-16); listed here because the XS2A journey depends on it. Q-49."
       }
       story "Approve through a push to my bank app" +STORY-SCA-DECOUPLED +"ask architecture" {
         as   "Account holder"
@@ -313,12 +320,12 @@ storymap "PSD2 XS2A access to account" {
       }
     }
     step "Authorise at the bank" {
-      story "Approve a payment with the amount and payee shown, and confirm it in my bank app" @"Walking skeleton" +skeleton +STORY-PIS-SCA-REDIRECT-APP {
+      story "Approve a payment on the SCA screen with the amount and payee shown" @"Walking skeleton" +skeleton +STORY-PIS-SCA-REDIRECT-APP {
         as   "Account holder"
-        want "to see the amount and the payee, approve exactly that payment and confirm it with my bank app as the last factor"
+        want "to see the amount and the payee on the SCA screen in my bank app and confirm exactly that payment"
         so   "my approval cannot be reused for a different payment"
-        note "Dynamic linking; SRC-IG §5.1.9 mentions it, the RTS text was not supplied. Whether payments \
-              use the consent screen, and whether the app prompt repeats amount and payee: Q-46."
+        note "Dynamic linking; SRC-IG §5.1.9 mentions it, the RTS text was not supplied. Iteration 4: the \
+              payment is approved on the SCA screen, with no browser approval page (Q-46, Q-48)."
       }
       story "Authorise several transactions at once" +STORY-SIGNING-BASKET {
         as   "PISP"

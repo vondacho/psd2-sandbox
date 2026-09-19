@@ -6,8 +6,9 @@
 // docs/domain/transaction-authorisation/transaction-authorisation.ddm.
 // Iteration 2: readmodel and ui cards carry the RM-/SCR- ids defined in
 // docs/journeys/service-blueprint.md.
-// Iteration 3 (SRC-ADR 87c72b8): payment approval assumed on the consent screen (Q-46); the app
-// keeps only the last SCA factor.
+// Iteration 4 (SRC-ADR 7ed3eb1): the payment is approved on the bank app SCA screen, where amount
+// and payee are shown; the browser carries only the login screen and the waiting/outcome pages
+// (Q-46, Q-48 — both proposals awaiting confirmation).
 eventstorm "PIS single payment — process and system design" {
 
   lane "PISP" {
@@ -65,34 +66,36 @@ eventstorm "PIS single payment — process and system design" {
     readmodel "Authorisation outcome" @9 +RM-AUTHORISATION-OUTCOME
   }
 
-  lane "Consent screen (ASPSP gateway or Finologee)" {
-    ui "Identify yourself" @6 +SCR-CONSENT-IDENTIFY
-    readmodel "Payment details for approval" @7 +RM-PAYMENT-APPROVAL {
-      note "Amount, currency, payee name and account, debtor account. The PSU approves exactly \
-            these values — the basis of dynamic linking (SRC-IG §5.1.9 mentions dynamic linking; \
-            the RTS article itself was not supplied)."
-    }
-    ui "Approve payment" @7 +SCR-CONSENT-PAYMENT
-    hotspot "Does a payment go through the consent screen at all? The ADR names only access consent" @7 +"ask product" +Q-46
-    hotspot "Are fees and currency conversion shown on the approval screen?" @7 +"ask product" +Q-41
-    actor "Account holder" @7
-    command "Approve payment" @7
-    command "Decline payment" @7
+  lane "Bank web journey (login and waiting pages)" {
+    ui "Login screen" @6 +SCR-IDP-LOGIN
     ui "Confirm in your bank app" @7 +SCR-CONSENT-AWAIT-APP
+    hotspot "Where does a payment redirect land in the browser? The ADR defines the consent \
+             screen for access consent only" @7 +"ask architecture" +Q-48
     ui "Outcome and return to the TPP" @9 +SCR-CONSENT-OUTCOME
   }
 
-  lane "Mobile app (last factor only)" {
-    readmodel "Last-factor prompt with amount and payee" @7 +RM-LAST-FACTOR-PROMPT
-    ui "Confirm it's you" @7 +SCR-APP-LAST-FACTOR
-    command "Confirm with the last factor" @7
+  lane "Mobile app (SCA screen)" {
+    readmodel "Payment details for approval" @7 +RM-PAYMENT-APPROVAL {
+      note "Amount, currency, payee name and account, debtor account. The PSU approves exactly \
+            these values on the SCA screen — the basis of dynamic linking (SRC-IG §5.1.9)."
+    }
+    readmodel "SCA prompt with amount and payee" @7 +RM-SCA-PROMPT
+    ui "SCA screen" @7 +SCR-APP-SCA
+    actor "Account holder" @7
+    command "Confirm identity and consent" @7
+    command "Reject the payment" @7
+    hotspot "Are fees and currency conversion shown on the SCA screen?" @7 +"ask product" +Q-41
+    hotspot "Nobody has confirmed that a payment needs no browser approval page" @7 +"ask compliance" +Q-46
   }
 
   lane "Identity and SCA (Ping Federate, Transmit)" {
-    readmodel "SCA context" @6 +RM-SCA-CONTEXT
-    command "Authenticate PSU with the amount and payee linked" @6
-    system "Transmit" @6
-    event "PSU authenticated with the amount and payee linked" @7
+    system "Ping Federate" @6
+    command "Authenticate PSU" @6
+    event "PSU authenticated by the IDP" @6
+    system "Transmit" @7
+    readmodel "SCA context" @7 +RM-SCA-CONTEXT
+    command "Request SCA on an enrolled device with the amount and payee linked" @7
+    event "SCA result bound to the amount and payee" @8
   }
 
   lane "Core banking" {

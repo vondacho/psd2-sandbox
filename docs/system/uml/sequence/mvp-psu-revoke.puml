@@ -1,15 +1,14 @@
 @startuml mvp-psu-revoke
 ' MVP-01: PSU withdraws a TPP's access on the consent screen. PROPOSAL, AI, 2026-09-19.
-' Iteration 3 (SRC-ADR 87c72b8): revocation moved from the mobile app to the consent screen
-' ("grant or revoke access", presented in the TPP web application). How the PSU reaches it is
-' open (Q-43); the provider (ASPSP gateway or Finologee) is D-01 — shown here in-house.
+' Iteration 4 (SRC-ADR 7ed3eb1): revocation happens on the consent screen in the web browser, after
+' the IDP login screen. Entry points are a proposal (Q-43); the provider is D-01 — shown in-house.
 ' Stories: STORY-PSU-REVOKE.
 title MVP-01 — PSU withdraws a TPP's access on the consent screen (assumes D-01 in-house)
 
 actor "Account holder" as PSU
 participant "AISP web application" as TPPW
 participant "Consent screen\n(CMP-CONSENT-SCREEN)" as CS
-participant "Transmit / Ping" as IAM
+participant "Ping (IDP login screen)" as IAM
 participant "PSU channel API\n(CMP-PSU-CHANNEL-API)" as CH
 participant "Consent module\n(CMP-CONSENT)" as CNS
 participant "Event outbox\n(CMP-EVENT-OUTBOX)" as OUT
@@ -17,8 +16,8 @@ participant "AISP" as TPP
 participant "Account info\n(CMP-ACCOUNT-INFO)" as ACC
 
 PSU -> TPPW : "manage bank access"
-TPPW -> CS : open consent screen (how: Q-43)
-CS -> IAM : identify PSU (factors: Q-45)
+TPPW -> CS : open consent screen (entry points: Q-43)
+CS -> IAM : SCR-IDP-LOGIN — authenticate the PSU
 CS -> CH : this TPP's access (RM-PSU-TPP-ACCESS)
 CH -> CNS : consents of PSU for Sandbox AISP Ltd
 CNS --> CS : DE40…8608, balances+transactions, until 2017-11-01

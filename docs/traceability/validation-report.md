@@ -23,7 +23,15 @@
 > - recorded `Q-26` as answered in part, withdrew `A-14`/`A-15`, superseded `D-09`, and added `Q-43`…`Q-47`, `D-10`, `RSK-06` and `RSK-07`;
 > - taught the validator to refuse withdrawn ids in active artefacts (mutation-tested).
 >
-> The counts below are after iteration 3.
+> **Iteration 4** follows your reworked context (`7ed3eb1`) and **answers the questions it asks**:
+>
+> - [`D-01`](../system/decisions/d-01-consent-management.md) evaluates consent management make-or-buy against 11 weighted criteria — recommendation **Make**, conditional on a two-day check of the Buy option;
+> - [`D-02`](../system/decisions/d-02-token-compatibility.md) answers token compatibility — two trust domains bridged by RFC 8693 token exchange at Ping, with `V1`…`V4` to verify;
+> - the ADR itself answered `Q-44`, `Q-45`, `Q-46`, `Q-47` and the `Q-07` split, and narrowed `Q-04`, `Q-05`, `Q-06` and `Q-21`; `Q-03`, `Q-31` and `Q-43` have proposed answers awaiting confirmation;
+> - screens were re-homed again — an IDP login screen, a consent screen for access only, and the app SCA screen (which is where a payment is approved) — withdrawing 5 more ids;
+> - new: `Q-48`, `Q-49`, `A-16`…`A-18`, `RSK-08`; `RSK-07` closed; `D-03` and `D-10` answered.
+>
+> The counts below are after iteration 4.
 
 ## Result
 
@@ -31,10 +39,10 @@
 | --- | --- |
 | Errors | **0** |
 | Warnings from the automated run | 9 (grouped below with manual findings as `W-*`) |
-| Manual warnings (review, not tooling) | 19 (`W-API-03` resolved in iteration 2) |
-| Open questions | 46 open of `Q-01`…`Q-47` (`Q-26` answered in part by the ADR) |
-| Assumptions | 13 active of `A-01`…`A-15` (`A-14`, `A-15` withdrawn; `A-03` now a fact) |
-| Decisions needing human authority | 9 open (`D-01`…`D-08`, `D-10`; `D-09` superseded) |
+| Manual warnings (review, not tooling) | 20 |
+| Open questions | 39 fully open of `Q-01`…`Q-49`; 6 answered (`Q-26`, `Q-44`, `Q-45`, `Q-46`, `Q-47`, plus `Q-01`/`Q-02` evaluated), 4 narrowed |
+| Assumptions | 16 active of `A-01`…`A-18` (`A-14`, `A-15` withdrawn; `A-03` now a fact) |
+| Decisions needing human authority | 6 open (`D-01`, `D-02`, `D-04`, `D-05`, `D-06`, plus product `D-07`, `D-08`); `D-03` and `D-10` answered by the ADR; `D-09` superseded |
 
 **Inventory checked:**
 
@@ -42,18 +50,18 @@
 | --- | --- |
 | Notation files | 17 |
 | Pivotal events | 6 |
-| Hotspots | 34 |
-| Stories (25 scheduled, 22 unscheduled) | 47 |
+| Hotspots | 31 (3 closed by the ADR) |
+| Stories (25 scheduled, 23 unscheduled) | 48 |
 | Example maps | 8 |
 | Rules | 36 |
 | Examples / generated scenarios | 51 |
-| Red cards | 41 |
+| Red cards | 39 |
 | Bounded contexts | 9 |
 | Invariants | 20 |
 | Components | 19 |
-| PSU-facing screens (9 consent screen, 1 app, 2 TPP) | 12 |
+| PSU-facing screens (1 IDP, 7 consent screen, 2 app, 2 TPP) | 12 |
 | Read models | 16 |
-| Withdrawn ids (11 screens, 1 component) | 12 |
+| Withdrawn ids (15 screens, 1 read model, 1 component) | 17 |
 | OpenAPI operations (19 XS2A + 7 PSU channel) | 26 |
 
 ## How it was run (reproducible)
@@ -73,7 +81,7 @@ LIKEC4_JSON=… LIKEC4=… PLANTUML_JAR=… OPENAPI_VALIDATOR=… REDOCLY=… AS
 | `tools/sdlc/dsl.py` (this proposal) | — | 3 `.eventstorm`, 1 `.storymap`, 8 `.examplemap`, 1 `.ddd`, 4 `.ddm` | passed — see `W-DSL-01` |
 | `tools/sdlc/validate.py` (this proposal) | — | identifiers, references, manifest chains, ledger, projections; **iteration 2:** every `SCR-`/`RM-` reference resolves to the blueprint, each screen's "managed by" matches its parent in C4 (mutation-tested), `ui`/`readmodel` card kinds, orphan read models | 0 errors |
 | LikeC4 CLI `validate` + `export json` | 1.59.3 | `docs/system/c4/xs2a.likec4` (6 views resolve) | passed |
-| PlantUML `-checkonly` | 1.2025.4 | 13 diagrams (7 + 6 UX) | passed |
+| PlantUML `-checkonly` | 1.2025.4 | 12 diagrams (7 + 5 UX) | passed |
 | openapi-spec-validator | 0.9.0 | `xs2a-profile.yaml`, `psu-channel.yaml` (OAS 3.1.0) | passed |
 | Redocly CLI `lint` (recommended ruleset) | 2.53.3 | `xs2a-profile.yaml`, `psu-channel.yaml` | passed, 0 warnings |
 | @asyncapi/parser | 3.6.3 | `xs2a-domain-events.yaml` (AsyncAPI 3.0.0) | passed (info: 3.1.0 available) |
@@ -119,7 +127,9 @@ LIKEC4_JSON=… LIKEC4=… PLANTUML_JAR=… OPENAPI_VALIDATOR=… REDOCLY=… AS
 | `W-UX-02` | `SCR-`/`RM-` ids are defined in Markdown tables that the validator parses. Changing the first-column format breaks the check silently. Consider moving the definitions to YAML if the blueprint grows | repo owner | — |
 | `W-UX-03` | The owner of `RM-SCA-CONTEXT`, and the factor split between `SCR-CONSENT-IDENTIFY` and `SCR-APP-LAST-FACTOR`, are open. The C4 model tags them `#undecided` | iam, UX | `Q-07`, `Q-45`, `D-10` |
 | `W-ADR-01` | Your ADR revision `87c72b8` removed two things the earlier iterations had built on: the in-app approval screens and the cross-TPP overview. Iteration 3 withdrew or re-homed them rather than keeping both versions. Check that `STORY-PSU-ACCESS-OVERVIEW` being unscheduled matches your intent | product | `Q-26`, `Q-43` |
-| `W-ADR-02` | "Presented in the TPP web application" is read as **redirect to a bank- or Finologee-hosted page** in all diagrams. If it means embedded, `D-03`, `RSK-07` and the screen flows change | architecture, security | `C-11`, `Q-44` |
+| `W-ADR-02` | ~~"Presented in the TPP web application" read as a redirect~~ — **resolved**: the reworked ADR says login and consent screens are "presented to PSU in the web browser". `C-11` and `RSK-07` are closed | — | `Q-44` |
+| `W-ADR-03` | Three readings in iteration 4 are **inferences from the ADR, not statements in it**: that a payment is approved on the SCA screen with no browser page (`A-17`, `Q-46`), that a payment redirect lands on the same bank web journey (`Q-48`), and that Ping signs the SCA assertion (`A-18`, `Q-07`). Each is flagged where it is used | compliance, iam | `Q-46`, `Q-48`, `Q-07` |
+| `W-DEC-01` | `D-01` and `D-02` are **AI recommendations with explicit criteria and verification steps**, not decisions. `D-01` depends on capabilities of Finologee and `D-02` on PingFederate's RFC 8693 support — neither verified in the supplied material | architecture, iam | `D-01`, `D-02` |
 | `W-UML-01` | §14.16 lists `scaStatus` codes but not every transition. The transitions in `sca-status.puml` are this proposal's reading | architecture | — |
 | `W-TERM-01` | `SRC-TERM` lists "eDAS"; the spec says eIDAS. Treated as a typo | author of `terminology.md` | — |
 | `W-SPEC-01` | The spec's flow diagrams use `ACCT`, `REJT` and `ACTV` (§5.1.8–5.1.10, §6.1.1), which do not exist in the code lists (§14.13, §14.15). The code lists were used | — | `C-07` |
@@ -156,8 +166,8 @@ against the doctrine.
 | `D-06` | Deployment shape of the gateway | Engineering lead | WS-01 |
 | `D-07` | Accept or change the WS-01 / MVP-01 slices | Product owner | both |
 | `D-08` | MVP-01 as production go-live or testing facility | Product owner + compliance | MVP-01 |
-| ~~`D-09`~~ | ~~Who renders the approval screens~~ — **superseded** by `SRC-ADR` `87c72b8` (consent screen; provider is part of `D-01`) | — | — |
-| `D-10` | How SCA is split between the consent screen and the bank app; how the app is triggered | IAM + product + security + compliance | WS-01 |
+| ~~`D-09`~~ | ~~Who renders the approval screens~~ — **superseded** | — | — |
+| ~~`D-10`~~ | ~~How SCA is split~~ — **answered by `SRC-ADR` `7ed3eb1`**: IDP login screen, then the SCA screen in the app on an enrolled device. Factor categories and the assertion signer remain (`Q-45`, `Q-07`) | IAM | WS-01 |
 
 The AI's recommendations for `D-01`…`D-06` and `D-10` are in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).
 They are recommendations only.
