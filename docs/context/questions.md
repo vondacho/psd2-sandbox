@@ -2,7 +2,11 @@
 
 ## Token compatibility
 
-Finologee authenticates TPP from its eDAS certificate, 
-and supports OIDC to authorize TPP to access PSU's accounts and initiate payments.
-Inside the Bank, Ping Federate is the token issuance solution to access the Bank's APIs.
-How to ensure the compatibility between the tokens issued by Finologee and the tokens accepted by Ping Federate?
+Finologee authenticates the TPP from its eIDAS certificate, and uses OIDC to authorise that TPP
+to access the PSU's accounts and to initiate payments.
+
+Inside the bank, Ping Federate is the solution that issues the tokens used to reach the bank's
+APIs.
+
+**How do we ensure that the tokens Finologee issues and the tokens Ping Federate accepts work
+together?**

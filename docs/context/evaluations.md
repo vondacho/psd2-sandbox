@@ -1,10 +1,16 @@
 # Evaluations
 
 ## Consent management
-It includes the consent screen and the consent state management.
 
-### Make Option
-It is managed in-house, by the ASPSP gateway, IDP and CIAM solutions to manage customer consents.
+Consent management covers two things: the **consent screen** and the **consent state
+management**.
 
-### Buy Option
-It is managed by Finologee's PSD2 gateway, which provides a built-in consent management feature.
+### Make option
+
+The bank runs consent management in house: the ASPSP gateway, together with the IDP and CIAM
+solutions, manages customer consents.
+
+### Buy option
+
+Finologee's PSD2 gateway runs consent management, through its built-in consent management
+feature.
