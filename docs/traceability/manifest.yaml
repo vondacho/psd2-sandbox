@@ -10,9 +10,13 @@ manifest_version: 1
 generated: 2026-09-19
 source_revision: 56c8482   # base commit the proposal was generated from
 input_revisions:
-  SRC-ADR: 7ed3eb1        # iteration 4: IDP login screen, CIAM device enrolment, app SCA screen, DCP
-  SRC-Q: 7ed3eb1          # token compatibility — answered in docs/system/decisions/d-02-token-compatibility.md
-  SRC-EVAL: 7ed3eb1       # docs/context/evaluations.md — consent management make or buy (D-01)
+  # The decisions were made in 7ed3eb1. 44ea858 rephrased all four context documents and grew the
+  # terminology; no decision, option or open question changed, so artefact citations of "SRC-ADR
+  # 7ed3eb1" still name the revision that decided.
+  SRC-ADR: { decided: 7ed3eb1, wording: 44ea858 }
+  SRC-Q: { decided: 7ed3eb1, wording: 44ea858 }     # token compatibility — answered in d-02-token-compatibility.md
+  SRC-EVAL: { decided: 7ed3eb1, wording: 44ea858 }  # consent management make or buy — answered in d-01-consent-management.md
+  SRC-TERM: { wording: 44ea858 }                    # eIDAS corrected; DCP and the three screens added
 
 conventions:
   OBJ: objective — docs/journeys/problem-analysis.md

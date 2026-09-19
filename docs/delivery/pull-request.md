@@ -123,9 +123,10 @@ New: `Q-48`, `Q-49`, `A-16`…`A-18`, `RSK-08`; `RSK-07` closed.
 | Tooling | `tools/sdlc/dsl.py`, `validate.py`, `examplemap_to_feature.py` |
 | Index | `docs/README.md` |
 
-`docs/psd2/` and `docs/ai/` are untouched. `docs/context/adr.md` changed in one commit of its
-own (`87c72b8`, authored by the repository owner): it is an *input* that iteration 3 follows,
-not a generated artefact.
+`docs/psd2/` and `docs/ai/` are untouched. `docs/context/**` are **inputs**, not generated
+artefacts, and changed in their own commits: `87c72b8` and `7ed3eb1` (authored by the repository
+owner) carry the decisions this proposal follows; `dab96b2` and `44ea858` rephrase those documents
+and grow the terminology, with no decision changed.
 
 ## Instruction files and versions used
 

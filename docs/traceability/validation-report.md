@@ -94,7 +94,7 @@ LIKEC4_JSON=… LIKEC4=… PLANTUML_JAR=… OPENAPI_VALIDATOR=… REDOCLY=… AS
 | Every file against its DSL or schema | ✅ | All notation files, C4, UML, OpenAPI, AsyncAPI and Gherkin. See `W-DSL-01` for the limits of the in-house parsers |
 | Identifier uniqueness | ✅ | `EVT`, `STORY`, `R`, `INV`, `CMP` and `operationId` checked by `validate.py` |
 | Referential integrity | ✅ | Manifest chain: objective → stage → pivotal event → activity → story → example map → rule → context → invariant → component → operation → delivery pack → test file → evidence |
-| Vocabulary consistency within contexts | ⚠️ manual | Collisions resolved in the [problem analysis §3](../journeys/problem-analysis.md#3-shared-vocabulary); `W-TERM-01`, `W-SPEC-01`, `W-SPEC-02` |
+| Vocabulary consistency within contexts | ✅ / ⚠️ manual | `W-TERM-01` resolved; the terminology now also carries DCP and the three screens. Collisions resolved in the [problem analysis §3](../journeys/problem-analysis.md#3-shared-vocabulary); `W-TERM-01`, `W-SPEC-01`, `W-SPEC-02` |
 | Compatibility of changed technical contracts | ⚠️ | No prior contract exists, so there is nothing to break. Compatibility with the official Berlin Group files was **not** checked: `W-API-02` |
 | Traceability from delivery scope to source intent | ✅ | All 24 scheduled stories have a full chain. All 20 unscheduled stories are listed with their blocking question |
 | Examples and tests tied to their source revision | ✅ / ⚠️ | Every `.feature` records the `sha256` of its example map, and `--check` detects drift. Git revision is recorded after merge (`W-SRC-01`) |
@@ -131,7 +131,7 @@ LIKEC4_JSON=… LIKEC4=… PLANTUML_JAR=… OPENAPI_VALIDATOR=… REDOCLY=… AS
 | `W-ADR-03` | Three readings in iteration 4 are **inferences from the ADR, not statements in it**: that a payment is approved on the SCA screen with no browser page (`A-17`, `Q-46`), that a payment redirect lands on the same bank web journey (`Q-48`), and that Ping signs the SCA assertion (`A-18`, `Q-07`). Each is flagged where it is used | compliance, iam | `Q-46`, `Q-48`, `Q-07` |
 | `W-DEC-01` | `D-01` and `D-02` are **AI recommendations with explicit criteria and verification steps**, not decisions. `D-01` depends on capabilities of Finologee and `D-02` on PingFederate's RFC 8693 support — neither verified in the supplied material | architecture, iam | `D-01`, `D-02` |
 | `W-UML-01` | §14.16 lists `scaStatus` codes but not every transition. The transitions in `sca-status.puml` are this proposal's reading | architecture | — |
-| `W-TERM-01` | `SRC-TERM` lists "eDAS"; the spec says eIDAS. Treated as a typo | author of `terminology.md` | — |
+| `W-TERM-01` | ~~`SRC-TERM` lists "eDAS"~~ — **resolved** in `44ea858`: the glossary now says eIDAS | — | — |
 | `W-SPEC-01` | The spec's flow diagrams use `ACCT`, `REJT` and `ACTV` (§5.1.8–5.1.10, §6.1.1), which do not exist in the code lists (§14.13, §14.15). The code lists were used | — | `C-07` |
 | `W-SPEC-02` | The spec is inconsistent about the method-selection link name (`selectAuthenticationMethods` in §6.3.1.1 vs the §4.15/§14.6 names). It is irrelevant for redirect-only MVP scope | — | `C-08` |
 | `W-DATA-01` | Test labels "Sandbox AISP Ltd", "PSU-1234", "PSU-5678", "PSDFR-ACPR-12345", "BrandA" and "BrandB" are invented placeholders. All other values are spec examples | QA | `A-09` |

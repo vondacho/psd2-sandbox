@@ -10,9 +10,9 @@
 | ID | Source | Kind | Authority |
 | --- | --- | --- | --- |
 | `SRC-IG` | `docs/psd2/NextGenPSD2 XS2A Framework.pdf` — Berlin Group *NextGenPSD2 XS2A Framework Implementation Guidelines* v1.3.16, 27 Nov 2025 | Specification | Authoritative for the XS2A interface |
-| `SRC-ADR` | `docs/context/adr.md` — revision `87c72b8` (iteration 3: mobile app limited to the last SCA factor; consent screen added) | Technical context | Bank decisions and open decisions |
+| `SRC-ADR` | `docs/context/adr.md` — decisions as of `7ed3eb1`; rephrased for clarity in `44ea858` with no change of decision | Technical context | Bank decisions and open decisions |
 | `SRC-Q` | `docs/context/questions.md` | Technical context | Open questions already raised by the team |
-| `SRC-TERM` | `docs/context/terminology.md` | Technical context | Team vocabulary |
+| `SRC-TERM` | `docs/context/terminology.md` — revision `44ea858` (eIDAS corrected; DCP, login / consent / SCA screens and device enrolment added) | Technical context | Team vocabulary |
 
 The following inputs named by the orchestration instructions were **not supplied**. Their
 absence is recorded here, not filled in:
@@ -110,7 +110,7 @@ matter for the design; per-context terms live in the context map
 | **Token** | `Consent-ID` header, an OAuth access token, or a "consent token" (§4.9 note) | Ping-issued internal token, Finologee-issued TPP token (`SRC-Q`) | Qualify by issuer: *TPP access token (Finologee)*, *bank token (Ping)* |
 | **Account id** | `resourceId`, which may be tokenised by the ASPSP (§4.11.2 remark, §14.20) | IBAN / core-banking account number | Never place an IBAN in a path (`Q-25`) |
 | **Payment** | Payment initiation resource with `transactionStatus` | Booked transaction in core banking | Say *payment initiation* for the XS2A resource |
-| **eIDAS / eDAS** | eIDAS (§3) | `SRC-TERM` spells it "eDAS" | Treat as a typo. Confirm with the author (`VAL` warning W-TERM-01) |
+| **eIDAS** | eIDAS (§3) | `SRC-TERM` used to spell it "eDAS" | Resolved in `44ea858`: the glossary says eIDAS |
 
 ## 4. Facts, claims, hypotheses, decisions, questions
 
