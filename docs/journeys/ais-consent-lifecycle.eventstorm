@@ -5,6 +5,8 @@
 // D-03 — the choice itself is still a hotspot here.
 // Aggregates match docs/domain/consent/consent.ddm and
 // docs/domain/transaction-authorisation/transaction-authorisation.ddm.
+// Iteration 2: readmodel and ui cards carry the RM-/SCR- ids defined in
+// docs/journeys/service-blueprint.md.
 eventstorm "AIS consent lifecycle — process and system design" {
 
   lane "AISP" {
@@ -16,7 +18,7 @@ eventstorm "AIS consent lifecycle — process and system design" {
     event "PSU sent to the SCA redirect link" @5
     event "PSU returned to the TPP" @12
     command "Read consent status" @13
-    readmodel "Consent status" @13
+    readmodel "Consent status" @13 +RM-TPP-CONSENT-STATUS
     command "Delete consent" @15
   }
 
@@ -40,11 +42,16 @@ eventstorm "AIS consent lifecycle — process and system design" {
             of the same TPP and PSU" @11
     event "Former recurring consent ended" @11
     hotspot "Is the former consent 'expired' (§6.3.1.1) or 'terminatedByTpp' (§4.14.2)?" @11 +"ask compliance" +Q-08
+    readmodel "Consents due to expire" @14 +RM-CONSENTS-DUE-TO-EXPIRE
     policy "Whenever validUntil has passed, or a one-off consent has been used, expire the consent" @14
     event "Consent expired" @14
     event "Consent revoked by the PSU" @15
     event "Consent terminated by the TPP" @15
     event "Consent ended" @16 +EVT-CONSENT-ENDED
+    readmodel "Access decision for an account read" @16 +RM-ACCESS-DECISION {
+      note "Read by Account Information on every read: a revoked, expired or terminated consent \
+            refuses the TPP's next read (H-03)."
+    }
   }
 
   lane "ASPSP gateway — Transaction Authorisation" {
@@ -53,24 +60,42 @@ eventstorm "AIS consent lifecycle — process and system design" {
     event "Authorisation started" @4 {
       note "scaStatus = received; the response carries scaRedirect, scaStatus and status links."
     }
+    readmodel "Redirect session" @5 +RM-REDIRECT-SESSION
     hotspot "Does the bank require the confirmation call, so that an authorisation passes \
              through 'unconfirmed' before 'finalised' (§7.6)?" @9 +"ask architecture" +Q-34
     command "Record SCA result" @9
     aggregate "Authorisation" @9
     event "Authorisation finalised" @9
     event "Authorisation failed" @9
+    readmodel "Authorisation outcome" @10 +RM-AUTHORISATION-OUTCOME
+    readmodel "SCA deadlines" @10 +RM-SCA-DEADLINES
+    policy "Whenever the SCA window closes without a result, fail the authorisation" @10
+    hotspot "How long is the SCA window for a consent?" @10 +"ask product" +Q-29
   }
 
   lane "Bank SCA redirect and mobile app" {
-    ui "Bank authorisation page" @6
-    readmodel "Consent details for approval" @7 {
+    ui "Request no longer available" @5 +SCR-REDIRECT-INVALID
+    ui "Request no longer available in the app" @5 +SCR-APP-REQUEST-UNAVAILABLE
+    ui "Bank authorisation page" @6 +SCR-REDIRECT-HANDOFF
+    ui "Authenticate in the bank app" @6 +SCR-APP-AUTHENTICATE
+    ui "No bank app on this device" @6 +SCR-REDIRECT-NO-APP
+    hotspot "What does the PSU see when the device has no bank app?" @6 +"ask product" +Q-21
+    readmodel "Consent details for approval" @7 +RM-CONSENT-APPROVAL {
       note "TPP legal name (and brand, if the bank uses OU — SRC-IG §4.9), accounts, access types, \
             validUntil, frequencyPerDay. Shown so the PSU approves what the TPP asked for."
     }
-    ui "Approve access screen" @7
+    ui "Approve access screen" @7 +SCR-APP-APPROVE-ACCESS
+    hotspot "Can the PSU deselect accounts or access types before approving?" @7 +"ask product" +Q-36
+    hotspot "What does the PSU see when the TPP names an account the PSU does not hold?" @7 +"ask product" +Q-35
     actor "Account holder" @8
     command "Approve consent" @8
-    readmodel "TPP access overview" @15
+    command "Decline consent" @8
+    ui "Outcome and return to the TPP" @10 +SCR-APP-DECISION-OUTCOME
+    hotspot "Show an outcome screen before returning to the TPP, or return at once?" @10 +"ask product" +Q-39
+    readmodel "TPP access overview" @15 +RM-PSU-TPP-ACCESS
+    ui "Connected providers" @15 +SCR-APP-TPP-ACCESS-LIST
+    ui "Provider access detail" @15 +SCR-APP-TPP-ACCESS-DETAIL
+    ui "Withdraw access confirmation" @15 +SCR-APP-REVOKE-CONFIRM
     command "Revoke access" @15
     hotspot "Who owns the data behind the TPP access overview if the consent lives outside \
              the bank?" @15 +"ask product" +Q-26
@@ -80,6 +105,7 @@ eventstorm "AIS consent lifecycle — process and system design" {
     command "Authenticate PSU" @6
     system "Transmit" @6
     system "Ping Federate" @6
+    readmodel "SCA context" @6 +RM-SCA-CONTEXT
     event "PSU authenticated" @7
     hotspot "Which of Ping or Transmit runs this journey and signs the SCA result?" @6 +"ask iam" +Q-07
   }

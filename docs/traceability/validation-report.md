@@ -4,6 +4,17 @@
 > [`docs/ai/20-review-and-delivery-policy.md`](../ai/20-review-and-delivery-policy.md) §Validation.
 > A clean result below is **evidence, not acceptance**. Acceptance happens only at the human
 > review gates G1–G5 (end of this report).
+>
+> **Iteration 2 (UX)** added:
+> - the [service blueprint](../journeys/service-blueprint.md): 13 screens and 15 read models;
+> - `readmodel` and `ui` cards on both process storms;
+> - three stories;
+> - screens in the C4 model (view `psuScreens`), with the new component `CMP-PSU-CHANNEL-API`;
+> - `API-PSU-CHANNEL`;
+> - two screen flows and three wireframes;
+> - `Q-35`…`Q-42`, `A-14`, `A-15` and `D-09`.
+>
+> The counts below are after iteration 2.
 
 ## Result
 
@@ -11,10 +22,10 @@
 | --- | --- |
 | Errors | **0** |
 | Warnings from the automated run | 9 (grouped below with manual findings as `W-*`) |
-| Manual warnings (review, not tooling) | 15 |
-| Open questions | 34 (`Q-01`…`Q-34`) |
-| Assumptions | 13 (`A-01`…`A-13`) |
-| Decisions needing human authority | 8 (`D-01`…`D-08`) |
+| Manual warnings (review, not tooling) | 17 (`W-API-03` resolved in iteration 2) |
+| Open questions | 42 (`Q-01`…`Q-42`) |
+| Assumptions | 15 (`A-01`…`A-15`) |
+| Decisions needing human authority | 9 (`D-01`…`D-09`) |
 
 **Inventory checked:**
 
@@ -22,16 +33,18 @@
 | --- | --- |
 | Notation files | 17 |
 | Pivotal events | 6 |
-| Hotspots | 22 |
-| Stories (24 scheduled, 20 unscheduled) | 44 |
+| Hotspots | 28 |
+| Stories (26 scheduled, 21 unscheduled) | 47 |
 | Example maps | 8 |
 | Rules | 36 |
 | Examples / generated scenarios | 51 |
 | Red cards | 38 |
 | Bounded contexts | 9 |
 | Invariants | 20 |
-| Components | 18 |
-| OpenAPI operations | 19 |
+| Components | 19 |
+| PSU-facing screens (11 bank, 2 TPP) | 13 |
+| Read models | 15 |
+| OpenAPI operations (19 XS2A + 6 PSU channel) | 25 |
 
 ## How it was run (reproducible)
 
@@ -48,11 +61,11 @@ LIKEC4_JSON=… LIKEC4=… PLANTUML_JAR=… OPENAPI_VALIDATOR=… REDOCLY=… AS
 | Validator | Version | Scope | Result |
 | --- | --- | --- | --- |
 | `tools/sdlc/dsl.py` (this proposal) | — | 3 `.eventstorm`, 1 `.storymap`, 8 `.examplemap`, 1 `.ddd`, 4 `.ddm` | passed — see `W-DSL-01` |
-| `tools/sdlc/validate.py` (this proposal) | — | identifiers, references, manifest chains, ledger, projections | 0 errors |
-| LikeC4 CLI `validate` + `export json` | 1.59.3 | `docs/system/c4/xs2a.likec4` (5 views resolve) | passed |
-| PlantUML `-checkonly` | 1.2025.4 | 7 diagrams | passed |
-| openapi-spec-validator | 0.9.0 | `xs2a-profile.yaml` (OAS 3.1.0) | passed |
-| Redocly CLI `lint` (recommended ruleset) | 2.53.3 | `xs2a-profile.yaml` | passed, 0 warnings |
+| `tools/sdlc/validate.py` (this proposal) | — | identifiers, references, manifest chains, ledger, projections; **iteration 2:** every `SCR-`/`RM-` reference resolves to the blueprint, each screen's "managed by" matches its parent in C4 (mutation-tested), `ui`/`readmodel` card kinds, orphan read models | 0 errors |
+| LikeC4 CLI `validate` + `export json` | 1.59.3 | `docs/system/c4/xs2a.likec4` (6 views resolve; `psuScreens` 26 nodes) | passed |
+| PlantUML `-checkonly` | 1.2025.4 | 12 diagrams (7 + 5 UX) | passed |
+| openapi-spec-validator | 0.9.0 | `xs2a-profile.yaml`, `psu-channel.yaml` (OAS 3.1.0) | passed |
+| Redocly CLI `lint` (recommended ruleset) | 2.53.3 | `xs2a-profile.yaml`, `psu-channel.yaml` | passed, 0 warnings |
 | @asyncapi/parser | 3.6.3 | `xs2a-domain-events.yaml` (AsyncAPI 3.0.0) | passed (info: 3.1.0 available) |
 | @cucumber/gherkin | 42.0.1 | 8 generated `.feature` files, 51 scenarios | passed |
 
@@ -91,7 +104,10 @@ LIKEC4_JSON=… LIKEC4=… PLANTUML_JAR=… OPENAPI_VALIDATOR=… REDOCLY=… AS
 | `W-DDM-01` | "A new recurring consent ends the former one" (§6.3.1.1) spans two `Consent` aggregates. It is modelled as an eventually consistent policy, not as an invariant, and its target status is disputed | domain experts | `Q-08` |
 | `W-API-01` | The profile uses OpenAPI **3.1** (`mutualTLS` security scheme). The Berlin Group publishes 3.0.x files, so check that the Finologee and bank tooling accept 3.1 | architecture | `Q-04` |
 | `W-API-02` | The official Berlin Group v1.3.16 OpenAPI file was not supplied, so the profile was written from the IG text. Before implementation, run a compatibility diff against the official file. `TransactionDetails` is a deliberate minimal subset of §14.25 | architecture | `Q-23` |
-| `W-API-03` | The mobile app ↔ gateway API needed by `STORY-PSU-ACCESS-OVERVIEW` and `STORY-PSU-REVOKE` is **not specified** — those two MVP stories have no interface yet | architecture | `Q-26`, `D-01` |
+| `W-API-03` | ~~The mobile app ↔ gateway API is not specified~~. **Resolved in iteration 2** by `API-PSU-CHANNEL`, which still assumes `D-01` option A and `A-14` | architecture | `Q-26`, `D-01`, `D-09` |
+| `W-UX-01` | Screens, flows and wireframes are derived from the spec and the models, **not from UX research** (`Q-21`). Wireframe copy is placeholder, and "Sandbox PISP Ltd" and "Budget Buddy" are invented labels (`A-09`) | UX | `Q-21` |
+| `W-UX-02` | `SCR-`/`RM-` ids are defined in Markdown tables that the validator parses. Changing the first-column format breaks the check silently. Consider moving the definitions to YAML if the blueprint grows | repo owner | — |
+| `W-UX-03` | The owner of `RM-SCA-CONTEXT`, and who renders `SCR-APP-AUTHENTICATE`, are open. The C4 model tags the screen `#undecided` | iam, UX | `Q-07`, `D-09` |
 | `W-UML-01` | §14.16 lists `scaStatus` codes but not every transition. The transitions in `sca-status.puml` are this proposal's reading | architecture | — |
 | `W-TERM-01` | `SRC-TERM` lists "eDAS"; the spec says eIDAS. Treated as a typo | author of `terminology.md` | — |
 | `W-SPEC-01` | The spec's flow diagrams use `ACCT`, `REJT` and `ACTV` (§5.1.8–5.1.10, §6.1.1), which do not exist in the code lists (§14.13, §14.15). The code lists were used | — | `C-07` |
@@ -128,18 +144,19 @@ against the doctrine.
 | `D-06` | Deployment shape of the gateway | Engineering lead | WS-01 |
 | `D-07` | Accept or change the WS-01 / MVP-01 slices | Product owner | both |
 | `D-08` | MVP-01 as production go-live or testing facility | Product owner + compliance | MVP-01 |
+| `D-09` | Who renders the PSU's authentication and approval screens | UX + architecture + IAM | WS-01 |
 
-The AI's recommendations for `D-01`…`D-06` are in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).
+The AI's recommendations for `D-01`…`D-06` and `D-09` are in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).
 They are recommendations only.
 
 ## Review gates
 
 | Gate | Reviewers | Reviews |
 | --- | --- | --- |
-| G1 | Product, UX | Problem analysis, journey map, objectives, story map slices, MVP hypothesis |
+| G1 | Product, UX | Problem analysis, journey map, **service blueprint, screen flows, wireframes, `UX-01`…`UX-07`**, objectives, story map slices, MVP hypothesis |
 | G2 | Domain experts (payments, compliance) | Event storms, context map, domain models, invariants, hotspots |
 | G3 | Product, QA, development (Three Amigos) | Example maps — run each session and vote; regenerate the features |
-| G4 | Architects, engineers, security, IAM | C4, UML, OpenAPI, AsyncAPI, `D-01`…`D-06` |
+| G4 | Architects, engineers, security, IAM | C4, UML, OpenAPI (incl. `API-PSU-CHANNEL`), AsyncAPI, `D-01`…`D-06`, `D-09` |
 | G5 | Delivery, operations | Walking-skeleton and MVP packs, evidence, observability |
 
 Reviewers may edit the models on the boards (doc-es, doc-sm, doc-em, ba-cm). The as-code files

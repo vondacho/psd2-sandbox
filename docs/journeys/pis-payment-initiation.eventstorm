@@ -4,6 +4,8 @@
 // (SRC-IG §5.1.3), as the proposed default of D-03.
 // Aggregates match docs/domain/payment-initiation/payment-initiation.ddm and
 // docs/domain/transaction-authorisation/transaction-authorisation.ddm.
+// Iteration 2: readmodel and ui cards carry the RM-/SCR- ids defined in
+// docs/journeys/service-blueprint.md.
 eventstorm "PIS single payment — process and system design" {
 
   lane "PISP" {
@@ -16,7 +18,7 @@ eventstorm "PIS single payment — process and system design" {
     event "PSU sent to the SCA redirect link" @5
     event "PSU returned to the TPP" @10
     command "Read payment status" @11
-    readmodel "Payment status" @11
+    readmodel "Payment status" @11 +RM-TPP-PAYMENT-STATUS
   }
 
   lane "ASPSP gateway — Payment Initiation" {
@@ -37,6 +39,7 @@ eventstorm "PIS single payment — process and system design" {
     command "Submit payment for execution" @9
     aggregate "Payment Initiation" @9
     event "Payment authorised by the PSU" @9 +EVT-PAYMENT-AUTHORISED
+    readmodel "SCA deadlines" @10 +RM-SCA-DEADLINES
     policy "Whenever the SCA window closes without a finalised authorisation, reject the \
             payment" @10
     hotspot "How long is the SCA window before a payment becomes RJCT (§5.4)?" @10 +"ask product" +Q-29
@@ -57,21 +60,27 @@ eventstorm "PIS single payment — process and system design" {
     aggregate "Authorisation" @8
     event "Authorisation finalised" @8
     event "Authorisation failed" @8
+    readmodel "Authorisation outcome" @9 +RM-AUTHORISATION-OUTCOME
   }
 
   lane "Bank SCA redirect and mobile app" {
-    ui "Bank authorisation page" @6
-    readmodel "Payment details for approval" @7 {
+    ui "Bank authorisation page" @6 +SCR-REDIRECT-HANDOFF
+    ui "Authenticate in the bank app" @6 +SCR-APP-AUTHENTICATE
+    readmodel "Payment details for approval" @7 +RM-PAYMENT-APPROVAL {
       note "Amount, currency, payee name and account, debtor account. The PSU approves exactly \
             these values — the basis of dynamic linking (SRC-IG §5.1.9 mentions dynamic linking; \
             the RTS article itself was not supplied)."
     }
-    ui "Approve payment screen" @7
+    ui "Approve payment screen" @7 +SCR-APP-APPROVE-PAYMENT
+    hotspot "Are fees and currency conversion shown on the approval screen?" @7 +"ask product" +Q-41
     actor "Account holder" @7
     command "Approve payment" @7
+    command "Decline payment" @7
+    ui "Outcome and return to the TPP" @9 +SCR-APP-DECISION-OUTCOME
   }
 
   lane "Identity and SCA (Ping Federate, Transmit)" {
+    readmodel "SCA context" @6 +RM-SCA-CONTEXT
     command "Authenticate PSU with the amount and payee linked" @6
     system "Transmit" @6
     event "PSU authenticated with the amount and payee linked" @7

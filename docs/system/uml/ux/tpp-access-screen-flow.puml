@@ -1,0 +1,26 @@
+@startuml tpp-access-screen-flow
+' Screen flow — review and withdraw TPP access in the mobile app. PROPOSAL, AI, 2026-09-19 (iteration 2).
+' Stories: STORY-PSU-ACCESS-OVERVIEW, STORY-PSU-REVOKE (scope open, Q-26; data owner D-01).
+title Review and withdraw TPP access — screens, managing component, read model
+
+state "SCR-APP-TPP-ACCESS-LIST\n<i>CMP-MOBILE-APP · RM-PSU-TPP-ACCESS</i>" as List
+state "SCR-APP-TPP-ACCESS-DETAIL\n<i>CMP-MOBILE-APP · RM-PSU-TPP-ACCESS</i>" as Detail
+state "SCR-APP-REVOKE-CONFIRM\n<i>CMP-MOBILE-APP · RM-PSU-TPP-ACCESS</i>" as Confirm
+
+[*] --> List : app menu "Connected providers"
+List --> Detail : tap a provider
+Detail --> List : back
+Detail --> Confirm : "Withdraw access"
+Confirm --> Detail : cancel
+Confirm --> List : confirm — revokeTppAccess\n(consentStatus revokedByPsu; provider shown as withdrawn)
+List --> [*]
+
+note right of List
+  Empty state: "No provider can access your accounts".
+  Shows TPP name, accounts, valid until; last read by the TPP is open (Q-40).
+end note
+note right of Confirm
+  States the consequence (UX-06). The TPP is not notified in MVP (Q-24):
+  it learns at its next read, which RM-ACCESS-DECISION refuses.
+end note
+@enduml

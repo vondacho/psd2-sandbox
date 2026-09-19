@@ -50,6 +50,11 @@ AISP to stop immediately, but the AISP only learns about it on its next read (`Q
 - `H-04`: the PSU does not know whether the money has left their account, because the status the bank reports (`ACTC` vs `ACSC`) depends on its booking type (`Q-28`).
 - `H-05`: Verification of Payee may interrupt the payment with a name-mismatch confirmation (`SRC-IG` §1.4 v1.3.15, §14.6 `creditorNameConfirmation`; `Q-16`).
 
+## Screens and read models
+
+Iteration 2: every stage above is broken down into the PSU screens, the read models behind
+them and the components that manage them in the [service blueprint](service-blueprint.md).
+
 ## Touchpoints
 
 | ID | Touchpoint | Owner (proposed) |

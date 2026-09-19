@@ -24,6 +24,8 @@ conventions:
   CMP: component — metadata.cmp on a LikeC4 element in docs/system/c4/*.likec4
   API: interface — docs/system/api/**; operations are OpenAPI operationIds / AsyncAPI operations
   WS / MVP: delivery pack — docs/delivery/*.md; story-map delivery "Walking skeleton" = WS-01, "MVP" = MVP-01
+  SCR: PSU-facing screen — defined in docs/journeys/service-blueprint.md; ui cards (+tag), LikeC4 metadata.scr
+  RM: read model — defined in docs/journeys/service-blueprint.md; readmodel cards (+tag), LikeC4 metadata.readmodels, OpenAPI x-read-model
   EVID: expected evidence — defined in the delivery packs
   Q / A / D / H / C / RSK: ledger — docs/traceability/questions-and-assumptions.md, docs/system/README.md
   note: notation files carry ids as +tags because none of the four DSLs has another id slot;
@@ -58,6 +60,7 @@ objectives:
 
 artefacts:
   big_picture: docs/journeys/xs2a-big-picture.eventstorm
+  service_blueprint: docs/journeys/service-blueprint.md   # defines SCR-* and RM-*
   process_models:
     - docs/journeys/ais-consent-lifecycle.eventstorm
     - docs/journeys/pis-payment-initiation.eventstorm
@@ -97,6 +100,7 @@ contexts:
 interfaces:
   API-XS2A-PROFILE: { file: docs/system/api/openapi/xs2a-profile.yaml, kind: openapi }
   API-XS2A-EVENTS:  { file: docs/system/api/asyncapi/xs2a-domain-events.yaml, kind: asyncapi, conditional_on: D-04 }
+  API-PSU-CHANNEL:  { file: docs/system/api/openapi/psu-channel.yaml, kind: openapi }
 
 delivery_packs:
   WS-01:  { file: docs/delivery/walking-skeleton.md, storymap_delivery: Walking skeleton }
@@ -130,46 +134,66 @@ chains:
   - { story: STORY-SCA-REDIRECT-APP, objective: [OBJ-03], journey: [JRN-AIS-CONNECT.S3], pivotal_event: EVT-CONSENT-AUTHORISED,
       example_map: EXMAP-SCA-REDIRECT-APP, rules: [R-SCA-01, R-SCA-03, R-SCA-04, R-SCA-05],
       bounded_context: [CTX-TXN-AUTHORISATION], invariants: [INV-AUT-01, INV-AUT-03, INV-AUT-05],
-      components: [CMP-AUTHORISATION, CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP], operations: [createConsent, getConsentScaStatus, startConsentAuthorisation],
+      components: [CMP-AUTHORISATION, CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [createConsent, getConsentScaStatus, startConsentAuthorisation, resolveRedirectSession, getApprovalRequest, decideApprovalRequest],
+      screens: [SCR-REDIRECT-HANDOFF, SCR-APP-AUTHENTICATE, SCR-APP-APPROVE-ACCESS], read_models: [RM-REDIRECT-SESSION, RM-SCA-CONTEXT, RM-CONSENT-APPROVAL],
       delivery_pack: WS-01, tests: [tests/acceptance/features/sca-redirect-app.feature], evidence: [EVID-WS-E2E, EVID-WS-TRACE] }
   - { story: STORY-CONSENT-STATUS, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S4], pivotal_event: EVT-CONSENT-AUTHORISED,
       example_map: EXMAP-SCA-REDIRECT-APP, rules: [R-SCA-03], bounded_context: [CTX-CONSENT], invariants: [INV-CNS-01],
       components: [CMP-CONSENT], operations: [getConsentStatus],
+      screens: [], read_models: [RM-TPP-CONSENT-STATUS],
       delivery_pack: WS-01, tests: [tests/acceptance/features/sca-redirect-app.feature], evidence: [EVID-WS-E2E] }
   - { story: STORY-SCA-CONSENT-DETAILS, objective: [OBJ-02, OBJ-03], journey: [JRN-AIS-CONNECT.S3], pivotal_event: EVT-CONSENT-AUTHORISED,
       example_map: EXMAP-SCA-REDIRECT-APP, rules: [R-SCA-02], bounded_context: [CTX-TXN-AUTHORISATION], invariants: [INV-AUT-05],
-      components: [CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP], operations: [],
+      components: [CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [getApprovalRequest],
+      screens: [SCR-APP-APPROVE-ACCESS], read_models: [RM-CONSENT-APPROVAL],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/sca-redirect-app.feature], evidence: [EVID-MVP-SCA-CONVERSION] }
   - { story: STORY-CONSENT-READ, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S4], pivotal_event: EVT-CONSENT-AUTHORISED,
       example_map: EXMAP-CONSENT-DEDICATED, rules: [R-CNS-05], bounded_context: [CTX-CONSENT], invariants: [INV-CNS-05],
       components: [CMP-CONSENT], operations: [getConsentInformation],
+      screens: [], read_models: [RM-TPP-CONSENT-STATUS],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/consent-dedicated.feature], evidence: [EVID-MVP-OPS] }
+  - { story: STORY-SCA-OUTCOME, objective: [OBJ-03], journey: [JRN-AIS-CONNECT.S3, JRN-PIS-PAY.S2], pivotal_event: EVT-CONSENT-AUTHORISED,
+      example_map: EXMAP-SCA-REDIRECT-APP, rules: [R-SCA-04], bounded_context: [CTX-TXN-AUTHORISATION], invariants: [INV-AUT-03],
+      components: [CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [decideApprovalRequest],
+      screens: [SCR-APP-DECISION-OUTCOME], read_models: [RM-AUTHORISATION-OUTCOME],
+      delivery_pack: MVP-01, tests: [tests/acceptance/features/sca-redirect-app.feature], evidence: [EVID-MVP-SCA-CONVERSION] }
+  - { story: STORY-SCA-REQUEST-UNAVAILABLE, objective: [OBJ-03], journey: [JRN-AIS-CONNECT.S3, JRN-PIS-PAY.S2], pivotal_event: EVT-CONSENT-AUTHORISED,
+      example_map: EXMAP-SCA-REDIRECT-APP, rules: [R-SCA-05], bounded_context: [CTX-TXN-AUTHORISATION], invariants: [INV-AUT-01, INV-PAY-03],
+      components: [CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [resolveRedirectSession, getApprovalRequest],
+      screens: [SCR-REDIRECT-INVALID, SCR-APP-REQUEST-UNAVAILABLE], read_models: [RM-REDIRECT-SESSION, RM-AUTHORISATION-OUTCOME, RM-SCA-DEADLINES],
+      delivery_pack: MVP-01, tests: [tests/acceptance/features/sca-redirect-app.feature], evidence: [EVID-MVP-SCA-CONVERSION] }
   - { story: STORY-SCA-STATUS, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S4], pivotal_event: EVT-CONSENT-AUTHORISED,
       example_map: EXMAP-SCA-REDIRECT-APP, rules: [R-SCA-03], bounded_context: [CTX-TXN-AUTHORISATION], invariants: [INV-AUT-01],
       components: [CMP-AUTHORISATION], operations: [getConsentAuthorisations, getConsentScaStatus, getPaymentInitiationAuthorisation],
+      screens: [], read_models: [RM-TPP-SCA-STATUS],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/sca-redirect-app.feature], evidence: [EVID-MVP-SCA-CONVERSION] }
 
   - { story: STORY-READ-ACCOUNT-LIST, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S5], pivotal_event: EVT-ACCOUNT-DATA-DELIVERED,
       example_map: EXMAP-READ-ACCOUNT-LIST, rules: [R-ACC-01, R-ACC-02, R-ACC-03, R-ACC-04],
       bounded_context: [CTX-ACCOUNT-INFORMATION], invariants: [INV-ACC-01, INV-ACC-02, INV-CNS-06],
       components: [CMP-ACCOUNT-INFO, CMP-CORE-ADAPTER], operations: [getAccountList],
+      screens: [], read_models: [RM-TPP-ACCOUNTS, RM-ACCESS-DECISION],
       delivery_pack: WS-01, tests: [tests/acceptance/features/read-account-list.feature], evidence: [EVID-WS-E2E, EVID-WS-TRACE] }
   - { story: STORY-READ-ACCOUNT-DETAILS, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S5], pivotal_event: EVT-ACCOUNT-DATA-DELIVERED,
       example_map: EXMAP-READ-ACCOUNT-LIST, rules: [R-ACC-03], bounded_context: [CTX-ACCOUNT-INFORMATION], invariants: [INV-ACC-01],
       components: [CMP-ACCOUNT-INFO], operations: [readAccountDetails],
+      screens: [], read_models: [RM-ACCESS-DECISION],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/read-account-list.feature], evidence: [EVID-MVP-OPS] }
   - { story: STORY-READ-BALANCES, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S5], pivotal_event: EVT-ACCOUNT-DATA-DELIVERED,
       example_map: null, rules: [], bounded_context: [CTX-ACCOUNT-INFORMATION], invariants: [INV-CNS-06],
       components: [CMP-ACCOUNT-INFO, CMP-CORE-ADAPTER], operations: [getBalances],
+      screens: [], read_models: [RM-ACCESS-DECISION],
       delivery_pack: MVP-01, tests: [], evidence: [EVID-MVP-OPS] }
   - { story: STORY-READ-TRANSACTIONS, objective: [OBJ-01], journey: [JRN-AIS-CONNECT.S5], pivotal_event: EVT-ACCOUNT-DATA-DELIVERED,
       example_map: null, rules: [], bounded_context: [CTX-ACCOUNT-INFORMATION], invariants: [INV-CNS-06],
       components: [CMP-ACCOUNT-INFO, CMP-CORE-ADAPTER], operations: [getTransactionList],
+      screens: [], read_models: [RM-ACCESS-DECISION],
       delivery_pack: MVP-01, tests: [], evidence: [EVID-MVP-OPS] }
   - { story: STORY-ENFORCE-FREQUENCY, objective: [OBJ-01, OBJ-02], journey: [JRN-AIS-CONNECT.S5], pivotal_event: EVT-ACCOUNT-DATA-DELIVERED,
       example_map: EXMAP-ENFORCE-FREQUENCY, rules: [R-FRQ-01, R-FRQ-02, R-FRQ-03],
       bounded_context: [CTX-ACCOUNT-INFORMATION], invariants: [INV-ACC-03, INV-ACC-04],
       components: [CMP-ACCOUNT-INFO], operations: [getBalances, getTransactionList, readAccountDetails],
+      screens: [], read_models: [RM-ACCESS-DECISION],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/enforce-frequency.feature], evidence: [EVID-MVP-OPS] }
 
   - { story: STORY-CONSENT-DELETE, objective: [OBJ-01], journey: [JRN-ACCESS-CONTROL.S3], pivotal_event: EVT-CONSENT-ENDED,
@@ -178,15 +202,18 @@ chains:
       delivery_pack: WS-01, tests: [], evidence: [EVID-WS-E2E] }
   - { story: STORY-PSU-ACCESS-OVERVIEW, objective: [OBJ-02], journey: [JRN-ACCESS-CONTROL.S1], pivotal_event: EVT-CONSENT-ENDED,
       example_map: EXMAP-PSU-REVOKE, rules: [R-REV-04], bounded_context: [CTX-CONSENT, CTX-MOBILE-BANKING], invariants: [INV-CNS-04],
-      components: [CMP-CONSENT, CMP-MOBILE-APP], operations: [],
+      components: [CMP-CONSENT, CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [listTppAccess, getTppAccess],
+      screens: [SCR-APP-TPP-ACCESS-LIST, SCR-APP-TPP-ACCESS-DETAIL], read_models: [RM-PSU-TPP-ACCESS],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/psu-revoke.feature], evidence: [EVID-MVP-REVOKE] }
   - { story: STORY-PSU-REVOKE, objective: [OBJ-02], journey: [JRN-ACCESS-CONTROL.S2], pivotal_event: EVT-CONSENT-ENDED,
       example_map: EXMAP-PSU-REVOKE, rules: [R-REV-01, R-REV-02, R-REV-03], bounded_context: [CTX-CONSENT, CTX-MOBILE-BANKING], invariants: [INV-CNS-01, INV-CNS-06],
-      components: [CMP-CONSENT, CMP-MOBILE-APP], operations: [getAccountList], interfaces: [API-XS2A-EVENTS],
+      components: [CMP-CONSENT, CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [getAccountList, revokeTppAccess], interfaces: [API-XS2A-EVENTS],
+      screens: [SCR-APP-TPP-ACCESS-DETAIL, SCR-APP-REVOKE-CONFIRM], read_models: [RM-PSU-TPP-ACCESS, RM-ACCESS-DECISION],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/psu-revoke.feature], evidence: [EVID-MVP-REVOKE, EVID-MVP-CONSENTS] }
   - { story: STORY-CONSENT-EXPIRY, objective: [OBJ-01], journey: [JRN-ACCESS-CONTROL.S4], pivotal_event: EVT-CONSENT-ENDED,
       example_map: EXMAP-READ-ACCOUNT-LIST, rules: [R-ACC-04], bounded_context: [CTX-CONSENT], invariants: [INV-CNS-01, INV-CNS-06],
       components: [CMP-CONSENT], operations: [getAccountList],
+      screens: [], read_models: [RM-CONSENTS-DUE-TO-EXPIRE, RM-ACCESS-DECISION],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/read-account-list.feature], evidence: [EVID-MVP-CONSENTS] }
 
   - { story: STORY-PIS-INITIATE-SCT, objective: [OBJ-01], journey: [JRN-PIS-PAY.S1], pivotal_event: EVT-PAYMENT-AUTHORISED,
@@ -196,19 +223,23 @@ chains:
       delivery_pack: WS-01, tests: [tests/acceptance/features/pis-initiate-sct.feature], evidence: [EVID-WS-E2E, EVID-WS-TRACE] }
   - { story: STORY-PIS-SCA-REDIRECT-APP, objective: [OBJ-03], journey: [JRN-PIS-PAY.S2], pivotal_event: EVT-PAYMENT-AUTHORISED,
       example_map: EXMAP-PIS-INITIATE-SCT, rules: [R-PIS-05], bounded_context: [CTX-TXN-AUTHORISATION], invariants: [INV-AUT-05, INV-PAY-01],
-      components: [CMP-AUTHORISATION, CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP], operations: [getPaymentInitiationScaStatus, startPaymentAuthorisation],
+      components: [CMP-AUTHORISATION, CMP-SCA-REDIRECT-UI, CMP-MOBILE-APP, CMP-PSU-CHANNEL-API], operations: [getPaymentInitiationScaStatus, startPaymentAuthorisation, resolveRedirectSession, getApprovalRequest, decideApprovalRequest],
+      screens: [SCR-REDIRECT-HANDOFF, SCR-APP-AUTHENTICATE, SCR-APP-APPROVE-PAYMENT], read_models: [RM-REDIRECT-SESSION, RM-SCA-CONTEXT, RM-PAYMENT-APPROVAL],
       delivery_pack: WS-01, tests: [tests/acceptance/features/pis-initiate-sct.feature], evidence: [EVID-WS-E2E] }
   - { story: STORY-PIS-STATUS, objective: [OBJ-01], journey: [JRN-PIS-PAY.S3], pivotal_event: EVT-PAYMENT-FINAL-STATUS-REACHED,
       example_map: EXMAP-PIS-STATUS, rules: [R-PST-01, R-PST-02, R-PST-03, R-PST-04], bounded_context: [CTX-PAYMENT-INITIATION], invariants: [INV-PAY-02],
       components: [CMP-PAYMENT], operations: [getPaymentInitiationStatus],
+      screens: [], read_models: [RM-TPP-PAYMENT-STATUS],
       delivery_pack: WS-01, tests: [tests/acceptance/features/pis-status.feature], evidence: [EVID-WS-E2E] }
   - { story: STORY-PIS-READ-PAYMENT, objective: [OBJ-01], journey: [JRN-PIS-PAY.S3], pivotal_event: EVT-PAYMENT-FINAL-STATUS-REACHED,
       example_map: EXMAP-PIS-INITIATE-SCT, rules: [R-PIS-04], bounded_context: [CTX-PAYMENT-INITIATION], invariants: [INV-PAY-04, INV-PAY-05],
       components: [CMP-PAYMENT], operations: [getPaymentInformation],
+      screens: [], read_models: [RM-TPP-PAYMENT-STATUS],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/pis-initiate-sct.feature], evidence: [EVID-MVP-OPS] }
   - { story: STORY-PIS-SCA-TIMEOUT, objective: [OBJ-01], journey: [JRN-PIS-PAY.S3], pivotal_event: EVT-PAYMENT-FINAL-STATUS-REACHED,
       example_map: EXMAP-PIS-STATUS, rules: [R-PST-03], bounded_context: [CTX-PAYMENT-INITIATION], invariants: [INV-PAY-03],
       components: [CMP-PAYMENT], operations: [getPaymentInitiationStatus],
+      screens: [], read_models: [RM-SCA-DEADLINES, RM-TPP-PAYMENT-STATUS],
       delivery_pack: MVP-01, tests: [tests/acceptance/features/pis-status.feature], evidence: [EVID-MVP-OPS] }
 
 # Unscheduled stories: on the map, deliberately outside WS-01 / MVP-01. Kept, not tidied away.
@@ -222,6 +253,7 @@ unscheduled:
   STORY-SCA-EMBEDDED: [D-03]
   STORY-SCA-CONFIRMATION: [Q-34]
   STORY-SCA-MULTILEVEL: [Q-17]
+  STORY-SCA-NO-APP: [Q-21, D-09]
   STORY-READ-TRANSACTION-DETAILS: []
   STORY-READ-CARD-ACCOUNTS: []
   STORY-PIS-INITIATE-INSTANT: [Q-13]

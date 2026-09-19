@@ -162,6 +162,7 @@ writes one.
 | Artefact | Produced? | Why |
 | --- | --- | --- |
 | Journey map | Yes | Outside-in view needed to cut the backbone; spec-derived only |
+| Service blueprint (iteration 2) | Yes | Which screens the PSU sees, which read models each actor or component decides on, and who manages them |
 | Event Storming Big Picture | Yes | Three journeys and several undecided owners; hotspots need a home |
 | Process model / system design storms | Yes — two, AIS consent and PIS | Walking skeleton and MVP need commands, policies and aggregates |
 | Story map | Yes | Slicing between walking skeleton, MVP and later is the central product decision |

@@ -100,6 +100,29 @@ def main() -> int:
     defined |= set(re.findall(r"^\| `(C-\d+)`", analysis_text, re.M))
     stats["ledger_ids"] = len(defined)
 
+    # ------------------------------------------------------------------ service blueprint (SCR-*, RM-*)
+    bp_path = os.path.join(ROOT, man["artefacts"]["service_blueprint"])
+    bp_text = open(bp_path).read()
+    screens, read_models = {}, {}
+    for line in bp_text.splitlines():
+        m = re.match(r"^\| `((?:SCR|RM)-[A-Z0-9-]+)` \|(.*)$", line)
+        if not m:
+            continue
+        rid, rest = m.group(1), m.group(2)
+        target = screens if rid.startswith("SCR-") else read_models
+        if rid in target:
+            R.err("ids", f"{rid} defined twice in the service blueprint")
+        managed = re.findall(r"`(CMP-[A-Z0-9-]+)`", rest)
+        target[rid] = dict(managed=managed[0] if managed else None, refs=set())
+    stats.update(screens=len(screens), read_models=len(read_models))
+
+    def ux_ref(rid, where):
+        pool = screens if rid.startswith("SCR-") else read_models
+        if rid not in pool:
+            R.err("refs", f"{where}: {rid} is not defined in the service blueprint")
+        else:
+            pool[rid]["refs"].add(where.split(":")[0])
+
     # ------------------------------------------------------------------ 2. uniqueness + inventories
     # pivotal events
     evt_defs = {}
@@ -118,6 +141,12 @@ def main() -> int:
         R.warn("doctrine", f"{pivotal_count} pivotal events on the Big Picture — mark them sparingly")
     for p, r in storms.items():
         for c in r.model["cards"]:
+            for t in c["tags"]:
+                if re.match(r"^(SCR|RM)-", t):
+                    ux_ref(t, f"{p}:{c['line']}")
+                    want = "ui" if t.startswith("SCR-") else "readmodel"
+                    if c["kind"] != want:
+                        R.err("refs", f"{p}:{c['line']}: {t} sits on a '{c['kind']}' card, expected '{want}'")
             for t in c["tags"]:
                 if t.upper().startswith("EVT-") and t not in evt_defs:
                     R.err("refs", f"{p}: {t} is not a pivotal event of the Big Picture")
@@ -272,8 +301,18 @@ def main() -> int:
     lj = os.environ.get("LIKEC4_JSON")
     if lj and os.path.exists(lj):
         data = json.load(open(lj))
-        for fqn, el in data.get("elements", {}).items():
+        elements = data.get("elements", {})
+        for fqn, el in elements.items():
             md = el.get("metadata") or {}
+            for rm in (md.get("readmodels") or "").split():
+                ux_ref(rm, f"c4 {fqn}")
+            if md.get("scr"):
+                scr = md["scr"]
+                ux_ref(scr, f"c4 {fqn}")
+                parent = elements.get(fqn.rsplit(".", 1)[0], {}) if "." in fqn else {}
+                pcmp = (parent.get("metadata") or {}).get("cmp")
+                if scr in screens and screens[scr]["managed"] and screens[scr]["managed"] != pcmp:
+                    R.err("refs", f"{scr}: blueprint says managed by {screens[scr]['managed']}, C4 nests it in {pcmp}")
             cmp = md.get("cmp")
             if not cmp:
                 continue
@@ -298,13 +337,22 @@ def main() -> int:
 
     # interfaces
     ops = {}
-    oapi_path = os.path.join(ROOT, man["interfaces"]["API-XS2A-PROFILE"]["file"])
-    oapi = yaml.safe_load(open(oapi_path))
-    for path, item in oapi.get("paths", {}).items():
+    for api_id, api in man["interfaces"].items():
+      if api["kind"] != "openapi":
+        continue
+      oapi = yaml.safe_load(open(os.path.join(ROOT, api["file"])))
+      for sname, sch in (oapi.get("components", {}).get("schemas", {}) or {}).items():
+        if isinstance(sch, dict) and sch.get("x-read-model"):
+            ux_ref(sch["x-read-model"], f"{api_id} schema {sname}")
+      for path, item in oapi.get("paths", {}).items():
         for method, op in item.items():
             if method not in ("get", "post", "put", "delete", "patch"):
                 continue
             oid = op.get("operationId")
+            for scr in op.get("x-screens", []):
+                ux_ref(scr, f"{api_id} {oid}")
+            for rm in re.findall(r"RM-[A-Z0-9-]+", str(op.get("x-read-model", ""))):
+                ux_ref(rm, f"{api_id} {oid}")
             if oid in ops:
                 R.err("ids", f"operationId {oid} used twice")
             ops[oid] = op
@@ -376,6 +424,10 @@ def main() -> int:
                 R.err("refs", f"{where}: operation {oid} not in the OpenAPI profile")
             elif sid not in (ops[oid].get("x-trace") or {}).get("stories", []):
                 R.warn("traceability", f"{where}: operation {oid} does not trace back to {sid}")
+        for scr in ch.get("screens", []):
+            ux_ref(scr, f"manifest {sid}")
+        for rm in ch.get("read_models", []):
+            ux_ref(rm, f"manifest {sid}")
         for api in ch.get("interfaces", []):
             if api not in man["interfaces"]:
                 R.err("refs", f"{where}: interface {api} unknown")
@@ -411,6 +463,15 @@ def main() -> int:
         tr_st = (op.get("x-trace") or {}).get("stories", [])
         if tr_st and not any(s in chained for s in tr_st):
             R.warn("traceability", f"operation {oid} traces only to unscheduled stories")
+
+    for rid, d in sorted({**screens, **read_models}.items()):
+        places = {x.split()[0] for x in d["refs"]}
+        if not d["refs"]:
+            R.warn("ux", f"{rid} is defined but used nowhere (no storm card, C4 element, contract or chain)")
+        elif rid.startswith("SCR-") and not any(x.startswith("c4") for x in d["refs"]):
+            R.err("ux", f"{rid} has no element in the C4 model — which component manages it?")
+        elif rid.startswith("SCR-") and not any(x.endswith(".eventstorm") for x in places) and screens[rid]["managed"] != "CMP-TPP":
+            R.info("ux", f"{rid} appears on no event storm")
 
     # ------------------------------------------------------------------ 4. ledger references everywhere
     scan = glob.glob(os.path.join(ROOT, "docs/**/*.*"), recursive=True) + glob.glob(os.path.join(ROOT, "tests/**/*.feature"), recursive=True)
@@ -456,11 +517,16 @@ def main() -> int:
                 run(f"plantuml {rel(f)}", f"java -Djava.awt.headless=true -jar {shlex.quote(jar)} -checkonly {shlex.quote(f)}")
         else:
             ext["plantuml"] = "not run"
-        for label, env, target in (("openapi-spec-validator", "OPENAPI_VALIDATOR", "docs/system/api/openapi/xs2a-profile.yaml"),
-                                   ("redocly lint", "REDOCLY", "docs/system/api/openapi/xs2a-profile.yaml"),
-                                   ("asyncapi parser", "ASYNCAPI_VALIDATOR", "docs/system/api/asyncapi/xs2a-domain-events.yaml")):
+        checks = []
+        for api in man["interfaces"].values():
+            if api["kind"] == "openapi":
+                checks += [("openapi-spec-validator", "OPENAPI_VALIDATOR", api["file"]),
+                           ("redocly lint", "REDOCLY", api["file"])]
+            elif api["kind"] == "asyncapi":
+                checks.append(("asyncapi parser", "ASYNCAPI_VALIDATOR", api["file"]))
+        for label, env, target in checks:
             if os.environ.get(env):
-                run(label, f"{os.environ[env]} {target}")
+                run(f"{label} {target}", f"{os.environ[env]} {shlex.quote(target)}")
             else:
                 ext[label] = "not run"
 

@@ -46,6 +46,14 @@ depend on the answer.
 | `Q-32` | Will the bank apply SCA exemptions (`scaStatus exempted`), and which ones? | compliance | `sca-status.puml` | — |
 | `Q-33` | Will the bank deliver the account owner name, and does it need an explicit consent extension? | product | `STORY-CONSENT-OWNER-NAME` | — |
 | `Q-34` | Does the bank require the authorisation confirmation call (§7.6; `unconfirmed` → `finalised`)? | architecture | AIS storm @9; `sca-redirect-app.examplemap` R-SCA-05; OpenAPI PUT operations | MVP-01 |
+| `Q-35` | What does the approval screen do when a consent names an account the PSU does not hold, or cannot use in online banking? Refuse the whole consent, hide the account, or show it as unavailable? | product, compliance | AIS storm @7; `RM-CONSENT-APPROVAL` (`heldByPsu`) | MVP-01 |
+| `Q-36` | May the PSU deselect accounts or access types before approving (partial approval)? The stored consent would then differ from the TPP's request | product, compliance | AIS storm @7; `SCR-APP-APPROVE-ACCESS` | MVP-01 |
+| `Q-37` | How are accounts labelled on bank screens: full IBAN, masked IBAN, account name, product? | product, UX | `RM-CONSENT-APPROVAL`, `RM-PAYMENT-APPROVAL`, `RM-PSU-TPP-ACCESS` | WS-01 (minimal) |
+| `Q-38` | Is a TPP brand shown next to the legal name, and from which source (certificate OU, a registry, a bank-maintained list)? `TPP-Brand-Logging-Information` is for logging only (§5.3.1) | product, UX | `H-02`; `UX-03`; approval and access screens | MVP-01 |
+| `Q-39` | After the decision, does the app show an outcome screen, or return to the TPP at once? | product, UX | AIS storm @10; `SCR-APP-DECISION-OUTCOME` | MVP-01 |
+| `Q-40` | Should the access overview show when the TPP last read data? How fresh must the overview and the revocation effect be? | product | `RM-PSU-TPP-ACCESS`; `SCR-APP-TPP-ACCESS-DETAIL` | MVP-01 |
+| `Q-41` | Are fees and currency conversion shown on the payment approval screen? | product, compliance | PIS storm @7; `RM-PAYMENT-APPROVAL` | MVP-01 |
+| `Q-42` | Which accessibility standard applies to bank screens (bank standard; the European Accessibility Act — compliance to confirm), and in which languages are they rendered (app language vs forwarded `PSU-Accept-Language`, §4.8)? | compliance, UX | Service blueprint §5 | MVP-01 |
 
 ## Assumptions
 
@@ -62,11 +70,13 @@ reversible and needs confirmation.
 | `A-06` | JSON only; no pain.001, camt or MT94x | OpenAPI profile | product |
 | `A-07` | Errors use `tppMessages` (§4.13.3.1) | OpenAPI `Error` schema | architecture (`Q-30`) |
 | `A-08` | For drawing purposes the consent lives in the ASPSP gateway (the `D-01` recommendation) | Sequences, C4 allocation | architecture (`D-01`) |
-| `A-09` | Test data: spec example values (IBANs `DE40100100103307118608`, `DE02100100109307118603`, organizationIdentifier `PSDES-BDE-3DFD21`, ids `123cons456`, `1234-wertiq-983`, `123auth456`). The **labels** "Sandbox AISP Ltd", "PSU-1234", "PSU-5678", "PSDFR-ACPR-12345", "BrandA" and "BrandB" are invented placeholders, not domain facts | Concrete examples | QA |
+| `A-09` | Test data: spec example values (IBANs `DE40100100103307118608`, `DE02100100109307118603`, organizationIdentifier `PSDES-BDE-3DFD21`, ids `123cons456`, `1234-wertiq-983`, `123auth456`). The **labels** "Sandbox AISP Ltd", "PSU-1234", "PSU-5678", "PSDFR-ACPR-12345", "BrandA", "BrandB", and (wireframes) "Sandbox PISP Ltd" and "Budget Buddy" are invented placeholders, not domain facts | Concrete examples | QA |
 | `A-10` | A core-banking stub is acceptable for WS-01 | Skeleton can run before `Q-06` is answered | architecture |
 | `A-11` | Combined AIS/PIS sessions (§9) are not offered in the MVP | R-CNS-07 | product |
 | `A-12` | The bank IAM team owns Ping and Transmit configuration | `.ddd` owners | iam |
 | `A-13` | IBAN is the only account reference type in the MVP | OpenAPI `AccountReference` | product |
+| `A-14` | Approval and access screens are native mobile-app screens. The app reads its data from the ASPSP gateway (`CMP-PSU-CHANNEL-API`) with a Ping-issued app-session token, and runs only authentication through a Transmit journey | Screen ownership in the service blueprint; `API-PSU-CHANNEL` | UX, architecture, iam (`D-09`) |
+| `A-15` | The MVP has no web approval path: without the app, the PSU sees only `SCR-REDIRECT-HANDOFF` or `SCR-REDIRECT-INVALID` | Scope of `CMP-SCA-REDIRECT-UI` | product (`Q-21`) |
 
 ## Hypotheses (product)
 
@@ -80,4 +90,4 @@ reversible and needs confirmation.
 
 ## Decisions pending
 
-`D-01`…`D-08` are described in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).
+`D-01`…`D-09` are described in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).

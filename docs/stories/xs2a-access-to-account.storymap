@@ -108,6 +108,25 @@ storymap "PSD2 XS2A access to account" {
         so   "I approve only what I understand"
         note "SRC-IG §6 'Detailed Consent': the ASPSP displays the consent details during SCA. H-02."
       }
+      story "See the outcome and get back to the TPP" @"MVP" +STORY-SCA-OUTCOME +"ask product" {
+        as   "Account holder"
+        want "to see whether my approval worked and be taken back to the TPP in one tap"
+        so   "I know what I agreed to and can finish what I started at the TPP"
+        note "Iteration 2 (service blueprint): SCR-APP-DECISION-OUTCOME. Applies to consents and \
+              payments. Outcome screen versus immediate return is open (Q-39)."
+      }
+      story "Be told when an approval request is no longer valid" @"MVP" +STORY-SCA-REQUEST-UNAVAILABLE {
+        as   "Account holder"
+        want "a clear message when a request has expired or was already handled, with a way back to the TPP"
+        so   "I am not left on a dead end or tempted to approve twice"
+        note "Iteration 2: SCR-REDIRECT-INVALID, SCR-APP-REQUEST-UNAVAILABLE; INV-AUT-01, Q-29."
+      }
+      story "Approve without the bank app on this device" +STORY-SCA-NO-APP +"ask product" {
+        as   "Account holder"
+        want "to approve a TPP's request when the device I use has no bank app"
+        so   "I can still use the TPP from a desktop browser"
+        note "Iteration 2: SCR-REDIRECT-NO-APP. Options (install, another device, web SCA) are open: Q-21, D-09."
+      }
       story "Approve through a push to my bank app" +STORY-SCA-DECOUPLED +"ask architecture" {
         as   "Account holder"
         want "to get a push in my bank app while I stay in the TPP's app"

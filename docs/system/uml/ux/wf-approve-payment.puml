@@ -1,0 +1,26 @@
+@startsalt wf-approve-payment
+' Low-fi wireframe — SCR-APP-APPROVE-PAYMENT, fed by RM-PAYMENT-APPROVAL. PROPOSAL, AI, 2026-09-19.
+' Every field maps to a read-model field; copy is placeholder. Data: spec example payment
+' (SRC-IG §5.3.1). Fees line depends on Q-41; the VoP result line on Q-16 (not in MVP).
+title SCR-APP-APPROVE-PAYMENT — low-fi wireframe (proposal)
+{+
+  {* <b>Approve this payment?</b> }
+  ..
+  "Requested by <b>Sandbox PISP Ltd</b>"
+  ..
+  <b>123.50 EUR</b>
+  ..
+  {
+    "To"        | "Merchant123"
+    "Account"   | "DE02 1001 0010 9307 1186 03"
+    "Reference" | "Ref Number Merchant"
+    "From"      | "Current account · DE40 …8608"
+    "When"      | "Today"
+    "Fees"      | "(Q-41)"
+  }
+  ..
+  { [  Decline  ] | [  Approve  ] }
+  ..
+  "Request expires in ⟨SCA window — Q-29⟩"
+}
+@endsalt

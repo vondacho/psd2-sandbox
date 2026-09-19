@@ -1,0 +1,40 @@
+@startsalt wf-tpp-access
+' Low-fi wireframes — SCR-APP-TPP-ACCESS-LIST, SCR-APP-TPP-ACCESS-DETAIL, SCR-APP-REVOKE-CONFIRM,
+' all fed by RM-PSU-TPP-ACCESS. PROPOSAL, AI, 2026-09-19. Copy is placeholder.
+title TPP access in the app — low-fi wireframes (proposal)
+{
+  {+
+    {* <b>Connected providers</b> }
+    ..
+    { "<b>Sandbox AISP Ltd</b>" | ">" }
+    "Balances, transactions · 1 account"
+    "Until 1 Nov 2017"
+    ..
+    { "<b>Budget Buddy</b>" | ">" }
+    "Balances · 2 accounts · until 3 Mar 2018"
+  } | . | {+
+    {* <b>Sandbox AISP Ltd</b> }
+    ..
+    "Can see"
+    {#
+      Account | Access
+      "DE40 …8608" | "Balances, transactions"
+    }
+    "Allowed since 1 Aug 2017"
+    "Until 1 Nov 2017"
+    "Up to 4 times a day without you"
+    "Last looked: (Q-40)"
+    ..
+    [ Withdraw access ]
+  } | . | {+
+    {* <b>Withdraw access?</b> }
+    ..
+    "Sandbox AISP Ltd will no longer"
+    "see these accounts."
+    "You can allow access again later"
+    "from Sandbox AISP Ltd."
+    ..
+    { [ Cancel ] | [ Withdraw ] }
+  }
+}
+@endsalt

@@ -44,6 +44,7 @@ The structure lives in the LikeC4 model [`c4/xs2a.likec4`](c4/xs2a.likec4). Prev
 - `containers`
 - `gateway` (components)
 - `walkingSkeleton`
+- `psuScreens` (iteration 2: every PSU screen inside the component that manages it)
 - `mvp`
 
 ### 3.1 Allocation of bounded contexts to components
@@ -52,7 +53,7 @@ The structure lives in the LikeC4 model [`c4/xs2a.likec4`](c4/xs2a.likec4). Prev
 | --- | --- | --- |
 | `CTX-TPP-ACCESS` | `CMP-FINOLOGEE-GW` (vendor), `CMP-XS2A-ADAPTER` (anticorruption layer) | Split proposed: `D-05` |
 | `CTX-CONSENT` | `CMP-CONSENT` | **Undecided**: `D-01`. Shown in the gateway per the recommendation |
-| `CTX-TXN-AUTHORISATION` | `CMP-AUTHORISATION`, `CMP-SCA-REDIRECT-UI` | Proposed |
+| `CTX-TXN-AUTHORISATION` | `CMP-AUTHORISATION`, `CMP-SCA-REDIRECT-UI`, `CMP-PSU-CHANNEL-API` (serves the PSU-facing read models) | Proposed; screen rendering open: `D-09` |
 | `CTX-PAYMENT-INITIATION` | `CMP-PAYMENT` | Proposed |
 | `CTX-ACCOUNT-INFORMATION` | `CMP-ACCOUNT-INFO`, `CMP-CORE-ADAPTER` | Proposed |
 | `CTX-CUSTOMER-IDENTITY` | `CMP-PING`, `CMP-TRANSMIT` | Fact (`SRC-ADR`); division of work open (`Q-07`) |
@@ -69,6 +70,31 @@ Every component in the C4 model carries `metadata.ctx` (owning context) and
 - [`uml/sequence/mvp-psu-revoke.puml`](uml/sequence/mvp-psu-revoke.puml): PSU revokes access in the bank app.
 - [`uml/sequence/d-02-token-options.puml`](uml/sequence/d-02-token-options.puml): the three token options for `D-02`.
 - [`uml/state/consent-status.puml`](uml/state/consent-status.puml), [`sca-status.puml`](uml/state/sca-status.puml) and [`transaction-status.puml`](uml/state/transaction-status.puml): the three status models the spec fixes.
+- [`uml/ux/`](uml/ux/) (iteration 2): screen flows for authorisation and TPP access, plus low-fi wireframes of the three decision screens.
+
+### 3.2a PSU screens and read models (iteration 2)
+
+The [service blueprint](../journeys/service-blueprint.md) defines every PSU-facing screen
+(`SCR-*`) and every read model (`RM-*`). Each read model names:
+
+- who decides what with it;
+- its data and sources;
+- its owning component;
+- its consistency need.
+
+In short:
+
+- The **bank manages 9 PSU screens** in two containers:
+  - `CMP-MOBILE-APP` — authenticate, approve access, approve payment, outcome, request unavailable, and the three TPP-access screens;
+  - `CMP-SCA-REDIRECT-UI` — hand-off, invalid link, and the unscheduled no-app page.
+- The **TPP manages** the request and result screens. The bank influences them only through statuses and `psuMessage`.
+- Every PSU-facing read model is served by a new gateway component, **`CMP-PSU-CHANNEL-API`** (`API-PSU-CHANNEL`). It composes data from consent, payment, authorisation, TPP identity and core-banking account labels.
+- The approval read models carry a `subjectDigest`. The decision must echo it, which ties what the PSU saw to what SCA binds (`INV-AUT-05`).
+- **Consistency needs.** Two read models must be strongly consistent:
+  - `RM-ACCESS-DECISION` — a revocation must refuse the TPP's next read;
+  - `RM-REDIRECT-SESSION` — a redirect link can be used only once.
+
+  The scheduled ones (`RM-SCA-DEADLINES`, `RM-CONSENTS-DUE-TO-EXPIRE`) may be eventual.
 
 ### 3.3 Interfaces
 
@@ -78,7 +104,7 @@ Every component in the C4 model carries `metadata.ctx` (owning context) and
 | `API-XS2A-EVENTS` — internal status-change events | [`api/asyncapi/xs2a-domain-events.yaml`](api/asyncapi/xs2a-domain-events.yaml) | Event-storm policies across contexts; audit (`OBJ-04`). Conditional on `D-04` |
 | Finologee ↔ ASPSP gateway | **not written** | Vendor contract unknown (`Q-04`) |
 | ASPSP gateway ↔ core banking | **not written** | Core interface unknown (`Q-06`) |
-| Mobile app ↔ ASPSP gateway (TPP access overview) | **not written** | Scope open (`Q-26`). Write it once `Q-26` and `D-01` are decided |
+| `API-PSU-CHANNEL` — mobile app and redirect entry point ↔ ASPSP gateway (iteration 2) | [`api/openapi/psu-channel.yaml`](api/openapi/psu-channel.yaml) | Every operation names its screens (`x-screens`), its read model (`x-read-model`) and its stories. Assumes `D-01` option A and `A-14` |
 
 ## 4. Decisions that need human authority
 
@@ -134,6 +160,16 @@ Every component in the C4 model carries `metadata.ctx` (owning context) and
 | --- | --- |
 | Decides | Engineering lead |
 | **Recommendation** | One deployable, with modules along the four bounded contexts and module boundaries enforced in code. Revisit when load or team ownership diverges. Reason: the walking skeleton should prove one deployment path, not four |
+
+### D-09 — Who renders the PSU's authentication and approval screens (iteration 2)
+
+| | |
+| --- | --- |
+| Decides | UX with architecture and IAM |
+| Options | **A** native mobile-app screens fed by `CMP-PSU-CHANNEL-API`; the Transmit journey handles authentication only · **B** Transmit-hosted journey UI renders both authentication and approval · **C** bank web pages, with the app used only as an authenticator |
+| Criteria | Control over what is shown and bound (`UX-01`, `INV-AUT-05`); consistency with the rest of the app; accessibility (`Q-42`); time to MVP; product capability (`Q-07`) |
+| **Recommendation** | **A**, with `SCR-APP-AUTHENTICATE` rendered from the Transmit journey. The bank then owns the approval content and the subject digest, and the approval screens look like the rest of the app. Assumption `A-14`. Confirm with IAM that the Transmit authentication result can be bound to the digest |
+| Blocks | WS-01 screens `SCR-APP-AUTHENTICATE`, `SCR-APP-APPROVE-*` |
 
 ### Product decisions (not architecture)
 

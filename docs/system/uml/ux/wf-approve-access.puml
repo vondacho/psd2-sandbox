@@ -1,0 +1,28 @@
+@startsalt wf-approve-access
+' Low-fi wireframe — SCR-APP-APPROVE-ACCESS, fed by RM-CONSENT-APPROVAL. PROPOSAL, AI, 2026-09-19.
+' Every field maps to a read-model field; the copy is placeholder, not UX-approved (gate G1).
+' Data: spec example consent (SRC-IG §6.3.1.1); "Sandbox AISP Ltd" is a placeholder (A-09).
+title SCR-APP-APPROVE-ACCESS — low-fi wireframe (proposal)
+{+
+  {* <b>Allow access to your accounts?</b> }
+  ..
+  <b>Sandbox AISP Ltd</b>
+  "Licensed account information provider"
+  ..
+  <b>Wants to see</b>
+  {#
+    Account | Access
+    "Current account · DE40 …8608 · EUR" | "Balances, transactions"
+  }
+  ..
+  <b>For how long</b>
+  "Until 1 November 2017 (set by your bank)"
+  "Up to 4 times a day without you"
+  ..
+  "Your bank does not share your login details with Sandbox AISP Ltd."
+  ..
+  { [  Decline  ] | [  Allow  ] }
+  ..
+  "Request expires in ⟨SCA window — Q-29⟩"
+}
+@endsalt

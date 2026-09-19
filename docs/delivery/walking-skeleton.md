@@ -50,12 +50,30 @@ available funds", which is empty in every slice (`Q-14`).
 The executable projections are generated into [`tests/acceptance/features/`](../../tests/acceptance/features/).
 Scenarios needed by WS-01 carry the Gherkin tag `@WS-01`.
 
+## Screens and read models (iteration 2)
+
+WS-01 needs the minimum screens that make the SCA path walk. They are defined in the
+[service blueprint](../journeys/service-blueprint.md):
+
+- `SCR-REDIRECT-HANDOFF` (only if the app link does not open the app directly);
+- `SCR-APP-AUTHENTICATE`;
+- `SCR-APP-APPROVE-ACCESS` — minimal: TPP name, accounts, approve / decline;
+- `SCR-APP-APPROVE-PAYMENT` — amount, payee, approve / decline.
+
+After the decision the app returns straight to the TPP; the outcome screen comes in MVP-01.
+The read models needed are `RM-REDIRECT-SESSION`, `RM-SCA-CONTEXT`, `RM-CONSENT-APPROVAL`,
+`RM-PAYMENT-APPROVAL` and `RM-ACCESS-DECISION`.
+
+WS-01 must prove that the `subjectDigest` returned with an approval read model is the one that
+the SCA result binds (`INV-AUT-05`, `D-09`). This is a technical learning objective, not a UX
+one.
+
 ## Components and interfaces
 
 - **Components:** see LikeC4 view `walkingSkeleton`.
   - External and vendor: `CMP-TPP` (test TPP harness), `CMP-FINOLOGEE-GW`.
   - ASPSP gateway modules: `CMP-XS2A-ADAPTER`, `CMP-CONSENT`, `CMP-AUTHORISATION`, `CMP-PAYMENT`, `CMP-ACCOUNT-INFO`, `CMP-CORE-ADAPTER` (**stub**), `CMP-XS2A-STORE`.
-  - Channel and identity: `CMP-SCA-REDIRECT-UI`, `CMP-MOBILE-APP`, `CMP-TRANSMIT`, `CMP-PING`.
+  - Channel and identity: `CMP-SCA-REDIRECT-UI`, `CMP-MOBILE-APP`, `CMP-TRANSMIT`, `CMP-PING`, and `CMP-PSU-CHANNEL-API` (`resolveRedirectSession`, `getApprovalRequest`, `decideApprovalRequest`).
 - **Interfaces:** the `API-XS2A-PROFILE` operations with `x-delivery: WS-01`:
   - consents: `createConsent`, `getConsentStatus`, `getConsentScaStatus`, `deleteConsent`;
   - accounts: `getAccountList`;
@@ -98,7 +116,7 @@ or a test-only approval hook. That dependency is open under `Q-07`.
 
 | Kind | Item |
 | --- | --- |
-| Decision needed before build | `D-01` consent location, `D-02` token model, `D-03` SCA approach, `D-05` edge split |
+| Decision needed before build | `D-01` consent location, `D-02` token model, `D-03` SCA approach, `D-05` edge split, `D-09` who renders approval screens |
 | Dependency | Finologee test tenant and integration contract (`Q-04`); test QWAC/QSealC from a test QTSP; Transmit/Ping test tenant with an automatable test PSU; app-to-app links in a test build of the app |
 | Question | `Q-05`, `Q-07`, `Q-22`, `Q-34` |
 | Risk | `RSK-01`, `RSK-02`, `RSK-03` (stubbed here) |
