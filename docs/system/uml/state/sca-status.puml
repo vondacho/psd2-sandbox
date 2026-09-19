@@ -1,0 +1,25 @@
+@startuml sca-status
+' scaStatus — CTX-TXN-AUTHORISATION, INV-AUT-01. PROPOSAL, AI, 2026-09-19. Source: SRC-IG §14.16.
+' The standard lists the codes and their meaning, not every allowed transition; the transitions
+' below are the proposal's reading and need review (W-UML-01).
+title scaStatus (authorisation sub-resource)
+
+[*] --> received : authorisation created\n(explicitly or implicitly)
+[*] --> scaMethodSelected : only one SCA method\n(first status reported, §14.16)
+received --> psuIdentified
+received --> psuAuthenticated : e.g. access token present
+psuIdentified --> psuAuthenticated
+psuAuthenticated --> scaMethodSelected
+scaMethodSelected --> started
+received --> started : redirect / decoupled —\nbank runs the SCA
+started --> unconfirmed : SCA done, confirmation\nrequired (Q-34)
+started --> finalised
+unconfirmed --> finalised : confirmation code accepted
+received --> exempted : SCA exemption
+started --> failed
+unconfirmed --> failed
+received --> failed : timeout (Q-29)
+finalised --> [*]
+failed --> [*]
+exempted --> [*]
+@enduml

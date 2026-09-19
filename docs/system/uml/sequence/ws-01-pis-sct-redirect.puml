@@ -1,0 +1,44 @@
+@startuml ws-01-pis-sct-redirect
+' WS-01 walking-skeleton path, PIS part; reused unchanged by MVP-01. PROPOSAL, AI, 2026-09-19.
+' Stories: STORY-PIS-INITIATE-SCT, STORY-PIS-SCA-REDIRECT-APP, STORY-PIS-STATUS.
+' Redirect, implicit start (SRC-IG §5.1.3). VoP not shown (Q-16).
+title WS-01 — single SEPA credit transfer with redirect SCA
+
+actor "Account holder\n(test PSU)" as PSU
+participant "Test PISP\n(CMP-TPP)" as TPP
+participant "Finologee\n(CMP-FINOLOGEE-GW)" as FIN
+box "ASPSP gateway (CMP-ASPSP-GW)" #F5F5F5
+  participant "XS2A adapter" as ADP
+  participant "Payment\n(CMP-PAYMENT)" as PAY
+  participant "Authorisation\n(CMP-AUTHORISATION)" as AUT
+  participant "Core adapter\n(stub)" as CORE
+end box
+participant "Mobile app" as APP
+participant "Transmit / Ping" as IAM
+
+TPP -> FIN : POST /v1/payments/sepa-credit-transfers\n123.50 EUR, DE40…8608 -> Merchant123 DE02…8603
+FIN -> ADP : identified request
+ADP -> PAY : initiate
+PAY -> AUT : start authorisation (implicit)
+PAY --> TPP : 201 transactionStatus=RCVD, paymentId,\n_links: scaRedirect, self, status, scaStatus
+
+TPP -> PSU : redirect to scaRedirect
+PSU -> APP : app-to-app hand-off
+APP -> IAM : authenticate, amount and payee linked (INV-AUT-05)
+APP -> AUT : payment details for approval
+PSU -> APP : approve 123.50 EUR to Merchant123
+APP -> AUT : approve with SCA result
+AUT -> PAY : authorisation finalised
+PAY -> CORE : submit payment (stub, Q-06)
+CORE --> PAY : accepted
+PAY -> PAY : transactionStatus := ACTC
+
+alt SCA window passed without finalisation (INV-PAY-03, Q-29)
+  PAY -> PAY : transactionStatus := RJCT
+end
+
+TPP -> FIN : GET /v1/payments/sepa-credit-transfers/{paymentId}/status
+FIN -> ADP
+ADP -> PAY
+PAY --> TPP : 200 transactionStatus=ACTC
+@enduml

@@ -1,0 +1,28 @@
+@startuml mvp-psu-revoke
+' MVP-01: PSU reviews and revokes TPP access in the mobile app. PROPOSAL, AI, 2026-09-19.
+' Stories: STORY-PSU-ACCESS-OVERVIEW, STORY-PSU-REVOKE (scope open, Q-26; data owner D-01).
+title MVP-01 — PSU revokes a TPP's access in the bank app (assumes D-01 option A)
+
+actor "Account holder" as PSU
+participant "Mobile app\n(CMP-MOBILE-APP)" as APP
+participant "Transmit / Ping" as IAM
+participant "Consent module\n(CMP-CONSENT)" as CNS
+participant "Event outbox\n(CMP-EVENT-OUTBOX)" as OUT
+participant "AISP" as TPP
+participant "Account info\n(CMP-ACCOUNT-INFO)" as ACC
+
+PSU -> APP : open "TPP access"
+APP -> IAM : app session (bank token)
+APP -> CNS : list consents of PSU (valid only)
+CNS --> APP : Sandbox AISP Ltd, DE40…8608, balances+transactions, until 2017-11-01
+PSU -> APP : revoke Sandbox AISP Ltd
+APP -> CNS : revoke 123cons456
+CNS -> CNS : valid -> revokedByPsu (INV-CNS-01), lastActionDate := today
+CNS -> OUT : ConsentStatusChanged(revokedByPsu)
+note right of OUT : No TPP notification in MVP (Q-24).\nEvent feeds audit and metrics only.
+
+TPP -> ACC : GET /v1/accounts (Consent-ID 123cons456)
+ACC -> CNS : is read allowed?
+CNS --> ACC : no — revokedByPsu
+ACC --> TPP : 401 (message code open, Q-09)
+@enduml
