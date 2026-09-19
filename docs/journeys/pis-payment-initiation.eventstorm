@@ -6,6 +6,8 @@
 // docs/domain/transaction-authorisation/transaction-authorisation.ddm.
 // Iteration 2: readmodel and ui cards carry the RM-/SCR- ids defined in
 // docs/journeys/service-blueprint.md.
+// Iteration 3 (SRC-ADR 87c72b8): payment approval assumed on the consent screen (Q-46); the app
+// keeps only the last SCA factor.
 eventstorm "PIS single payment — process and system design" {
 
   lane "PISP" {
@@ -63,20 +65,27 @@ eventstorm "PIS single payment — process and system design" {
     readmodel "Authorisation outcome" @9 +RM-AUTHORISATION-OUTCOME
   }
 
-  lane "Bank SCA redirect and mobile app" {
-    ui "Bank authorisation page" @6 +SCR-REDIRECT-HANDOFF
-    ui "Authenticate in the bank app" @6 +SCR-APP-AUTHENTICATE
+  lane "Consent screen (ASPSP gateway or Finologee)" {
+    ui "Identify yourself" @6 +SCR-CONSENT-IDENTIFY
     readmodel "Payment details for approval" @7 +RM-PAYMENT-APPROVAL {
       note "Amount, currency, payee name and account, debtor account. The PSU approves exactly \
             these values — the basis of dynamic linking (SRC-IG §5.1.9 mentions dynamic linking; \
             the RTS article itself was not supplied)."
     }
-    ui "Approve payment screen" @7 +SCR-APP-APPROVE-PAYMENT
+    ui "Approve payment" @7 +SCR-CONSENT-PAYMENT
+    hotspot "Does a payment go through the consent screen at all? The ADR names only access consent" @7 +"ask product" +Q-46
     hotspot "Are fees and currency conversion shown on the approval screen?" @7 +"ask product" +Q-41
     actor "Account holder" @7
     command "Approve payment" @7
     command "Decline payment" @7
-    ui "Outcome and return to the TPP" @9 +SCR-APP-DECISION-OUTCOME
+    ui "Confirm in your bank app" @7 +SCR-CONSENT-AWAIT-APP
+    ui "Outcome and return to the TPP" @9 +SCR-CONSENT-OUTCOME
+  }
+
+  lane "Mobile app (last factor only)" {
+    readmodel "Last-factor prompt with amount and payee" @7 +RM-LAST-FACTOR-PROMPT
+    ui "Confirm it's you" @7 +SCR-APP-LAST-FACTOR
+    command "Confirm with the last factor" @7
   }
 
   lane "Identity and SCA (Ping Federate, Transmit)" {

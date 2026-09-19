@@ -12,7 +12,7 @@ depend on the answer.
 
 | ID | Question | Ask | Raised in | Blocks |
 | --- | --- | --- | --- | --- |
-| `Q-01` | Where does PSU consent lifecycle management live: Ping/Transmit, Finologee or the ASPSP gateway? (`SRC-Q`) | architecture | Big Picture @4; `psu-revoke.examplemap`; `.ddd` Consent owner; `D-01` | WS-01 |
+| `Q-01` | Where does PSU consent lifecycle management live — the ASPSP gateway (possibly using IDP/CIAM built-in features) or Finologee — and with it, who provides the consent screen frontend and backend? (`SRC-Q`; reframed by `SRC-ADR` `87c72b8`) | architecture | Big Picture @4; `psu-revoke.examplemap`; `.ddd` Consent owner; C4 `consentScreen`; `D-01` | WS-01 |
 | `Q-02` | Is the Finologee TPP token exchanged for a bank (Ping) token, or used directly? (`SRC-Q`) | architecture, iam | Big Picture @10; `d-02-token-options.puml`; `D-02` | WS-01 |
 | `Q-03` | Which SCA approaches does the bank offer: redirect, OAuth2, decoupled, embedded? | architecture, product | Big Picture @5; AIS storm @3; `D-03` | WS-01 |
 | `Q-04` | What is Finologee's integration contract towards the ASPSP gateway, and which of the two exposes the Berlin Group API to TPPs? | architecture, Finologee | `.ddd` TPP Access relationships; C4 `finologee -> edge`; `D-05` | WS-01 |
@@ -32,12 +32,12 @@ depend on the answer.
 | `Q-18` | Is the MVP a production go-live to TPPs or a testing-facility release, and which obligations apply at go-live? | product, compliance | MVP pack; `D-08` | MVP-01 |
 | `Q-19` | Which jurisdiction and NCA apply, which currencies, and are multicurrency accounts relevant (§4.5)? The spec's examples are German IBANs | compliance | Problem analysis | — |
 | `Q-20` | What are the business objectives, owners and success targets? None were supplied | product | `OBJ-*`; MVP learning hypothesis; `.ddd` domain owner | MVP-01 acceptance |
-| `Q-21` | What UX research exists? What accessibility standard applies to the SCA pages and approval screens? What happens without the bank app on the device? | product, UX | Journey map; `sca-redirect-app.examplemap` | MVP-01 |
+| `Q-21` | What UX research exists? What accessibility standard applies to the consent screen and the app's last-factor prompt? What happens when the PSU has **no registered bank app** at all (the last factor needs it — `SRC-ADR`)? | product, UX | Journey map; `sca-redirect-app.examplemap`; `STORY-SCA-NO-APP` | MVP-01 |
 | `Q-22` | Which delivery platform, CI/CD, environments, event transport and observability stack? None were supplied | engineering | C4 `observability`; AsyncAPI server; WS-01 | WS-01 |
 | `Q-23` | May a profile derived from the CC BY-ND Berlin Group IG be published in this repository? | legal | OpenAPI `info.license`; `RSK-05` | Sharing the repo |
 | `Q-24` | Will the bank support the resource status notification service (`TPP-Notification-URI`)? `[XS2A-RSNS]` was not supplied | product | `STORY-PIS-NOTIFY`; `psu-revoke.examplemap` | — |
 | `Q-25` | Is a `resourceId` stable across different consents of the same TPP, or only within one? | architecture | `read-account-list.examplemap` | MVP-01 |
-| `Q-26` | Is a TPP-access overview with revoke in the mobile app part of the MVP? | product | Big Picture @14; AIS storm @15; `STORY-PSU-*` | MVP-01 |
+| `Q-26` | ~~Is a TPP-access overview with revoke in the mobile app part of the MVP?~~ **Answered in part by `SRC-ADR` `87c72b8`:** the app only carries the last factor, and revocation is on the consent screen. A cross-TPP overview has no channel now (`STORY-PSU-ACCESS-OVERVIEW` moved to unscheduled). The remaining part is `Q-43` | product | Big Picture @14; `STORY-PSU-*` | — |
 | `Q-27` | Error codes where the spec is ambiguous: 403 vs 404 for another TPP's resource; payment-product mismatch; malformed consent (400 FORMAT_ERROR vs 401 CONSENT_INVALID); one-off consent with frequency > 1 | architecture | Red cards in `tpp-identify`, `consent-dedicated`, `pis-initiate-sct` example maps | MVP-01 |
 | `Q-28` | Which end status does the bank report (ACTC, ACCP, ACFC, ACSC)? Is it a batch- or real-time-booking bank? | core banking | Big Picture @21; PIS storm @14; `transaction-status.puml` | MVP-01 |
 | `Q-29` | How long is the SCA window before a payment becomes RJCT, or before a consent is rejected? | product | PIS storm @10; `pis-status`, `sca-redirect-app` example maps | MVP-01 |
@@ -50,10 +50,15 @@ depend on the answer.
 | `Q-36` | May the PSU deselect accounts or access types before approving (partial approval)? The stored consent would then differ from the TPP's request | product, compliance | AIS storm @7; `SCR-APP-APPROVE-ACCESS` | MVP-01 |
 | `Q-37` | How are accounts labelled on bank screens: full IBAN, masked IBAN, account name, product? | product, UX | `RM-CONSENT-APPROVAL`, `RM-PAYMENT-APPROVAL`, `RM-PSU-TPP-ACCESS` | WS-01 (minimal) |
 | `Q-38` | Is a TPP brand shown next to the legal name, and from which source (certificate OU, a registry, a bank-maintained list)? `TPP-Brand-Logging-Information` is for logging only (§5.3.1) | product, UX | `H-02`; `UX-03`; approval and access screens | MVP-01 |
-| `Q-39` | After the decision, does the app show an outcome screen, or return to the TPP at once? | product, UX | AIS storm @10; `SCR-APP-DECISION-OUTCOME` | MVP-01 |
-| `Q-40` | Should the access overview show when the TPP last read data? How fresh must the overview and the revocation effect be? | product | `RM-PSU-TPP-ACCESS`; `SCR-APP-TPP-ACCESS-DETAIL` | MVP-01 |
+| `Q-39` | After the decision, does the **consent screen** show an outcome, or return to the TPP at once? (was "does the app", before `SRC-ADR` `87c72b8`) | product, UX | AIS storm @10; `SCR-CONSENT-OUTCOME` | MVP-01 |
+| `Q-40` | Should the consent screen show when the TPP last read data? How fresh must it and the revocation effect be? | product | `RM-PSU-TPP-ACCESS`; `SCR-CONSENT-MANAGE` | MVP-01 |
 | `Q-41` | Are fees and currency conversion shown on the payment approval screen? | product, compliance | PIS storm @7; `RM-PAYMENT-APPROVAL` | MVP-01 |
 | `Q-42` | Which accessibility standard applies to bank screens (bank standard; the European Accessibility Act — compliance to confirm), and in which languages are they rendered (app language vs forwarded `PSU-Accept-Language`, §4.8)? | compliance, UX | Service blueprint §5 | MVP-01 |
+| `Q-43` | How does a PSU reach the consent screen to **revoke** a TPP's access: from inside the TPP's web application only, or also through a bank channel? Is a revocation made there "revoked by the PSU towards the ASPSP" (§14.15)? Is there any cross-TPP overview? (`C-12`) | product, compliance | Big Picture @14; `psu-revoke.examplemap`; `SCR-CONSENT-MANAGE` | MVP-01 |
+| `Q-44` | "Presented in the TPP web application" (`C-11`): is the consent screen a bank- or Finologee-hosted page the TPP **redirects** to, or a component **embedded** in the TPP page? What about TPPs with native mobile apps? | architecture, product, security | Big Picture @5; C4 `consentScreen`; `D-03` | WS-01 |
+| `Q-45` | Which authentication factor(s) come **before** the app's last factor, and where are they collected (consent screen via a Transmit web journey or Ping, or elsewhere)? How is the app triggered — push notification, QR code, app link? | iam, product | AIS storm @6; `SCR-CONSENT-IDENTIFY`; `D-10` | WS-01 |
+| `Q-46` | Does a **payment** authorisation also go through the consent screen (the ADR names only access consent)? Does the app's last-factor prompt show amount and payee for dynamic linking? | product, compliance, iam | PIS storm @7; `SCR-CONSENT-PAYMENT`; `RM-LAST-FACTOR-PROMPT` | WS-01 |
+| `Q-47` | On which domain and with which branding is the consent screen served: bank or Finologee? (PSU trust, phishing resistance, `UX-03`) | product, security | `SCR-CONSENT-*`; `D-01` | MVP-01 |
 
 ## Assumptions
 
@@ -64,7 +69,7 @@ reversible and needs confirmation.
 | --- | --- | --- | --- |
 | `A-01` | The bank is an ASPSP offering payment accounts to retail PSUs under PSD2 | Frames the whole analysis | product |
 | `A-02` | Finologee is TPP-facing, and the bank adapts to its contract (open-host service upstream) | Context map power; C4 edge | architecture, Finologee |
-| `A-03` | The bank mobile app is the PSU's SCA device | Approval screens; app-to-app redirect | product, iam |
+| `A-03` | ~~The bank mobile app is the PSU's SCA device~~ — **now a fact** for the last factor only (`SRC-ADR` `87c72b8`) | — | — |
 | `A-04` | The target is NextGenPSD2 v1.3.16, the version supplied | All contracts | architecture |
 | `A-05` | Retail PSUs first; no corporate or multilevel SCA in the MVP | Scope | product |
 | `A-06` | JSON only; no pain.001, camt or MT94x | OpenAPI profile | product |
@@ -75,8 +80,8 @@ reversible and needs confirmation.
 | `A-11` | Combined AIS/PIS sessions (§9) are not offered in the MVP | R-CNS-07 | product |
 | `A-12` | The bank IAM team owns Ping and Transmit configuration | `.ddd` owners | iam |
 | `A-13` | IBAN is the only account reference type in the MVP | OpenAPI `AccountReference` | product |
-| `A-14` | Approval and access screens are native mobile-app screens. The app reads its data from the ASPSP gateway (`CMP-PSU-CHANNEL-API`) with a Ping-issued app-session token, and runs only authentication through a Transmit journey | Screen ownership in the service blueprint; `API-PSU-CHANNEL` | UX, architecture, iam (`D-09`) |
-| `A-15` | The MVP has no web approval path: without the app, the PSU sees only `SCR-REDIRECT-HANDOFF` or `SCR-REDIRECT-INVALID` | Scope of `CMP-SCA-REDIRECT-UI` | product (`Q-21`) |
+| `A-14` | **Withdrawn** — contradicted by `SRC-ADR` `87c72b8`. It assumed native approval and access screens in the mobile app; the app now carries only the last factor, and approval happens on the consent screen | — | — |
+| `A-15` | **Withdrawn** — contradicted by `SRC-ADR` `87c72b8`. It assumed no web approval path in the MVP; the consent screen *is* the web approval path | — | — |
 
 ## Hypotheses (product)
 
@@ -90,4 +95,4 @@ reversible and needs confirmation.
 
 ## Decisions pending
 
-`D-01`…`D-09` are described in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).
+`D-01`…`D-10` are described in [`docs/system/README.md` §4](../system/README.md#4-decisions-that-need-human-authority).

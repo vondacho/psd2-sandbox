@@ -7,6 +7,10 @@
 // Iteration 2: PSU-facing screens are elements of kind appScreen / webScreen nested inside
 // the container that manages them; metadata.scr and metadata.readmodels use the SCR-/RM- ids
 // defined in docs/journeys/service-blueprint.md.
+// Iteration 3 (SRC-ADR 87c72b8): the consent screen (grant / revoke, presented in the TPP web
+// application) replaces the SCA redirect entry point; its provider — ASPSP gateway or Finologee —
+// is undecided (D-01), so it is modelled as a neutral system tagged #undecided. The mobile app keeps
+// only the last-factor screen. Withdrawn ids: docs/system/README.md §3.2a and blueprint §7.
 
 specification {
   element actor {
@@ -99,6 +103,86 @@ model {
     }
   }
 
+  consentScreen = system 'Consent screen' {
+    #undecided #proposed #skeleton #mvp
+    technology 'Web frontend + backend, presented in the TPP web application (redirect or embedded: Q-44)'
+    description 'Lets the PSU grant or revoke a TPP access and approve requests (SRC-ADR). Provided by the ASPSP gateway (in-house) or by Finologee — undecided (D-01)'
+    metadata {
+      cmp 'CMP-CONSENT-SCREEN'
+      ctx 'CTX-CONSENT'
+      decisions 'D-01 Q-44 Q-47'
+      stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-SCA-CONSENT-DETAILS STORY-SCA-OUTCOME STORY-SCA-REQUEST-UNAVAILABLE STORY-SCA-NO-APP STORY-PSU-REVOKE'
+    }
+
+    identify = webScreen 'Identify yourself' {
+      #skeleton #mvp #undecided
+      description 'First factor(s) before the app last factor — which and how: Q-45'
+      metadata {
+        scr 'SCR-CONSENT-IDENTIFY'
+        readmodels 'RM-REDIRECT-SESSION RM-SCA-CONTEXT'
+      }
+    }
+    grantAccess = webScreen 'Grant access' {
+      #skeleton #mvp
+      metadata {
+        scr 'SCR-CONSENT-ACCESS'
+        readmodels 'RM-CONSENT-APPROVAL'
+      }
+    }
+    approvePayment = webScreen 'Approve payment' {
+      #skeleton #mvp #undecided
+      description 'Assumed: the ADR names only access consent (Q-46)'
+      metadata {
+        scr 'SCR-CONSENT-PAYMENT'
+        readmodels 'RM-PAYMENT-APPROVAL'
+      }
+    }
+    awaitApp = webScreen 'Confirm in your bank app' {
+      #skeleton #mvp
+      metadata {
+        scr 'SCR-CONSENT-AWAIT-APP'
+        readmodels 'RM-AUTHORISATION-OUTCOME'
+      }
+    }
+    outcome = webScreen 'Outcome and return' {
+      #mvp
+      metadata {
+        scr 'SCR-CONSENT-OUTCOME'
+        readmodels 'RM-AUTHORISATION-OUTCOME'
+      }
+    }
+    unavailable = webScreen 'Request no longer available' {
+      #mvp
+      metadata {
+        scr 'SCR-CONSENT-UNAVAILABLE'
+        readmodels 'RM-REDIRECT-SESSION RM-AUTHORISATION-OUTCOME'
+      }
+    }
+    noApp = webScreen 'You need the bank app to confirm' {
+      #undecided
+      description 'Unscheduled — options open (Q-21)'
+      metadata {
+        scr 'SCR-CONSENT-NO-APP'
+        readmodels 'RM-SCA-CONTEXT'
+      }
+    }
+    manage = webScreen 'What this provider can see' {
+      #mvp
+      description 'How the PSU reaches it to revoke is open (Q-43)'
+      metadata {
+        scr 'SCR-CONSENT-MANAGE'
+        readmodels 'RM-PSU-TPP-ACCESS'
+      }
+    }
+    revokeConfirm = webScreen 'Withdraw access?' {
+      #mvp
+      metadata {
+        scr 'SCR-CONSENT-REVOKE-CONFIRM'
+        readmodels 'RM-PSU-TPP-ACCESS'
+      }
+    }
+  }
+
   bank = system 'Bank' {
     #bank
     description 'The ASPSP'
@@ -125,7 +209,7 @@ model {
 
       consentModule = component 'Consent module' {
         #proposed #undecided #skeleton #mvp
-        description 'AIS consent resources and lifecycle; TPP access overview for the mobile app'
+        description 'AIS consent resources and lifecycle; this-TPP access and revoke for the consent screen'
         metadata {
           cmp 'CMP-CONSENT'
           ctx 'CTX-CONSENT'
@@ -178,14 +262,14 @@ model {
 
       psuChannel = component 'PSU channel API' {
         #proposed #skeleton #mvp
-        description 'Serves the PSU-facing read models to the mobile app and the redirect entry point, and takes approve / decline / revoke commands (API-PSU-CHANNEL)'
+        description 'Backend of the consent screen if D-01 goes in-house; in any case serves the app last-factor prompt (API-PSU-CHANNEL)'
         metadata {
           cmp 'CMP-PSU-CHANNEL-API'
           ctx 'CTX-TXN-AUTHORISATION'
-          decisions 'D-01 D-09'
-          readmodels 'RM-CONSENT-APPROVAL RM-PAYMENT-APPROVAL RM-AUTHORISATION-OUTCOME RM-PSU-TPP-ACCESS RM-REDIRECT-SESSION'
+          decisions 'D-01 D-10'
+          readmodels 'RM-CONSENT-APPROVAL RM-PAYMENT-APPROVAL RM-AUTHORISATION-OUTCOME RM-PSU-TPP-ACCESS RM-REDIRECT-SESSION RM-LAST-FACTOR-PROMPT'
           interfaces 'API-PSU-CHANNEL'
-          stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-SCA-CONSENT-DETAILS STORY-SCA-OUTCOME STORY-SCA-REQUEST-UNAVAILABLE STORY-PSU-ACCESS-OVERVIEW STORY-PSU-REVOKE'
+          stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-SCA-CONSENT-DETAILS STORY-SCA-OUTCOME STORY-SCA-REQUEST-UNAVAILABLE STORY-PSU-REVOKE'
         }
       }
 
@@ -208,105 +292,22 @@ model {
       }
     }
 
-    scaRedirect = container 'SCA redirect entry point' {
-      #bank #proposed #skeleton #mvp
-      technology 'Web page + app link (universal / app link) handler'
-      description 'Target of scaRedirect: hands the PSU to the mobile app (app-to-app) or a web fallback'
-      metadata {
-        cmp 'CMP-SCA-REDIRECT-UI'
-        ctx 'CTX-TXN-AUTHORISATION'
-        decisions 'D-03 Q-21'
-        stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-SCA-CONSENT-DETAILS STORY-SCA-REQUEST-UNAVAILABLE STORY-SCA-NO-APP'
-      }
-
-      handoffPage = webScreen 'Continue in your bank app' {
-        #skeleton #mvp
-        metadata {
-          scr 'SCR-REDIRECT-HANDOFF'
-          readmodels 'RM-REDIRECT-SESSION'
-        }
-      }
-      invalidPage = webScreen 'Request no longer available' {
-        #mvp
-        metadata {
-          scr 'SCR-REDIRECT-INVALID'
-          readmodels 'RM-REDIRECT-SESSION'
-        }
-      }
-      noAppPage = webScreen 'Approve without the app on this device' {
-        #undecided
-        description 'Unscheduled — options open (Q-21, D-09)'
-        metadata {
-          scr 'SCR-REDIRECT-NO-APP'
-          readmodels 'RM-REDIRECT-SESSION'
-        }
-      }
-    }
-
     mobileApp = container 'Mobile banking app' {
       #bank #skeleton #mvp
-      description 'Own mobile app with SCA (SRC-ADR); approval screens; proposed TPP access overview'
+      description 'Own mobile app; in the PSD2 journey it only carries the last SCA authentication factor (SRC-ADR 87c72b8)'
       metadata {
         cmp 'CMP-MOBILE-APP'
         ctx 'CTX-MOBILE-BANKING'
-        stories 'STORY-SCA-CONSENT-DETAILS STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP STORY-PSU-ACCESS-OVERVIEW STORY-PSU-REVOKE STORY-SCA-OUTCOME STORY-SCA-REQUEST-UNAVAILABLE'
+        decisions 'D-10 Q-45'
+        stories 'STORY-SCA-REDIRECT-APP STORY-PIS-SCA-REDIRECT-APP'
       }
 
-      authenticate = appScreen 'Authenticate' {
-        #skeleton #mvp #undecided
-        description 'Biometric / PIN on the registered device; rendered from a Transmit journey — who renders it is open (D-09, Q-07)'
-        metadata {
-          scr 'SCR-APP-AUTHENTICATE'
-          readmodels 'RM-SCA-CONTEXT'
-        }
-      }
-      approveAccess = appScreen 'Approve access' {
+      lastFactor = appScreen 'Confirm it is you' {
         #skeleton #mvp
+        description 'Biometric / PIN on the registered device; shows what is being confirmed (amount and payee for payments: Q-46)'
         metadata {
-          scr 'SCR-APP-APPROVE-ACCESS'
-          readmodels 'RM-CONSENT-APPROVAL'
-        }
-      }
-      approvePayment = appScreen 'Approve payment' {
-        #skeleton #mvp
-        metadata {
-          scr 'SCR-APP-APPROVE-PAYMENT'
-          readmodels 'RM-PAYMENT-APPROVAL'
-        }
-      }
-      outcome = appScreen 'Outcome and return' {
-        #mvp
-        metadata {
-          scr 'SCR-APP-DECISION-OUTCOME'
-          readmodels 'RM-AUTHORISATION-OUTCOME'
-        }
-      }
-      unavailable = appScreen 'Request no longer available' {
-        #mvp
-        metadata {
-          scr 'SCR-APP-REQUEST-UNAVAILABLE'
-          readmodels 'RM-AUTHORISATION-OUTCOME'
-        }
-      }
-      accessList = appScreen 'Connected providers' {
-        #mvp
-        metadata {
-          scr 'SCR-APP-TPP-ACCESS-LIST'
-          readmodels 'RM-PSU-TPP-ACCESS'
-        }
-      }
-      accessDetail = appScreen 'Provider access detail' {
-        #mvp
-        metadata {
-          scr 'SCR-APP-TPP-ACCESS-DETAIL'
-          readmodels 'RM-PSU-TPP-ACCESS'
-        }
-      }
-      revokeConfirm = appScreen 'Withdraw access?' {
-        #mvp
-        metadata {
-          scr 'SCR-APP-REVOKE-CONFIRM'
-          readmodels 'RM-PSU-TPP-ACCESS'
+          scr 'SCR-APP-LAST-FACTOR'
+          readmodels 'RM-LAST-FACTOR-PROMPT'
         }
       }
     }
@@ -353,8 +354,8 @@ model {
 
   // ---- relationships
   psu -> tpp 'uses the TPP service'
-  psu -> bank.scaRedirect 'follows scaRedirect'
-  psu -> bank.mobileApp 'authenticates and approves'
+  psu -> consentScreen 'grants / revokes access, approves requests'
+  psu -> bank.mobileApp 'confirms with the last factor'
 
   tpp -> finologee 'calls XS2A over mTLS with QWAC' {
     #skeleton
@@ -383,37 +384,34 @@ model {
   bank.gateway.outbox -> bank.gateway.store 'reads outbox'
   bank.gateway.outbox -> bank.observability 'status-change events for audit and metrics'
 
-  bank.scaRedirect -> bank.gateway.authorisationModule 'resolve redirect session'
-  bank.scaRedirect -> bank.mobileApp 'app-to-app hand-off'
-  bank.mobileApp -> bank.transmit 'SCA journey on registered device'
-  bank.mobileApp -> bank.gateway.authorisationModule 'approve / decline with SCA result'
-  bank.mobileApp -> bank.gateway.consentModule 'TPP access overview and revoke (Q-26)'
   bank.gateway.authorisationModule -> bank.ping 'verify SCA result / bank token (D-02, Q-07)' {
     #undecided
   }
   bank.transmit -> bank.ping 'federation (Q-07)'
   bank.gateway -> bank.observability 'traces, metrics, logs'
 
-  // ---- iteration 2: screens, read models and the PSU channel API
+  // ---- screens, read models and the consent-screen backend (iterations 2–3)
   psu -> tpp.tppRequest 'starts at the TPP'
-  tpp.tppRequest -> bank.scaRedirect.handoffPage 'scaRedirect (when the app link does not open the app)'
-  bank.scaRedirect.handoffPage -> bank.mobileApp.authenticate 'app-to-app hand-off'
-  bank.scaRedirect -> bank.gateway.psuChannel 'resolve redirect session (RM-REDIRECT-SESSION)'
-  bank.mobileApp.authenticate -> bank.transmit 'SCA journey (RM-SCA-CONTEXT)'
-  bank.mobileApp.approveAccess -> bank.gateway.psuChannel 'reads RM-CONSENT-APPROVAL; approve / decline'
-  bank.mobileApp.approvePayment -> bank.gateway.psuChannel 'reads RM-PAYMENT-APPROVAL; approve / decline'
-  bank.mobileApp.outcome -> tpp.tppResult 'back to TPP-Redirect-URI / Nok URI'
-  bank.mobileApp.unavailable -> bank.gateway.psuChannel 'reads RM-AUTHORISATION-OUTCOME'
-  bank.mobileApp.accessList -> bank.gateway.psuChannel 'reads RM-PSU-TPP-ACCESS'
-  bank.mobileApp.accessDetail -> bank.gateway.psuChannel 'reads RM-PSU-TPP-ACCESS'
-  bank.mobileApp.revokeConfirm -> bank.gateway.psuChannel 'revoke access'
-  bank.gateway.psuChannel -> bank.gateway.authorisationModule 'approval requests, decisions, redirect sessions'
-  bank.gateway.psuChannel -> bank.gateway.consentModule 'consent details; TPP access of a PSU; revoke'
-  bank.gateway.psuChannel -> bank.gateway.paymentModule 'payment details'
-  bank.gateway.psuChannel -> bank.gateway.coreAdapter 'account labels (Q-37)'
-  bank.gateway.psuChannel -> bank.ping 'validate app session token (Q-07)' {
+  tpp.tppRequest -> consentScreen.identify 'scaRedirect (redirect or embedded, Q-44)'
+  consentScreen.identify -> bank.transmit 'first factor(s) (Q-45)' {
     #undecided
   }
+  consentScreen -> bank.gateway.psuChannel 'backend if in-house (D-01)' {
+    #undecided
+  }
+  consentScreen -> finologee 'backend if Finologee (D-01)' {
+    #undecided
+  }
+  consentScreen.awaitApp -> bank.mobileApp.lastFactor 'last factor on the registered device (push / QR / app link, Q-45)'
+  bank.mobileApp.lastFactor -> bank.transmit 'last factor (RM-SCA-CONTEXT)'
+  bank.mobileApp.lastFactor -> bank.gateway.psuChannel 'reads RM-LAST-FACTOR-PROMPT (D-10)'
+  consentScreen.outcome -> tpp.tppResult 'back to TPP-Redirect-URI / Nok URI'
+  consentScreen.unavailable -> tpp.tppResult 'back to TPP-Nok-Redirect-URI'
+  bank.gateway.psuChannel -> bank.gateway.authorisationModule 'approval requests, decisions, redirect sessions, last-factor prompts'
+  bank.gateway.psuChannel -> bank.gateway.consentModule 'consent details; this TPP access; revoke'
+  bank.gateway.psuChannel -> bank.gateway.paymentModule 'payment details'
+  bank.gateway.psuChannel -> bank.gateway.coreAdapter 'account labels (Q-37)'
+
 }
 
 views {
@@ -422,20 +420,20 @@ views {
     title 'System context — PSD2 XS2A'
     description 'Who talks to whom. Current-state elements come from SRC-ADR; #proposed elements are this proposal.'
     include *
-    include bank.gateway, bank.scaRedirect, bank.mobileApp, bank.ping, bank.transmit, bank.core
+    include bank.gateway, bank.mobileApp, bank.ping, bank.transmit, bank.core
     exclude bank.observability
   }
 
   view containers of bank {
     title 'Containers — the bank side of XS2A'
     include *
-    include tpp, finologee, psu
+    include tpp, finologee, psu, consentScreen
   }
 
   view gateway of bank.gateway {
     title 'Components — ASPSP gateway (modules by bounded context)'
     include *
-    include finologee, bank.core, bank.mobileApp, bank.scaRedirect, bank.ping, bank.observability
+    include finologee, bank.core, bank.mobileApp, consentScreen, bank.ping, bank.observability
   }
 
   view walkingSkeleton {
@@ -452,7 +450,8 @@ views {
       bank.gateway.accountModule,
       bank.gateway.coreAdapter,
       bank.gateway.store,
-      bank.scaRedirect,
+      bank.gateway.psuChannel,
+      consentScreen,
       bank.mobileApp,
       bank.transmit,
       bank.ping
@@ -460,13 +459,14 @@ views {
 
   view psuScreens {
     title 'PSU screens and the components that manage them'
-    description 'Screens (amber) nested in the container that manages them; edges name the read model each screen needs (docs/journeys/service-blueprint.md)'
+    description 'Screens (amber) nested in the element that manages them; the consent screen provider is undecided (D-01). Edges name the read model each screen needs (docs/journeys/service-blueprint.md)'
     include
       psu,
       tpp,
       tpp.*,
-      bank.scaRedirect,
-      bank.scaRedirect.*,
+      consentScreen,
+      consentScreen.*,
+      finologee,
       bank.mobileApp,
       bank.mobileApp.*,
       bank.gateway.psuChannel,

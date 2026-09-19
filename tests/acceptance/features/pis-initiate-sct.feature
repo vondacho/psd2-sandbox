@@ -1,7 +1,7 @@
 # GENERATED from docs/stories/pis-initiate-sct.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: b410c13a904ae00d1d5d14a4f0b7bfaa6090486d2f97f9e7b58bbe9e45dc8230
+# source-sha256: 43cd90cfe7c728e8d426f701ef91b3edab92f0fcb83f30feea416c209981f126
 # generator: tools/sdlc/examplemap_to_feature.py
-# 5 open question(s) on the map have no Gherkin and are NOT represented here.
+# 6 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.
 @STORY-PIS-INITIATE-SCT
 Feature: Initiate a SEPA credit transfer
@@ -49,7 +49,7 @@ Feature: Initiate a SEPA credit transfer
   # Rule R-PIS-05: The PSU approves exactly the amount and payee that were submitted
 
   @WS-01 @R-PIS-05
-  Scenario: The approval screen shows amount and payee
+  Scenario: The payment approval shows amount and payee
     Given payment 1234-wertiq-983 of 123.50 EUR to Merchant123, DE02100100109307118603
-    When the PSU opens the approval screen in the bank app
+    When the PSU opens the payment approval on the consent screen
     Then the screen shows 123.50 EUR, Merchant123 and DE02100100109307118603

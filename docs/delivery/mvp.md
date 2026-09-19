@@ -8,17 +8,18 @@
 
 A bank customer can let a licensed **AISP** see the accounts, balances and transactions they
 chose. They can let a licensed **PISP** pay a merchant from their account by SEPA credit
-transfer. Both requests are approved in the bank's own app. The customer can see and withdraw
-any TPP's access from that app.
+transfer. Both requests are approved on the bank's consent screen and confirmed with the bank
+app as the last factor. The customer can withdraw a TPP's access on the consent screen
+(iteration 3, `SRC-ADR` `87c72b8`).
 
 ## Learning hypothesis
 
 | | |
 | --- | --- |
-| We believe | that authorising TPP requests in the bank's own app, reached by app-to-app redirect (`D-03`), lets PSUs complete consents and payments without abandoning (`H-01`, `OBJ-03`) |
+| We believe | that approving TPP requests on the consent screen and confirming them with the bank app as the last factor (`D-03`, `D-10`) lets PSUs complete consents and payments without abandoning, even across two devices (`H-01`, `OBJ-03`) |
 | We will know when | at least **[X] %** of authorisations started through XS2A reach `scaStatus = finalised`, and at least **[Y] %** of those finish within **[Z] minutes**, per TPP, over **[period]** |
 | Owner of X, Y, Z, period | Product (`Q-20`). No target was supplied, and the AI does not set one |
-| Second hypothesis | PSUs who see their TPP access in the app use it to withdraw access they no longer want (`OBJ-02`, `H-03`). Measured by overview views, revocations, and support contacts about TPP access (baseline unknown) |
+| Second hypothesis | PSUs who reach the consent screen to manage a TPP's access use it to withdraw access they no longer want (`OBJ-02`, `H-03`). Measured by manage-screen views, revocations, and support contacts about TPP access (baseline unknown). Depends on how the PSU reaches it (`Q-43`) |
 
 ## Included stories (the slice)
 
@@ -30,7 +31,7 @@ The slice holds every story tagged `@"Walking skeleton"` or `@"MVP"` on the
 | Reach the bank as a licensed TPP (`EVT-TPP-IDENTIFIED`) | `STORY-TPP-IDENTIFY`, `STORY-TPP-ROLE-CHECK`, `STORY-TPP-RESOURCE-ISOLATION`, `STORY-XS2A-PROFILE` |
 | Grant account access (`EVT-CONSENT-AUTHORISED`) | `STORY-CONSENT-DEDICATED`, `STORY-SCA-REDIRECT-APP`, `STORY-SCA-CONSENT-DETAILS`, `STORY-SCA-OUTCOME`, `STORY-SCA-REQUEST-UNAVAILABLE`, `STORY-CONSENT-STATUS`, `STORY-CONSENT-READ`, `STORY-SCA-STATUS` |
 | Use account data (`EVT-ACCOUNT-DATA-DELIVERED`) | `STORY-READ-ACCOUNT-LIST`, `STORY-READ-ACCOUNT-DETAILS`, `STORY-READ-BALANCES`, `STORY-READ-TRANSACTIONS`, `STORY-ENFORCE-FREQUENCY` |
-| End account access (`EVT-CONSENT-ENDED`) | `STORY-CONSENT-DELETE`, `STORY-PSU-ACCESS-OVERVIEW`, `STORY-PSU-REVOKE`, `STORY-CONSENT-EXPIRY` |
+| End account access (`EVT-CONSENT-ENDED`) | `STORY-CONSENT-DELETE`, `STORY-PSU-REVOKE`, `STORY-CONSENT-EXPIRY` (`STORY-PSU-ACCESS-OVERVIEW` unscheduled in iteration 3: no channel) |
 | Authorise a payment (`EVT-PAYMENT-AUTHORISED`) | `STORY-PIS-INITIATE-SCT`, `STORY-PIS-SCA-REDIRECT-APP` |
 | Follow the payment to its outcome (`EVT-PAYMENT-FINAL-STATUS-REACHED`) | `STORY-PIS-STATUS`, `STORY-PIS-READ-PAYMENT`, `STORY-PIS-SCA-TIMEOUT` |
 | Confirm available funds | **none — this activity is empty in the MVP.** The endpoint is Mandatory in §4.11.6, and whether that is acceptable is a compliance decision (`Q-14`, `RSK-04`) |
@@ -45,7 +46,8 @@ All unscheduled stories on the map:
 
 - other consent models (`Q-10`) and the owner name (`Q-33`);
 - decoupled, embedded and multilevel SCA, and the confirmation step (`Q-34`, pending);
-- web approval without the bank app (`STORY-SCA-NO-APP`, `Q-21`, `A-15`);
+- SCA without a registered bank app (`STORY-SCA-NO-APP`, `Q-21`);
+- a cross-TPP access overview (`STORY-PSU-ACCESS-OVERVIEW`, `Q-43`);
 - transaction details and card accounts;
 - instant, pain.001, bulk and periodic payments (`Q-13`);
 - VoP (`Q-16`) and signing baskets;
@@ -74,7 +76,7 @@ Rules and examples are **proposed, none accepted**. Readiness reading of the exa
 | `EXMAP-SCA-REDIRECT-APP` | 5 / 9 / 6 | Not ready until `D-03` and `Q-07` |
 | `EXMAP-READ-ACCOUNT-LIST` | 4 / 7 / 2 | Closest to ready |
 | `EXMAP-ENFORCE-FREQUENCY` | 3 / 4 / 3 | Not ready: R-FRQ-02 is an inference |
-| `EXMAP-PSU-REVOKE` | 4 / 5 / 6 | Not ready: scope (`Q-26`) and owner (`D-01`) open |
+| `EXMAP-PSU-REVOKE` | 4 / 5 / 6 | Not ready: reach of the consent screen (`Q-43`) and owner (`D-01`) open |
 | `EXMAP-PIS-INITIATE-SCT` | 5 / 5 / 5 | Not ready: `Q-13`, `Q-16` |
 | `EXMAP-PIS-STATUS` | 4 / 4 / 4 | Not ready: `Q-28`, `Q-29` |
 
@@ -91,11 +93,11 @@ Five MVP stories have no example map yet, and one should be run before refinemen
 
 ## Components and interfaces
 
-- **Components:** LikeC4 view `mvp`, i.e. every element tagged `#mvp`. MVP-01 replaces the core-banking stub with the real `CMP-CORE-ADAPTER` (`Q-06`) and adds the TPP access overview to `CMP-MOBILE-APP`.
+- **Components:** LikeC4 view `mvp`, i.e. every element tagged `#mvp`. MVP-01 replaces the core-banking stub with the real `CMP-CORE-ADAPTER` (`Q-06`). It completes the consent screen (`CMP-CONSENT-SCREEN`: outcome, unavailable, manage and revoke).
 - **Interfaces:**
   - every `API-XS2A-PROFILE` operation, whether `x-delivery: WS-01` or `MVP-01`. The two `PUT` confirmation operations are conditional on `Q-34`;
   - `API-XS2A-EVENTS` (conditional on `D-04`);
-  - `API-PSU-CHANNEL` (iteration 2): the mobile app and redirect entry point ↔ gateway. It serves the PSU-facing read models and takes approve, decline and revoke. It assumes `D-01` option A and `A-14`.
+  - `API-PSU-CHANNEL`: the consent-screen backend (only if `D-01` goes in-house; Finologee provides it otherwise) and the app's last-factor prompt.
 
 ## Compatibility considerations
 
@@ -122,12 +124,12 @@ The [service blueprint](../journeys/service-blueprint.md) is the source for this
 
 | Screen | Managed by | Read model |
 | --- | --- | --- |
-| `SCR-REDIRECT-HANDOFF`, `SCR-REDIRECT-INVALID` | `CMP-SCA-REDIRECT-UI` | `RM-REDIRECT-SESSION` |
-| `SCR-APP-AUTHENTICATE` | `CMP-MOBILE-APP` + Transmit (`D-09`) | `RM-SCA-CONTEXT` |
-| `SCR-APP-APPROVE-ACCESS` | `CMP-MOBILE-APP` | `RM-CONSENT-APPROVAL` |
-| `SCR-APP-APPROVE-PAYMENT` | `CMP-MOBILE-APP` | `RM-PAYMENT-APPROVAL` |
-| `SCR-APP-DECISION-OUTCOME`, `SCR-APP-REQUEST-UNAVAILABLE` | `CMP-MOBILE-APP` | `RM-AUTHORISATION-OUTCOME` |
-| `SCR-APP-TPP-ACCESS-LIST`, `SCR-APP-TPP-ACCESS-DETAIL`, `SCR-APP-REVOKE-CONFIRM` | `CMP-MOBILE-APP` | `RM-PSU-TPP-ACCESS` |
+| `SCR-CONSENT-IDENTIFY` | `CMP-CONSENT-SCREEN` (provider `D-01`) + Transmit/Ping (`D-10`) | `RM-REDIRECT-SESSION`, `RM-SCA-CONTEXT` |
+| `SCR-CONSENT-ACCESS` | `CMP-CONSENT-SCREEN` | `RM-CONSENT-APPROVAL` |
+| `SCR-CONSENT-PAYMENT` (assumed, `Q-46`) | `CMP-CONSENT-SCREEN` | `RM-PAYMENT-APPROVAL` |
+| `SCR-CONSENT-AWAIT-APP`, `SCR-CONSENT-OUTCOME`, `SCR-CONSENT-UNAVAILABLE` | `CMP-CONSENT-SCREEN` | `RM-AUTHORISATION-OUTCOME` (+ `RM-REDIRECT-SESSION`) |
+| `SCR-CONSENT-MANAGE`, `SCR-CONSENT-REVOKE-CONFIRM` | `CMP-CONSENT-SCREEN` | `RM-PSU-TPP-ACCESS` (this TPP only) |
+| `SCR-APP-LAST-FACTOR` | `CMP-MOBILE-APP` + Transmit | `RM-LAST-FACTOR-PROMPT` |
 
 **Backstage read models the MVP depends on:**
 
@@ -136,14 +138,14 @@ The [service blueprint](../journeys/service-blueprint.md) is the source for this
 - `RM-CONSENTS-DUE-TO-EXPIRE`;
 - `RM-OPS-SCA-FUNNEL` — the source of the learning-hypothesis measure.
 
-**Open screen-content questions that block MVP screens:** `Q-35`–`Q-42`, together with
-`Q-26`, `Q-29` and `Q-16`.
+**Open screen-content questions that block MVP screens:** `Q-35`–`Q-47`, together with
+`Q-29` and `Q-16`.
 
 ## UX and accessibility evidence
 
-- Usability sessions on the consent and payment approval screens and the TPP access overview. Test `H-01`, `H-02` and `H-03` and the proposed requirements `UX-01`…`UX-07` of the service blueprint; UX sets the sample size. The low-fi wireframes in `docs/system/uml/ux/` are the starting point, not a design.
-- An accessibility audit of `CMP-SCA-REDIRECT-UI` and the in-app approval and overview screens against the bank's standard (`Q-21`).
-- The fallback path when the bank app is missing on the device (`Q-21`).
+- Usability sessions on the consent screen (access, payment, manage and revoke) and the app's last-factor prompt. Include the **two-device hand-over** (`UX-08`, `RSK-06`). Test `H-01`, `H-02` and `H-03` and the proposed requirements `UX-01`…`UX-08` of the service blueprint; UX sets the sample size. The low-fi wireframes in `docs/system/uml/ux/` are the starting point, not a design.
+- An accessibility audit of the consent screen and the app's last-factor prompt against the applicable standard (`Q-42`).
+- The path for a PSU without a registered bank app (`Q-21`).
 
 ## Operational measures
 
@@ -152,10 +154,10 @@ The [service blueprint](../journeys/service-blueprint.md) is the source for this
 | `EVID-MVP-SCA-CONVERSION` | Started vs `finalised` authorisations, per TPP and per purpose; time to finalise |
 | `EVID-MVP-CONSENTS` | Consents by status and by cause of ending (`expired` / `revokedByPsu` / `terminatedByTpp`) |
 | `EVID-MVP-OPS` | Per operation: request rate, p95 latency, error codes, availability. `ACCESS_EXCEEDED` rate per TPP |
-| `EVID-MVP-REVOKE` | Overview views and revocations in the app |
+| `EVID-MVP-REVOKE` | Manage-screen views and revocations on the consent screen |
 
 ## Risks, dependencies and unanswered questions
 
-- **Decisions:** `D-01`–`D-09`.
-- **Blocking questions:** `Q-06`, `Q-08`, `Q-09`, `Q-11`, `Q-12`, `Q-13`, `Q-14`, `Q-16`, `Q-18`, `Q-20`, `Q-21`, `Q-25`, `Q-26`, `Q-27`, `Q-28`, `Q-29`, `Q-30`, `Q-34`, `Q-35`–`Q-42`.
+- **Decisions:** `D-01`–`D-08` and `D-10` (`D-09` superseded).
+- **Blocking questions:** `Q-06`, `Q-08`, `Q-09`, `Q-11`, `Q-12`, `Q-13`, `Q-14`, `Q-16`, `Q-18`, `Q-20`, `Q-21`, `Q-25`, `Q-27`, `Q-28`, `Q-29`, `Q-30`, `Q-34`, `Q-35`–`Q-47`.
 - **Risks:** `RSK-01`–`RSK-05` ([solution design §6](../system/README.md#6-risks)).

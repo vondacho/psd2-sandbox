@@ -1,10 +1,13 @@
 @startsalt wf-approve-payment
-' Low-fi wireframe — SCR-APP-APPROVE-PAYMENT, fed by RM-PAYMENT-APPROVAL. PROPOSAL, AI, 2026-09-19.
+' Low-fi wireframe — SCR-CONSENT-PAYMENT (web consent screen), fed by RM-PAYMENT-APPROVAL.
+' PROPOSAL, AI, 2026-09-19; iteration 3: assumed on the consent screen (Q-46).
 ' Every field maps to a read-model field; copy is placeholder. Data: spec example payment
 ' (SRC-IG §5.3.1). Fees line depends on Q-41; the VoP result line on Q-16 (not in MVP).
-title SCR-APP-APPROVE-PAYMENT — low-fi wireframe (proposal)
+title SCR-CONSENT-PAYMENT — consent screen, low-fi wireframe (proposal, Q-46)
 {+
-  {* <b>Approve this payment?</b> }
+  {* <b>⟨Bank⟩ · Payment</b> | "(bank identity — UX-03)" }
+  ..
+  <b>Approve this payment?</b>
   ..
   "Requested by <b>Sandbox PISP Ltd</b>"
   ..
@@ -20,6 +23,7 @@ title SCR-APP-APPROVE-PAYMENT — low-fi wireframe (proposal)
   }
   ..
   { [  Decline  ] | [  Approve  ] }
+  "After 'Approve' you confirm in your bank app."
   ..
   "Request expires in ⟨SCA window — Q-29⟩"
 }

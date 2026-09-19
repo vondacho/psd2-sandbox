@@ -4,6 +4,8 @@
 '          STORY-CONSENT-STATUS, STORY-READ-ACCOUNT-LIST, STORY-CONSENT-DELETE.
 ' Assumes D-03 = redirect with implicit start (SRC-IG §6.1.1.1) and D-01 = consent in the ASPSP
 ' gateway. Where D-02 (token) is open, the Finologee -> gateway hop is shown as "identified request".
+' Iteration 3 (SRC-ADR 87c72b8): approval on the consent screen (provider undecided, D-01; shown with
+' the in-house backend CMP-PSU-CHANNEL-API); the mobile app carries only the last SCA factor.
 title WS-01 — AIS consent with redirect SCA, then account list
 
 actor "Account holder\n(test PSU)" as PSU
@@ -16,8 +18,8 @@ box "ASPSP gateway (CMP-ASPSP-GW)" #F5F5F5
   participant "Account info\n(CMP-ACCOUNT-INFO)" as ACC
   participant "Core adapter\n(stub)" as CORE
 end box
-participant "SCA redirect\n(CMP-SCA-REDIRECT-UI)" as RED
-participant "Mobile app\n(CMP-MOBILE-APP)" as APP
+participant "Consent screen\n(CMP-CONSENT-SCREEN,\nprovider D-01)" as CS
+participant "Mobile app\n(CMP-MOBILE-APP,\nlast factor only)" as APP
 participant "Transmit / Ping\n(CMP-TRANSMIT, CMP-PING)" as IAM
 
 == Create consent (EXMAP-CONSENT-DEDICATED R-CNS-01) ==
@@ -33,18 +35,24 @@ ADP --> FIN : 201, ASPSP-SCA-Approach: REDIRECT,\n_links: scaRedirect, status, s
 FIN --> TPP : 201 Created
 
 == Authorise (EXMAP-SCA-REDIRECT-APP R-SCA-01..03) ==
-TPP -> PSU : redirect to scaRedirect
-PSU -> RED : GET scaRedirect
-RED -> AUT : resolve redirect session
-RED -> APP : app-to-app hand-off (universal/app link)
-APP -> IAM : authenticate PSU on registered device (Q-07)
-APP -> AUT : consent details for approval
-PSU -> APP : approve
-APP -> AUT : approve with SCA result
+TPP -> PSU : redirect to scaRedirect (or embedded, Q-44)
+PSU -> CS : open consent screen
+CS -> AUT : resolve redirect session (RM-REDIRECT-SESSION)
+CS -> IAM : first factor(s) (Q-45) — SCR-CONSENT-IDENTIFY
+CS -> AUT : consent details (RM-CONSENT-APPROVAL) — SCR-CONSENT-ACCESS
+PSU -> CS : approve
+CS -> AUT : approve + subject digest
+AUT -> IAM : request last factor on registered device (Q-45)
+CS --> PSU : SCR-CONSENT-AWAIT-APP
+IAM -> APP : push / QR / app link (Q-45)
+APP -> AUT : read RM-LAST-FACTOR-PROMPT
+PSU -> APP : confirm it's you (SCR-APP-LAST-FACTOR)
+APP -> IAM : last factor
+IAM -> AUT : SCA result bound to subject digest
 AUT -> AUT : INV-AUT-01, INV-AUT-05
 AUT -> CNS : authorisation finalised
 CNS -> CNS : consentStatus := valid (INV-CNS-01)
-APP --> PSU : back to TPP-Redirect-URI
+CS --> PSU : SCR-CONSENT-OUTCOME, back to TPP-Redirect-URI
 
 == Read status and accounts (R-ACC-01, R-ACC-04) ==
 TPP -> FIN : GET /v1/consents/{consentId}/status

@@ -1,12 +1,12 @@
 # GENERATED from docs/stories/psu-revoke.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: 5c9e5313a73c5209e51231d7dee98d5dbd093be545d789fef4451d4ab9791463
+# source-sha256: c049dfe86f7358a0b11d6edbf8c68e2db3ed061bc1a2b64a1d4136a06df986e9
 # generator: tools/sdlc/examplemap_to_feature.py
 # 6 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.
 @STORY-PSU-REVOKE
-Feature: Withdraw a TPP's access from my bank app
+Feature: Withdraw a TPP's access on the consent screen
   As Account holder
-  I want to withdraw a TPP's access from my bank app
+  I want to withdraw a TPP's access on the consent screen
   So that the TPP cannot read my accounts any more
 
   # Rule R-REV-01: A PSU can revoke a valid consent they granted
@@ -14,14 +14,14 @@ Feature: Withdraw a TPP's access from my bank app
   @MVP-01 @R-REV-01
   Scenario: The PSU revokes an AISP's access
     Given consent 123cons456, valid, granted by PSU PSU-1234 to Sandbox AISP Ltd
-    When PSU PSU-1234 revokes Sandbox AISP Ltd's access in the bank app on 2026-10-01
+    When PSU PSU-1234 revokes Sandbox AISP Ltd's access on the consent screen on 2026-10-01
     Then consent 123cons456 has consentStatus revokedByPsu
     And consent 123cons456 has lastActionDate 2026-10-01
 
   @MVP-01 @R-REV-01 @edge-case
   Scenario: A PSU cannot revoke another PSU's consent
     Given consent 123cons456, valid, granted by PSU PSU-1234
-    When PSU PSU-5678 looks at their TPP access in the bank app
+    When PSU PSU-5678 opens the consent screen of Sandbox AISP Ltd
     Then consent 123cons456 is not shown
 
   # Rule R-REV-02: After revocation every read with that consent is refused
@@ -41,10 +41,10 @@ Feature: Withdraw a TPP's access from my bank app
     When Sandbox AISP Ltd posts POST /v1/consents/123cons456/authorisations
     Then consent 123cons456 still has consentStatus revokedByPsu
 
-  # Rule R-REV-04: The overview shows who can see what, and until when
+  # Rule R-REV-04: The consent screen shows what this TPP can see, and until when
 
   @MVP-01 @R-REV-04
-  Scenario: The overview lists one AISP
+  Scenario: The consent screen lists the AISP's access
     Given PSU PSU-1234 has consent 123cons456 to Sandbox AISP Ltd on DE40100100103307118608 for balances and transactions until 2017-11-01
-    When PSU PSU-1234 opens the TPP access overview in the bank app
-    Then the overview shows Sandbox AISP Ltd, DE40100100103307118608, balances and transactions, until 2017-11-01
+    When PSU PSU-1234 opens the consent screen of Sandbox AISP Ltd to manage access
+    Then the consent screen shows Sandbox AISP Ltd, DE40100100103307118608, balances and transactions, until 2017-11-01

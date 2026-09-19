@@ -104,7 +104,22 @@ def main() -> int:
     bp_path = os.path.join(ROOT, man["artefacts"]["service_blueprint"])
     bp_text = open(bp_path).read()
     screens, read_models = {}, {}
-    for line in bp_text.splitlines():
+    # ids listed under a "Withdrawn" heading (blueprint §7, solution design) must not be used
+    withdrawn = set()
+    for src in (bp_text, design_text):
+        in_w = False
+        for line in src.splitlines():
+            if line.startswith("#"):
+                in_w = "withdrawn" in line.lower()
+            elif in_w or line.startswith("**Withdrawn"):
+                m = re.match(r"^\| `((?:SCR|RM|CMP)-[A-Z0-9-]+)` \|", line)
+                if m:
+                    withdrawn.add(m.group(1))
+            if line.startswith("**Withdrawn"):
+                in_w = True
+    stats["withdrawn_ids"] = len(withdrawn)
+    active_bp = bp_text.split("\n## 7. Withdrawn")[0]
+    for line in active_bp.splitlines():
         m = re.match(r"^\| `((?:SCR|RM)-[A-Z0-9-]+)` \|(.*)$", line)
         if not m:
             continue
@@ -472,6 +487,19 @@ def main() -> int:
             R.err("ux", f"{rid} has no element in the C4 model — which component manages it?")
         elif rid.startswith("SCR-") and not any(x.endswith(".eventstorm") for x in places) and screens[rid]["managed"] != "CMP-TPP":
             R.info("ux", f"{rid} appears on no event storm")
+
+    # ------------------------------------------------------------------ withdrawn ids in active artefacts
+    history = {"docs/traceability/validation-report.md", "docs/delivery/pull-request.md",
+               "docs/traceability/questions-and-assumptions.md"}
+    active_files = [f for f in glob.glob(os.path.join(ROOT, "docs/**/*.*"), recursive=True)
+                    if not f.endswith((".pdf", ".png", ".DS_Store")) and "/docs/ai/" not in f
+                    and "/docs/context/" not in f and rel(f) not in history]
+    active_files += glob.glob(os.path.join(ROOT, "tests/**/*.feature"), recursive=True)
+    for f in active_files:
+        for n, line in enumerate(open(f, errors="ignore"), 1):
+            for wid in withdrawn:
+                if re.search(r"\b" + re.escape(wid) + r"\b", line) and not line.lstrip().startswith(f"| `{wid}`"):
+                    R.err("withdrawn", f"{rel(f)}:{n}: uses withdrawn id {wid}")
 
     # ------------------------------------------------------------------ 4. ledger references everywhere
     scan = glob.glob(os.path.join(ROOT, "docs/**/*.*"), recursive=True) + glob.glob(os.path.join(ROOT, "tests/**/*.feature"), recursive=True)

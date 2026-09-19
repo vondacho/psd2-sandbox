@@ -13,9 +13,11 @@ Prove, with the thinnest possible behaviour, that a request from a licensed TPP 
    it and hands an identified request to the ASPSP gateway, using the token model chosen in
    `D-02` over the contract clarified in `Q-04`. *This is the least-known hop and the main
    reason for the skeleton* (`RSK-01`).
-2. **SCA path.** `scaRedirect` hands the PSU to the bank mobile app (app-to-app). Transmit
-   and/or Ping authenticate the PSU on a registered device, and the approval finalises the
-   authorisation, bound to the approved subject (`Q-07`, `RSK-02`, `INV-AUT-05`).
+2. **SCA path** (iteration 3, `SRC-ADR` `87c72b8`).
+   - `scaRedirect` takes the PSU to the **consent screen**; its provider is `D-01`.
+   - The PSU identifies (factors per `D-10`) and approves there.
+   - The **bank mobile app** asks for the **last factor** on the registered device, via Transmit and/or Ping.
+   - The SCA result finalises the authorisation, bound to the subject approved on the consent screen (`Q-07`, `Q-45`, `RSK-02`, `INV-AUT-05`).
 3. **Resource model.** A consent gates an account read (`INV-CNS-06`), and a payment moves
    `RCVD` → `ACTC` after authorisation.
 4. **Delivery path.** Commit → build → contract tests → deploy to a test environment → the
@@ -27,8 +29,8 @@ Business value is deliberately limited: one account, one payment, test data only
 
 | Scenario | Steps | Sequence |
 | --- | --- | --- |
-| `WS-01-AIS` | Test AISP creates a dedicated-account consent on `DE40100100103307118608` → redirect → test PSU approves in the app → consent `valid` → `GET /v1/accounts` returns one account with a `resourceId` → `DELETE` the consent → `204` | [`ws-01-ais-consent-redirect.puml`](../system/uml/sequence/ws-01-ais-consent-redirect.puml) |
-| `WS-01-PIS` | Test PISP initiates 123.50 EUR to Merchant123 → redirect → test PSU approves amount and payee in the app → status `ACTC` (core-banking stub) | [`ws-01-pis-sct-redirect.puml`](../system/uml/sequence/ws-01-pis-sct-redirect.puml) |
+| `WS-01-AIS` | Test AISP creates a dedicated-account consent on `DE40100100103307118608` → redirect → test PSU approves on the consent screen and confirms the last factor in the app → consent `valid` → `GET /v1/accounts` returns one account with a `resourceId` → `DELETE` the consent → `204` | [`ws-01-ais-consent-redirect.puml`](../system/uml/sequence/ws-01-ais-consent-redirect.puml) |
+| `WS-01-PIS` | Test PISP initiates 123.50 EUR to Merchant123 → redirect → test PSU approves amount and payee on the consent screen and confirms in the app → status `ACTC` (core-banking stub) | [`ws-01-pis-sct-redirect.puml`](../system/uml/sequence/ws-01-pis-sct-redirect.puml) |
 
 ## Stories and examples
 
@@ -43,7 +45,7 @@ available funds", which is empty in every slice (`Q-14`).
 | Grant account access | `STORY-CONSENT-STATUS` | (covered by R-SCA-03) |
 | Use account data | `STORY-READ-ACCOUNT-LIST` | R-ACC-01 "Only the consented IBAN is listed"; R-ACC-04 "A consent still waiting for authorisation cannot be used" |
 | End account access | `STORY-CONSENT-DELETE` | none: no example map (the spec fixes `204` and `terminatedByTpp`, §6.4) |
-| Authorise a payment | `STORY-PIS-INITIATE-SCT` | R-PIS-01 "The spec's example payment is accepted"; R-PIS-05 "The approval screen shows amount and payee" |
+| Authorise a payment | `STORY-PIS-INITIATE-SCT` | R-PIS-01 "The spec's example payment is accepted"; R-PIS-05 "The payment approval shows amount and payee" |
 | Authorise a payment | `STORY-PIS-SCA-REDIRECT-APP` | (covered by R-PIS-05) |
 | Follow the payment to its outcome | `STORY-PIS-STATUS` | R-PST-02 "The approved example payment is technically accepted" |
 
@@ -55,17 +57,28 @@ Scenarios needed by WS-01 carry the Gherkin tag `@WS-01`.
 WS-01 needs the minimum screens that make the SCA path walk. They are defined in the
 [service blueprint](../journeys/service-blueprint.md):
 
-- `SCR-REDIRECT-HANDOFF` (only if the app link does not open the app directly);
-- `SCR-APP-AUTHENTICATE`;
-- `SCR-APP-APPROVE-ACCESS` — minimal: TPP name, accounts, approve / decline;
-- `SCR-APP-APPROVE-PAYMENT` — amount, payee, approve / decline.
+- on the consent screen (`CMP-CONSENT-SCREEN`, provider `D-01`):
+  - `SCR-CONSENT-IDENTIFY`;
+  - `SCR-CONSENT-ACCESS` — minimal: TPP name, accounts, approve / decline;
+  - `SCR-CONSENT-PAYMENT` — amount, payee, approve / decline (assumed, `Q-46`);
+  - `SCR-CONSENT-AWAIT-APP`;
+- in the bank app: `SCR-APP-LAST-FACTOR`.
 
-After the decision the app returns straight to the TPP; the outcome screen comes in MVP-01.
-The read models needed are `RM-REDIRECT-SESSION`, `RM-SCA-CONTEXT`, `RM-CONSENT-APPROVAL`,
-`RM-PAYMENT-APPROVAL` and `RM-ACCESS-DECISION`.
+(Iteration 3 replaced the app screens of iteration 2; see blueprint §7.)
+
+After the last factor, the consent screen returns straight to the TPP; the outcome screen
+comes in MVP-01. The read models needed are:
+
+- `RM-REDIRECT-SESSION`;
+- `RM-SCA-CONTEXT`;
+- `RM-CONSENT-APPROVAL`;
+- `RM-PAYMENT-APPROVAL`;
+- `RM-AUTHORISATION-OUTCOME`;
+- `RM-LAST-FACTOR-PROMPT`;
+- `RM-ACCESS-DECISION`.
 
 WS-01 must prove that the `subjectDigest` returned with an approval read model is the one that
-the SCA result binds (`INV-AUT-05`, `D-09`). This is a technical learning objective, not a UX
+the last factor in the app binds (`INV-AUT-05`, `D-10`), across two devices. This is a technical learning objective, not a UX
 one.
 
 ## Components and interfaces
@@ -73,7 +86,9 @@ one.
 - **Components:** see LikeC4 view `walkingSkeleton`.
   - External and vendor: `CMP-TPP` (test TPP harness), `CMP-FINOLOGEE-GW`.
   - ASPSP gateway modules: `CMP-XS2A-ADAPTER`, `CMP-CONSENT`, `CMP-AUTHORISATION`, `CMP-PAYMENT`, `CMP-ACCOUNT-INFO`, `CMP-CORE-ADAPTER` (**stub**), `CMP-XS2A-STORE`.
-  - Channel and identity: `CMP-SCA-REDIRECT-UI`, `CMP-MOBILE-APP`, `CMP-TRANSMIT`, `CMP-PING`, and `CMP-PSU-CHANNEL-API` (`resolveRedirectSession`, `getApprovalRequest`, `decideApprovalRequest`).
+  - Channel and identity: `CMP-CONSENT-SCREEN` (provider `D-01`), `CMP-MOBILE-APP` (last factor), `CMP-TRANSMIT`, `CMP-PING`, and `CMP-PSU-CHANNEL-API`:
+    - `resolveRedirectSession`, `getApprovalRequest`, `decideApprovalRequest` and `getAuthorisationOutcome` if `D-01` goes in-house;
+    - `getLastFactorPrompt`.
 - **Interfaces:** the `API-XS2A-PROFILE` operations with `x-delivery: WS-01`:
   - consents: `createConsent`, `getConsentStatus`, `getConsentScaStatus`, `deleteConsent`;
   - accounts: `getAccountList`;
@@ -116,8 +131,8 @@ or a test-only approval hook. That dependency is open under `Q-07`.
 
 | Kind | Item |
 | --- | --- |
-| Decision needed before build | `D-01` consent location, `D-02` token model, `D-03` SCA approach, `D-05` edge split, `D-09` who renders approval screens |
-| Dependency | Finologee test tenant and integration contract (`Q-04`); test QWAC/QSealC from a test QTSP; Transmit/Ping test tenant with an automatable test PSU; app-to-app links in a test build of the app |
+| Decision needed before build | `D-01` consent location and consent-screen provider, `D-02` token model, `D-03` SCA approach, `D-05` edge split, `D-10` factor split and app trigger |
+| Dependency | Finologee test tenant and integration contract (`Q-04`); test QWAC/QSealC from a test QTSP; Transmit/Ping test tenant with an automatable test PSU **and an automatable last factor** (test device or test hook); a consent-screen test instance (bank or Finologee); a test build of the app |
 | Question | `Q-05`, `Q-07`, `Q-22`, `Q-34` |
 | Risk | `RSK-01`, `RSK-02`, `RSK-03` (stubbed here) |
 

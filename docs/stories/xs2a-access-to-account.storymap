@@ -6,6 +6,9 @@
 // Stable story ids are tags (+STORY-...). No #ticket and no ~status is written: the ticketing
 // system owns both, and none has been issued.
 // Activity "Confirm available funds" is deliberately empty in both bands — see Q-14.
+// Iteration 3 (SRC-ADR 87c72b8): approval and revocation happen on the consent screen; the mobile
+// app carries only the last SCA factor. Story ids are kept where the intent is unchanged; titles
+// and clauses were realigned. STORY-PSU-ACCESS-OVERVIEW lost its channel and is now unscheduled.
 storymap "PSD2 XS2A access to account" {
 
   delivery "Walking skeleton" release {
@@ -96,11 +99,12 @@ storymap "PSD2 XS2A access to account" {
       }
     }
     step "Authorise at the bank" {
-      story "Approve a TPP's request in my bank app after a redirect" @"Walking skeleton" +skeleton +STORY-SCA-REDIRECT-APP {
+      story "Approve a TPP's request on the consent screen and confirm it in my bank app" @"Walking skeleton" +skeleton +STORY-SCA-REDIRECT-APP {
         as   "Account holder"
-        want "to be taken from the TPP to my bank app, authenticate there and approve the request"
-        so   "I never give my bank credentials to the TPP"
-        note "Default proposal for D-03 (redirect, app-to-app). Example map: EXMAP-SCA-REDIRECT-APP."
+        want "to approve the TPP's request on the consent screen and confirm it with my bank app as the last factor"
+        so   "I never give my bank credentials to the TPP, and only my registered device can complete the approval"
+        note "SRC-ADR 87c72b8 (consent screen; app = last factor). Default proposal for D-03 (redirect \
+              to the consent screen). Example map: EXMAP-SCA-REDIRECT-APP."
       }
       story "See exactly what a TPP will access before I approve" @"MVP" +STORY-SCA-CONSENT-DETAILS {
         as   "Account holder"
@@ -112,20 +116,21 @@ storymap "PSD2 XS2A access to account" {
         as   "Account holder"
         want "to see whether my approval worked and be taken back to the TPP in one tap"
         so   "I know what I agreed to and can finish what I started at the TPP"
-        note "Iteration 2 (service blueprint): SCR-APP-DECISION-OUTCOME. Applies to consents and \
+        note "Iterations 2–3 (service blueprint): SCR-CONSENT-OUTCOME on the consent screen. Applies to consents and \
               payments. Outcome screen versus immediate return is open (Q-39)."
       }
       story "Be told when an approval request is no longer valid" @"MVP" +STORY-SCA-REQUEST-UNAVAILABLE {
         as   "Account holder"
         want "a clear message when a request has expired or was already handled, with a way back to the TPP"
         so   "I am not left on a dead end or tempted to approve twice"
-        note "Iteration 2: SCR-REDIRECT-INVALID, SCR-APP-REQUEST-UNAVAILABLE; INV-AUT-01, Q-29."
+        note "Iterations 2–3: SCR-CONSENT-UNAVAILABLE; INV-AUT-01, Q-29."
       }
-      story "Approve without the bank app on this device" +STORY-SCA-NO-APP +"ask product" {
+      story "Complete SCA when I have no registered bank app" +STORY-SCA-NO-APP +"ask product" {
         as   "Account holder"
-        want "to approve a TPP's request when the device I use has no bank app"
-        so   "I can still use the TPP from a desktop browser"
-        note "Iteration 2: SCR-REDIRECT-NO-APP. Options (install, another device, web SCA) are open: Q-21, D-09."
+        want "to complete a TPP's request when I have no bank app registered for the last factor"
+        so   "not having the app does not lock me out of PSD2 services"
+        note "Reframed in iteration 3: the consent screen is web, so the app may sit on another device; \
+              what remains is the PSU with no registered app at all (SCR-CONSENT-NO-APP). Q-21, D-10."
       }
       story "Approve through a push to my bank app" +STORY-SCA-DECOUPLED +"ask architecture" {
         as   "Account holder"
@@ -240,17 +245,20 @@ storymap "PSD2 XS2A access to account" {
       }
     }
     step "PSU withdraws access" {
-      story "See which TPPs can access my accounts" @"MVP" +STORY-PSU-ACCESS-OVERVIEW +"ask product" {
+      story "See which TPPs can access my accounts" +STORY-PSU-ACCESS-OVERVIEW +"ask product" {
         as   "Account holder"
-        want "to see in my bank app every TPP that can access my accounts, and until when"
+        want "to see in one place every TPP that can access my accounts, and until when"
         so   "I stay in control of who sees my data"
-        note "Claim in SRC-ADR; depends on D-01. Q-26."
+        note "Unscheduled in iteration 3: SRC-ADR 87c72b8 limits the app to the last factor and puts \
+              grant/revoke on a consent screen inside each TPP's web application, so no channel shows \
+              all TPPs at once. Q-26 (answered in part), Q-43."
       }
-      story "Withdraw a TPP's access from my bank app" @"MVP" +STORY-PSU-REVOKE +"ask product" {
+      story "Withdraw a TPP's access on the consent screen" @"MVP" +STORY-PSU-REVOKE +"ask product" {
         as   "Account holder"
-        want "to withdraw a TPP's access from my bank app"
+        want "to withdraw a TPP's access on the consent screen"
         so   "the TPP cannot read my accounts any more"
-        note "consentStatus revokedByPsu (SRC-IG §4.14.2). Example map: EXMAP-PSU-REVOKE."
+        note "consentStatus revokedByPsu (SRC-IG §4.14.2); consent screen per SRC-ADR 87c72b8. How the PSU \
+              reaches it: Q-43. Example map: EXMAP-PSU-REVOKE."
       }
     }
     step "Access runs out" {
@@ -305,11 +313,12 @@ storymap "PSD2 XS2A access to account" {
       }
     }
     step "Authorise at the bank" {
-      story "Approve a payment in my bank app with the amount and payee shown" @"Walking skeleton" +skeleton +STORY-PIS-SCA-REDIRECT-APP {
+      story "Approve a payment with the amount and payee shown, and confirm it in my bank app" @"Walking skeleton" +skeleton +STORY-PIS-SCA-REDIRECT-APP {
         as   "Account holder"
-        want "to see the amount and the payee in my bank app and approve exactly that payment"
+        want "to see the amount and the payee, approve exactly that payment and confirm it with my bank app as the last factor"
         so   "my approval cannot be reused for a different payment"
-        note "Dynamic linking; SRC-IG §5.1.9 mentions it, the RTS text was not supplied."
+        note "Dynamic linking; SRC-IG §5.1.9 mentions it, the RTS text was not supplied. Whether payments \
+              use the consent screen, and whether the app prompt repeats amount and payee: Q-46."
       }
       story "Authorise several transactions at once" +STORY-SIGNING-BASKET {
         as   "PISP"

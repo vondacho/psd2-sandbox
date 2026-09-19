@@ -7,6 +7,8 @@
 // docs/domain/transaction-authorisation/transaction-authorisation.ddm.
 // Iteration 2: readmodel and ui cards carry the RM-/SCR- ids defined in
 // docs/journeys/service-blueprint.md.
+// Iteration 3 (SRC-ADR 87c72b8): approval and revocation move from the mobile app to the consent
+// screen; the app keeps only the last SCA factor.
 eventstorm "AIS consent lifecycle — process and system design" {
 
   lane "AISP" {
@@ -73,32 +75,38 @@ eventstorm "AIS consent lifecycle — process and system design" {
     hotspot "How long is the SCA window for a consent?" @10 +"ask product" +Q-29
   }
 
-  lane "Bank SCA redirect and mobile app" {
-    ui "Request no longer available" @5 +SCR-REDIRECT-INVALID
-    ui "Request no longer available in the app" @5 +SCR-APP-REQUEST-UNAVAILABLE
-    ui "Bank authorisation page" @6 +SCR-REDIRECT-HANDOFF
-    ui "Authenticate in the bank app" @6 +SCR-APP-AUTHENTICATE
-    ui "No bank app on this device" @6 +SCR-REDIRECT-NO-APP
-    hotspot "What does the PSU see when the device has no bank app?" @6 +"ask product" +Q-21
+  lane "Consent screen (ASPSP gateway or Finologee)" {
+    ui "Request no longer available" @5 +SCR-CONSENT-UNAVAILABLE
+    hotspot "Is the consent screen a page the TPP redirects to, or embedded in the TPP \
+             web application?" @5 +"ask architecture" +Q-44
+    ui "Identify yourself" @6 +SCR-CONSENT-IDENTIFY
+    hotspot "Which factors are collected here, before the app's last factor?" @6 +"ask iam" +Q-45
     readmodel "Consent details for approval" @7 +RM-CONSENT-APPROVAL {
       note "TPP legal name (and brand, if the bank uses OU — SRC-IG §4.9), accounts, access types, \
             validUntil, frequencyPerDay. Shown so the PSU approves what the TPP asked for."
     }
-    ui "Approve access screen" @7 +SCR-APP-APPROVE-ACCESS
+    ui "Grant access" @7 +SCR-CONSENT-ACCESS
     hotspot "Can the PSU deselect accounts or access types before approving?" @7 +"ask product" +Q-36
     hotspot "What does the PSU see when the TPP names an account the PSU does not hold?" @7 +"ask product" +Q-35
     actor "Account holder" @8
     command "Approve consent" @8
     command "Decline consent" @8
-    ui "Outcome and return to the TPP" @10 +SCR-APP-DECISION-OUTCOME
-    hotspot "Show an outcome screen before returning to the TPP, or return at once?" @10 +"ask product" +Q-39
-    readmodel "TPP access overview" @15 +RM-PSU-TPP-ACCESS
-    ui "Connected providers" @15 +SCR-APP-TPP-ACCESS-LIST
-    ui "Provider access detail" @15 +SCR-APP-TPP-ACCESS-DETAIL
-    ui "Withdraw access confirmation" @15 +SCR-APP-REVOKE-CONFIRM
+    ui "Confirm in your bank app" @8 +SCR-CONSENT-AWAIT-APP
+    ui "No registered bank app" @8 +SCR-CONSENT-NO-APP
+    hotspot "What happens when the PSU has no registered bank app for the last factor?" @8 +"ask product" +Q-21
+    ui "Outcome and return to the TPP" @10 +SCR-CONSENT-OUTCOME
+    hotspot "Show an outcome on the consent screen before returning to the TPP, or return at once?" @10 +"ask product" +Q-39
+    readmodel "This TPP's access" @15 +RM-PSU-TPP-ACCESS
+    ui "Manage this provider's access" @15 +SCR-CONSENT-MANAGE
+    ui "Withdraw access confirmation" @15 +SCR-CONSENT-REVOKE-CONFIRM
     command "Revoke access" @15
-    hotspot "Who owns the data behind the TPP access overview if the consent lives outside \
-             the bank?" @15 +"ask product" +Q-26
+    hotspot "How does the PSU reach the consent screen to revoke, and is that 'towards the ASPSP'?" @15 +"ask product" +Q-43
+  }
+
+  lane "Mobile app (last factor only)" {
+    readmodel "Last-factor prompt" @8 +RM-LAST-FACTOR-PROMPT
+    ui "Confirm it's you" @8 +SCR-APP-LAST-FACTOR
+    command "Confirm with the last factor" @8
   }
 
   lane "Identity and SCA (Ping Federate, Transmit)" {

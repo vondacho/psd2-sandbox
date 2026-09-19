@@ -10,7 +10,7 @@
 | ID | Source | Kind | Authority |
 | --- | --- | --- | --- |
 | `SRC-IG` | `docs/psd2/NextGenPSD2 XS2A Framework.pdf` — Berlin Group *NextGenPSD2 XS2A Framework Implementation Guidelines* v1.3.16, 27 Nov 2025 | Specification | Authoritative for the XS2A interface |
-| `SRC-ADR` | `docs/context/adr.md` | Technical context | Bank decisions and open decisions |
+| `SRC-ADR` | `docs/context/adr.md` — revision `87c72b8` (iteration 3: mobile app limited to the last SCA factor; consent screen added) | Technical context | Bank decisions and open decisions |
 | `SRC-Q` | `docs/context/questions.md` | Technical context | Open questions already raised by the team |
 | `SRC-TERM` | `docs/context/terminology.md` | Technical context | Team vocabulary |
 
@@ -49,7 +49,7 @@ their status says how much evidence stands behind each one.
 | --- | --- | --- | --- |
 | `OBJ-01` | Offer a PSD2-compliant XS2A interface to TPPs for AIS and PIS | **Fact (stated constraint)** | `SRC-ADR` "Bank ASPSP… must comply with PSD2"; `SRC-IG` §1.1 |
 | `OBJ-02` | Give PSUs control over which TPP can access what, and for how long | **Stakeholder claim** | `SRC-ADR` consent section: "…enhancing customer trust", "customers have control over their data" |
-| `OBJ-03` | Let PSUs authorise TPP requests with the bank's own SCA in the bank mobile app | **Stakeholder claim** | `SRC-ADR` Mobile App and SCA sections |
+| `OBJ-03` | Let PSUs authorise TPP requests with the bank's own SCA, the bank mobile app carrying the last authentication factor | **Stakeholder claim** | `SRC-ADR` Mobile App ("only serves as a channel for the last authentication factor") and SCA sections |
 | `OBJ-04` | Keep XS2A operable and observable enough to prove service quality to TPPs and supervisors | **Hypothesis** | Not in supplied sources. [EBA-RTS] is cited by `SRC-IG` but not supplied (`Q-18`) |
 
 ## 2. Actors, journeys, constraints, systems, evidence
@@ -73,9 +73,10 @@ their status says how much evidence stands behind each one.
 | `SYS-ASPSP-GW` | Bank ASPSP gateway — "we develop our own", must comply with PSD2 | To be built | `SRC-ADR` |
 | `SYS-PING` | Ping Federate — bank IDP, "access token issuer inside the bank" | In place | `SRC-ADR`, `SRC-Q` |
 | `SYS-TRANSMIT` | Transmit — CIAM, registration, authentication, device management | Chosen | `SRC-ADR` |
-| `SYS-MOBILE-APP` | Bank mobile app — integrates with ASPSP gateway and CIAM; supports SCA | To be built / evolved | `SRC-ADR` |
+| `SYS-MOBILE-APP` | Bank mobile app — integrates with ASPSP gateway and CIAM; **in the PSD2 journey it only carries the last SCA authentication factor** | To be built / evolved | `SRC-ADR` (revision `87c72b8`) |
+| `SYS-CONSENT-SCREEN` | Consent screen — lets the PSU grant or revoke a TPP's access; "presented in the TPP web application"; frontend and backend provided by the ASPSP gateway **or** Finologee | **Placement not decided** | `SRC-ADR` "Consent screen" |
 | `SYS-CORE-BANKING` | Core banking system | Named only | `SRC-TERM` (no interface known, `Q-06`) |
-| `SYS-CONSENT-MGR` | "PSD2 Consent Manager (PSU Consent Lifecycle Management)" | **Not decided** | `SRC-TERM`, `SRC-ADR`, `SRC-Q` |
+| `SYS-CONSENT-MGR` | "PSD2 Consent Manager (PSU Consent Lifecycle Management)" — in-house (ASPSP gateway, possibly using IDP/CIAM built-in features) or Finologee | **Not decided** | `SRC-TERM`, `SRC-ADR`, `SRC-Q` |
 | `SYS-PSD2-AUTH` | "PSD2 Authenticator (TPP Authentication)" | Named only | `SRC-TERM` (`Q-05`) |
 
 ### Journeys
@@ -121,17 +122,18 @@ matter for the design; per-context terms live in the context map
 | Decisions needing human authority | `D-xx` in [`../system/README.md`](../system/README.md) §4 and in the ledger |
 | Open questions | `Q-xx` in the ledger; red cards on the event storms and example maps |
 
-Already decided (facts, per `SRC-ADR`):
+Already decided (facts, per `SRC-ADR` revision `87c72b8`):
 
 - Ping Federate is the bank IDP.
 - Transmit is the CIAM.
 - The bank builds the ASPSP gateway and the mobile app.
 - SCA is in-house.
 - Finologee is the PSD2 gateway provider.
+- **Iteration 3:** the mobile app only carries the last SCA authentication factor. The PSU grants or revokes TPP access on a consent screen presented in the TPP web application.
 
 Explicitly **not decided** (`SRC-ADR`, `SRC-Q`):
 
-- Where PSU consent lifecycle management lives.
+- Where PSU consent lifecycle management lives, and with it whether the consent screen frontend and backend come from the ASPSP gateway or Finologee.
 - Whether the Finologee TPP token is exchanged for a bank token.
 
 ## 5. Contradictions and hotspots
@@ -140,7 +142,9 @@ Explicitly **not decided** (`SRC-ADR`, `SRC-Q`):
 | --- | --- | --- | --- |
 | `C-01` | SCA is "in house… using our own IDP and CIAM", but the terminology also lists a separate "Bank SCA Systems" actor | `SRC-ADR`, `SRC-TERM` | `Q-07` |
 | `C-02` | Finologee "implements OIDC and OAuth 2.0… enabling TPPs to access customer accounts with proper consent", while consent management is "not decided yet" | `SRC-ADR` | `Q-01`, `Q-04` |
-| `C-03` | "Our current IDP and CIAM solutions **should** provide a built-in… consent lifecycle management feature". This is a claim, not a verified product capability | `SRC-ADR`, `SRC-Q` | `Q-01` |
+| `C-03` | "Our current IDP and CIAM solutions **may** provide a built-in… consent lifecycle management feature" (was "should" before revision `87c72b8`). Still a possibility, not a verified capability | `SRC-ADR`, `SRC-Q` | `Q-01` |
+| `C-11` | The consent screen "is presented in the TPP web application", yet its frontend is provided by the ASPSP gateway or Finologee. It could be a bank- or Finologee-hosted page the TPP redirects to, or a component embedded in the TPP page; these differ in security (phishing, clickjacking) and in which SCA approach TPPs see. The ADR also mentions no TPP *mobile* app | `SRC-ADR` "Consent screen" | `Q-44` |
+| `C-12` | The consent screen lets the PSU "grant **or revoke**" access, but it lives in the TPP's application. How a PSU reaches it to revoke — and whether a revocation there is "revoked by the PSU **towards the ASPSP**" (§14.15) — is not stated. No channel remains for a cross-TPP overview | `SRC-ADR`, `SRC-IG` §14.15 | `Q-43` |
 | `C-04` | The standard makes OAuth 2.0 optional, yet the chosen gateway is OAuth-centred. That implies the OAuth2 SCA approach or an OAuth pre-step, which nobody has decided | `SRC-IG` §4.3; `SRC-ADR` | `Q-02`, `Q-03` |
 | `C-05` | When a new recurring consent is authorised, the former one "automatically **expires**" (§6.3.1.1) — but §4.14.2 says `terminatedByTpp` applies to exactly this side effect | `SRC-IG` | `Q-08` |
 | `C-06` | `POST /funds-confirmations` is marked **Mandatory** (§4.11.6), but the PIIS consent it depends on is defined outside the supplied document | `SRC-IG` | `Q-14` |
@@ -162,7 +166,7 @@ writes one.
 | Artefact | Produced? | Why |
 | --- | --- | --- |
 | Journey map | Yes | Outside-in view needed to cut the backbone; spec-derived only |
-| Service blueprint (iteration 2) | Yes | Which screens the PSU sees, which read models each actor or component decides on, and who manages them |
+| Service blueprint (iterations 2–3) | Yes | Which screens the PSU sees, which read models each actor or component decides on, and who manages them. Iteration 3 realigned it with the ADR revision |
 | Event Storming Big Picture | Yes | Three journeys and several undecided owners; hotspots need a home |
 | Process model / system design storms | Yes — two, AIS consent and PIS | Walking skeleton and MVP need commands, policies and aggregates |
 | Story map | Yes | Slicing between walking skeleton, MVP and later is the central product decision |

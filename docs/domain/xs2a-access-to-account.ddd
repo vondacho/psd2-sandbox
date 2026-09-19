@@ -8,6 +8,10 @@
 // bought products; calling any of it core would be a budget claim nobody has made (see
 // validation report W-DDD-01). Owners are "unassigned" where no source names one: an unowned
 // boundary is a suggestion, and the map says so rather than hiding it.
+// Iteration 3 (SRC-ADR 87c72b8): the mobile app carries only the last SCA factor; the consent screen
+// (grant/revoke) is a UI of the Consent and Transaction Authorisation contexts, provided by the ASPSP
+// gateway or by Finologee (D-01). The former "Consent -> Mobile Banking" relationship is removed:
+// the app no longer reads or revokes consents.
 map "PSD2 XS2A access to account" {
 
   domain "Third-party access to accounts" {
@@ -24,8 +28,9 @@ map "PSD2 XS2A access to account" {
         intent   "Hold each AIS consent resource and decide, at any moment, what a TPP may read for a PSU."
         language "AIS consent" "access" "dedicated accounts" "recurringIndicator" "validUntil"
                  "frequencyPerDay" "consentStatus" "revokedByPsu" "terminatedByTpp" "Consent-ID"
+                 "consent screen"
         aggregate "Consent"
-        owner    "Unassigned — D-01 decides whether the bank, Finologee or Ping/Transmit implements it"
+        owner    "Unassigned — D-01 decides whether the ASPSP gateway (with IDP/CIAM) or Finologee implements it and its consent screen"
         status   drafted
       }
 
@@ -95,8 +100,8 @@ map "PSD2 XS2A access to account" {
     owner  "Unassigned in supplied sources"
 
     context "Mobile Banking" {
-      intent   "The PSU's own banking app: where SCA approvals and, possibly, TPP-access review happen."
-      language "approve" "TPP access overview" "revoke access"
+      intent   "The PSU's own banking app. In the PSD2 journey it only carries the last SCA authentication factor (SRC-ADR 87c72b8)."
+      language "last factor" "confirm it's you" "registered device"
       owner    "Bank mobile app team (SRC-ADR 'We develop our own mobile banking application')"
       status   unmodelled
     }
@@ -169,12 +174,6 @@ map "PSD2 XS2A access to account" {
     because  "Every read is decided against the consent; the consent does not care how data is read."
   }
 
-  "Consent" -> "Mobile Banking" : customer-supplier {
-    exchange "Consents of a PSU for the TPP access overview; revoke requests back."
-    because  "Only proposed (Q-26). If D-01 puts the consent in Finologee, this edge becomes
-              Finologee -> Mobile Banking and the bank app conforms to a vendor model."
-  }
-
   "Core Banking" -> "Account Information" : anticorruption-layer {
     exchange "Accounts, balances, bookings."
     because  "Core banking's booking model is not the Berlin Group account model, and its interface
@@ -188,7 +187,7 @@ map "PSD2 XS2A access to account" {
   }
 
   "Mobile Banking" <-> "Customer Identity and SCA" : partnership {
-    exchange "Device registration and in-app SCA."
+    exchange "Device registration and the last SCA factor in the app."
     because  "SRC-ADR: the app 'integrates with our ASPSP gateway and CIAM' and Transmit adds device
               management — the two succeed or fail together."
   }

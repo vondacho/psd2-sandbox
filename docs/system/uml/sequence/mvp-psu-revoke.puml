@@ -1,28 +1,37 @@
 @startuml mvp-psu-revoke
-' MVP-01: PSU reviews and revokes TPP access in the mobile app. PROPOSAL, AI, 2026-09-19.
-' Stories: STORY-PSU-ACCESS-OVERVIEW, STORY-PSU-REVOKE (scope open, Q-26; data owner D-01).
-title MVP-01 — PSU revokes a TPP's access in the bank app (assumes D-01 option A)
+' MVP-01: PSU withdraws a TPP's access on the consent screen. PROPOSAL, AI, 2026-09-19.
+' Iteration 3 (SRC-ADR 87c72b8): revocation moved from the mobile app to the consent screen
+' ("grant or revoke access", presented in the TPP web application). How the PSU reaches it is
+' open (Q-43); the provider (ASPSP gateway or Finologee) is D-01 — shown here in-house.
+' Stories: STORY-PSU-REVOKE.
+title MVP-01 — PSU withdraws a TPP's access on the consent screen (assumes D-01 in-house)
 
 actor "Account holder" as PSU
-participant "Mobile app\n(CMP-MOBILE-APP)" as APP
+participant "AISP web application" as TPPW
+participant "Consent screen\n(CMP-CONSENT-SCREEN)" as CS
 participant "Transmit / Ping" as IAM
+participant "PSU channel API\n(CMP-PSU-CHANNEL-API)" as CH
 participant "Consent module\n(CMP-CONSENT)" as CNS
 participant "Event outbox\n(CMP-EVENT-OUTBOX)" as OUT
 participant "AISP" as TPP
 participant "Account info\n(CMP-ACCOUNT-INFO)" as ACC
 
-PSU -> APP : open "TPP access"
-APP -> IAM : app session (bank token)
-APP -> CNS : list consents of PSU (valid only)
-CNS --> APP : Sandbox AISP Ltd, DE40…8608, balances+transactions, until 2017-11-01
-PSU -> APP : revoke Sandbox AISP Ltd
-APP -> CNS : revoke 123cons456
+PSU -> TPPW : "manage bank access"
+TPPW -> CS : open consent screen (how: Q-43)
+CS -> IAM : identify PSU (factors: Q-45)
+CS -> CH : this TPP's access (RM-PSU-TPP-ACCESS)
+CH -> CNS : consents of PSU for Sandbox AISP Ltd
+CNS --> CS : DE40…8608, balances+transactions, until 2017-11-01
+PSU -> CS : withdraw access (SCR-CONSENT-REVOKE-CONFIRM)
+CS -> CH : revoke 123cons456
+CH -> CNS : revoke
 CNS -> CNS : valid -> revokedByPsu (INV-CNS-01), lastActionDate := today
 CNS -> OUT : ConsentStatusChanged(revokedByPsu)
 note right of OUT : No TPP notification in MVP (Q-24).\nEvent feeds audit and metrics only.
+CS --> PSU : shown as withdrawn
 
 TPP -> ACC : GET /v1/accounts (Consent-ID 123cons456)
-ACC -> CNS : is read allowed?
+ACC -> CNS : is read allowed? (RM-ACCESS-DECISION)
 CNS --> ACC : no — revokedByPsu
 ACC --> TPP : 401 (message code open, Q-09)
 @enduml

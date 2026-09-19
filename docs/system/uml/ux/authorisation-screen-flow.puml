@@ -1,50 +1,51 @@
 @startuml authorisation-screen-flow
-' Screen flow — authorise a TPP request (consent or payment). PROPOSAL, AI, 2026-09-19 (iteration 2).
+' Screen flow — authorise a TPP request (consent or payment). PROPOSAL, AI, 2026-09-19.
+' Iteration 3 (SRC-ADR 87c72b8): approval on the consent screen (provider D-01); the mobile app
+' carries only the last SCA factor, often on another device than the browser.
 ' Screens (SCR-*) and read models (RM-*) are defined in docs/journeys/service-blueprint.md.
-' Stories: STORY-SCA-REDIRECT-APP, STORY-PIS-SCA-REDIRECT-APP, STORY-SCA-CONSENT-DETAILS,
-'          STORY-SCA-OUTCOME, STORY-SCA-REQUEST-UNAVAILABLE, STORY-SCA-NO-APP (unscheduled).
 title Authorise a TPP request — screens, managing component, read model
 
 state "SCR-TPP-REQUEST\n<i>TPP</i>" as TppReq
-state "App link resolved" as Link <<choice>>
-state "SCR-REDIRECT-HANDOFF\n<i>CMP-SCA-REDIRECT-UI · RM-REDIRECT-SESSION</i>" as Handoff
-state "SCR-REDIRECT-INVALID\n<i>CMP-SCA-REDIRECT-UI · RM-REDIRECT-SESSION</i>" as InvalidWeb
-state "SCR-REDIRECT-NO-APP\n<i>CMP-SCA-REDIRECT-UI — unscheduled, Q-21 / D-09</i>" as NoApp #line.dashed
-state "Request still open?" as Open <<choice>>
-state "SCR-APP-AUTHENTICATE\n<i>CMP-MOBILE-APP + Transmit · RM-SCA-CONTEXT (D-09)</i>" as Auth
+state "Redirect token valid?" as Link <<choice>>
+state "SCR-CONSENT-UNAVAILABLE\n<i>CMP-CONSENT-SCREEN · RM-REDIRECT-SESSION</i>" as Unavailable
+state "SCR-CONSENT-IDENTIFY\n<i>CMP-CONSENT-SCREEN · RM-SCA-CONTEXT (factors: Q-45)</i>" as Identify
 state "Purpose" as Purpose <<choice>>
-state "SCR-APP-APPROVE-ACCESS\n<i>CMP-MOBILE-APP · RM-CONSENT-APPROVAL</i>" as ApproveAccess
-state "SCR-APP-APPROVE-PAYMENT\n<i>CMP-MOBILE-APP · RM-PAYMENT-APPROVAL</i>" as ApprovePayment
-state "SCR-APP-DECISION-OUTCOME\n<i>CMP-MOBILE-APP · RM-AUTHORISATION-OUTCOME</i>" as Outcome
-state "SCR-APP-REQUEST-UNAVAILABLE\n<i>CMP-MOBILE-APP · RM-AUTHORISATION-OUTCOME</i>" as InvalidApp
+state "SCR-CONSENT-ACCESS\n<i>CMP-CONSENT-SCREEN · RM-CONSENT-APPROVAL</i>" as Access
+state "SCR-CONSENT-PAYMENT\n<i>CMP-CONSENT-SCREEN · RM-PAYMENT-APPROVAL (Q-46)</i>" as Payment
+state "Registered app?" as HasApp <<choice>>
+state "SCR-CONSENT-NO-APP\n<i>CMP-CONSENT-SCREEN — unscheduled, Q-21</i>" as NoApp #line.dashed
+state "Last factor" as LF {
+  state "SCR-CONSENT-AWAIT-APP\n<i>browser · CMP-CONSENT-SCREEN · RM-AUTHORISATION-OUTCOME</i>" as Await
+  state "SCR-APP-LAST-FACTOR\n<i>bank app · CMP-MOBILE-APP · RM-LAST-FACTOR-PROMPT</i>" as AppLF
+  Await -right-> AppLF : push / QR / app link (Q-45)
+}
+state "SCR-CONSENT-OUTCOME\n<i>CMP-CONSENT-SCREEN · RM-AUTHORISATION-OUTCOME</i>" as Outcome
 state "SCR-TPP-RESULT\n<i>TPP · RM-TPP-CONSENT-STATUS / RM-TPP-PAYMENT-STATUS</i>" as TppResult
 
 [*] --> TppReq
-TppReq --> Link : follow scaRedirect
-Link --> Open : app installed and app link opens it
-Link --> Handoff : app link not intercepted
-Link --> InvalidWeb : token unknown / expired / used
-Link --> NoApp : no app on device
-Handoff --> Open : "Open the app"
-Open --> Auth : authorisation not final,\nSCA window open
-Open --> InvalidApp : final or window passed (Q-29)
-Auth --> Purpose : authenticated
-Auth --> Outcome : authentication failed /\ncancelled (scaStatus failed)
-Purpose --> ApproveAccess : consent
-Purpose --> ApprovePayment : payment
-ApproveAccess --> Outcome : approve / decline
-ApprovePayment --> Outcome : approve / decline
+TppReq --> Link : follow scaRedirect\n(redirect or embedded, Q-44)
+Link --> Identify : open, SCA window open
+Link --> Unavailable : unknown / expired / used
+Identify --> Purpose : identified
+Identify --> Outcome : failed / cancelled
+Purpose --> Access : consent
+Purpose --> Payment : payment
+Access --> HasApp : approve
+Payment --> HasApp : approve
+Access --> Outcome : decline
+Payment --> Outcome : decline
+HasApp --> LF : yes
+HasApp --> NoApp : no
+LF --> Outcome : confirmed / rejected /\ntimed out (Q-29)
 Outcome --> TppResult : "Back to ⟨TPP⟩"\n(Redirect-URI or Nok-URI)
-InvalidApp --> TppResult : "Back to ⟨TPP⟩" (Nok-URI)
-InvalidWeb --> TppResult : "Back to ⟨TPP⟩" (Nok-URI)
+Unavailable --> TppResult : "Back to ⟨TPP⟩" (Nok-URI)
 TppResult --> [*]
 
 note right of Outcome
   Outcome screen versus immediate return is open (Q-39).
   WS-01 returns immediately; MVP-01 proposes this screen.
 end note
-note left of ApproveAccess
-  Partial approval (deselect accounts) — Q-36.
-  Account not held by the PSU — Q-35.
+note left of Access
+  Partial approval — Q-36. Account not held — Q-35.
 end note
 @enduml

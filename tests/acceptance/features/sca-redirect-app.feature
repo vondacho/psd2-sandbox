@@ -1,13 +1,13 @@
 # GENERATED from docs/stories/sca-redirect-app.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: f6949c2aa1c0c0dbde45940db12347a21f7e30ea1eb58b7d7a62fa890fbc70da
+# source-sha256: ec3a6ec424abe7a06cfba914fa02f4a67132d9ed54b98b350dadc6ec175db6e2
 # generator: tools/sdlc/examplemap_to_feature.py
-# 6 open question(s) on the map have no Gherkin and are NOT represented here.
+# 8 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.
 @STORY-SCA-REDIRECT-APP
-Feature: Approve a TPP's request in my bank app after a redirect
+Feature: Approve a TPP's request on the consent screen and confirm it in my bank app
   As Account holder
-  I want to be taken from the TPP to my bank app, authenticate there and approve the request
-  So that I never give my bank credentials to the TPP
+  I want to approve the TPP's request on the consent screen and confirm it with my bank app as the last factor
+  So that I never give my bank credentials to the TPP, and only my registered device can complete the approval
 
   # Rule R-SCA-01: A received consent comes back with a redirect link and an implicitly created authorisation
 
@@ -28,9 +28,9 @@ Feature: Approve a TPP's request in my bank app after a redirect
   # Rule R-SCA-02: The PSU approves exactly what the TPP asked for
 
   @MVP-01 @R-SCA-02
-  Scenario: The approval screen shows the consent details
+  Scenario: The consent screen shows the consent details
     Given consent 123cons456 from Sandbox AISP Ltd for balances and transactions on DE40100100103307118608, valid until 2017-11-01, 4 reads a day
-    When the PSU opens the approval screen
+    When the PSU opens the consent screen
     Then the screen shows Sandbox AISP Ltd, DE40100100103307118608, balances and transactions, 2017-11-01 and 4 reads a day
 
   # Rule R-SCA-03: A finalised authorisation makes the consent valid; a failed one rejects it
@@ -38,7 +38,7 @@ Feature: Approve a TPP's request in my bank app after a redirect
   @WS-01 @R-SCA-03
   Scenario: The PSU approves
     Given consent 123cons456 in status received with authorisation 123auth567 in status received
-    When the PSU authenticates in the bank app and approves
+    When the PSU approves on the consent screen and confirms with the last factor in the bank app
     Then authorisation 123auth567 has scaStatus finalised
     And consent 123cons456 has consentStatus valid
     And the PSU is sent to https://www.example-TPP.com/xs2a-client/v1/cb
@@ -46,14 +46,14 @@ Feature: Approve a TPP's request in my bank app after a redirect
   @MVP-01 @R-SCA-03 @edge-case
   Scenario: The PSU declines
     Given consent 123cons456 in status received with authorisation 123auth567 in status received
-    When the PSU declines in the bank app
+    When the PSU declines on the consent screen
     Then authorisation 123auth567 has scaStatus failed
     And consent 123cons456 has consentStatus rejected
 
   @MVP-01 @R-SCA-03 @edge-case
-  Scenario: The PSU fails authentication
+  Scenario: The PSU fails the last factor
     Given consent 123cons456 in status received
-    When the PSU fails authentication in the bank app
+    When the PSU fails the last factor in the bank app
     Then authorisation 123auth567 has scaStatus failed
     And consent 123cons456 has consentStatus rejected
 
@@ -62,7 +62,7 @@ Feature: Approve a TPP's request in my bank app after a redirect
   @MVP-01 @R-SCA-04 @edge-case
   Scenario: Decline goes to the nok URI
     Given TPP-Nok-Redirect-URI https://www.example-TPP.com/xs2a-client/v1/nok on the consent request
-    When the PSU declines in the bank app
+    When the PSU declines on the consent screen
     Then the PSU is sent to https://www.example-TPP.com/xs2a-client/v1/nok
 
   @MVP-01 @R-SCA-04 @edge-case

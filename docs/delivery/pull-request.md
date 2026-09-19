@@ -51,24 +51,52 @@ each one.
   - decision **`D-09`** — who renders the approval screens.
 - **Validator:** also checks every `SCR-`/`RM-` reference and that each screen's owner matches the C4 model (mutation-tested).
 
+## Iteration 3 — ADR revision: mobile app = last SCA factor; consent screen
+
+Your ADR revision (`87c72b8`, committed separately) limits the bank mobile app to "a channel for
+the last authentication factor". Granting and revoking a TPP's access now happens on a **consent
+screen** presented in the TPP web application. Its frontend and backend come from the ASPSP
+gateway or Finologee, which is still undecided.
+
+- **Screens:** the approval, outcome and revoke screens move from the app to the consent screen (`CMP-CONSENT-SCREEN`, 9 screens). The app keeps a single screen, `SCR-APP-LAST-FACTOR`, fed by the new `RM-LAST-FACTOR-PROMPT`. The 11 former ids and `CMP-SCA-REDIRECT-UI` are **withdrawn** (blueprint §7), and the validator refuses them.
+- **Scope:** the cross-TPP overview lost its channel. `STORY-PSU-ACCESS-OVERVIEW` is now unscheduled; `STORY-PSU-REVOKE` stays in the MVP, on the consent screen. Stories and example maps were re-worded; their rules are unchanged and the features were regenerated.
+- **Models:**
+  - storms: a "Consent screen" lane and a "Mobile app (last factor only)" lane;
+  - context map: Mobile Banking reduced; the Consent → Mobile Banking relationship removed;
+  - C4: the consent screen is a neutral element tagged `#undecided`;
+  - sequences, screen flows and wireframes redrawn, plus a new app last-factor wireframe.
+- **Contract:** `API-PSU-CHANNEL` is now the consent-screen backend. Its operations are tagged `x-conditional-on: D-01`, because Finologee may provide them instead. It adds `getAuthorisationOutcome` and `getLastFactorPrompt` and drops `listTppAccess`.
+- **Decisions:**
+  - **`D-01` recommendation revised to "no preference until a capability check"**, because the old argument (the app overview needed bank data) no longer holds;
+  - `D-03` now means redirect to the consent screen, with the last factor pushed to the app;
+  - `D-09` superseded;
+  - **new `D-10`**: how SCA factors are split and how the app is triggered.
+- **Ledger:**
+  - `Q-26` answered in part;
+  - `A-14` and `A-15` withdrawn; `A-03` is now a fact;
+  - new questions `Q-43`…`Q-47` (how the PSU reaches the consent screen to revoke; redirect or embedded; factor split; payments on the consent screen; domain and branding);
+  - new contradictions `C-11` and `C-12`, and new risks `RSK-06` (two-device drop-off) and `RSK-07` (embedding).
+
 ## Artefacts added
 
 | Area | Files |
 | --- | --- |
 | Problem & journeys | `docs/journeys/problem-analysis.md`, `docs/journeys/journey-map.md`, `docs/journeys/service-blueprint.md` (iteration 2) |
 | Event Storming | `docs/journeys/xs2a-big-picture.eventstorm` (Big Picture: 6 pivotal events, 13 hotspots); `ais-consent-lifecycle.eventstorm`, `pis-payment-initiation.eventstorm` (process + system design) |
-| Story Mapping | `docs/stories/xs2a-access-to-account.storymap`: 7 activities, 47 stories; proposed bands "Walking skeleton" and "MVP"; 21 stories deliberately unscheduled |
+| Story Mapping | `docs/stories/xs2a-access-to-account.storymap`: 7 activities, 47 stories; proposed bands "Walking skeleton" and "MVP"; 22 stories deliberately unscheduled |
 | Example Mapping | 8 × `docs/stories/*.examplemap`: 36 rules, 51 examples, 38 red cards |
 | Context Mapping & Domain Modelling | `docs/domain/xs2a-access-to-account.ddd` (9 contexts); 4 × `.ddm` (Consent, Transaction Authorisation, Payment Initiation, Account Information; 20 invariants) |
-| Architecture | `docs/system/README.md` (solution design and decisions `D-01`…`D-09`); `docs/system/c4/xs2a.likec4` (6 views); 12 × `docs/system/uml/**.puml` (5 of them UX) |
-| Contracts | `docs/system/api/openapi/xs2a-profile.yaml` (19 operations, OAS 3.1); `docs/system/api/openapi/psu-channel.yaml` (6 operations, internal); `docs/system/api/asyncapi/xs2a-domain-events.yaml` (internal, conditional on `D-04`) |
+| Architecture | `docs/system/README.md` (solution design and decisions `D-01`…`D-10`, `D-09` superseded); `docs/system/c4/xs2a.likec4` (6 views); 13 × `docs/system/uml/**.puml` (6 of them UX) |
+| Contracts | `docs/system/api/openapi/xs2a-profile.yaml` (19 operations, OAS 3.1); `docs/system/api/openapi/psu-channel.yaml` (7 operations, internal, largely conditional on `D-01`); `docs/system/api/asyncapi/xs2a-domain-events.yaml` (internal, conditional on `D-04`) |
 | Delivery packs | `docs/delivery/walking-skeleton.md` (WS-01), `docs/delivery/mvp.md` (MVP-01) |
 | Traceability | `docs/traceability/manifest.yaml`, `docs/traceability/questions-and-assumptions.md`, `docs/traceability/validation-report.md` |
 | Projections | 8 × `tests/acceptance/features/*.feature`: generated from the example maps, each recording its source sha256 |
 | Tooling | `tools/sdlc/dsl.py`, `validate.py`, `examplemap_to_feature.py` |
 | Index | `docs/README.md` |
 
-Nothing existing is modified. `docs/psd2/`, `docs/context/` and `docs/ai/` are untouched.
+`docs/psd2/` and `docs/ai/` are untouched. `docs/context/adr.md` changed in one commit of its
+own (`87c72b8`, authored by the repository owner): it is an *input* that iteration 3 follows,
+not a generated artefact.
 
 ## Instruction files and versions used
 
@@ -97,7 +125,7 @@ The online DSL pages were also consulted on 2026-09-19:
 
 ## Traceability and impact
 
-Each of the 26 scheduled stories has a complete chain in `manifest.yaml`: objective → journey
+Each of the 25 scheduled stories has a complete chain in `manifest.yaml`: objective → journey
 stage → pivotal event → story and slice → rules → context and invariants → components →
 OpenAPI operations → **screens and read models** → delivery pack → generated feature →
 expected evidence.
@@ -122,7 +150,10 @@ Proves the path TPP (test QWAC) → Finologee → ASPSP gateway → redirect →
 - **AIS:** consent → approve → account list → delete.
 - **PIS:** 123.50 EUR SCT → approve → `ACTC`.
 
-It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-09`**. Screens involved: `SCR-REDIRECT-HANDOFF`, `SCR-APP-AUTHENTICATE`, and minimal `SCR-APP-APPROVE-ACCESS` / `SCR-APP-APPROVE-PAYMENT`. Completion evidence: `EVID-WS-E2E`, `-TRACE`, `-CONTRACT`, `-DEPLOY`, `-DECISIONS`.
+It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-10`**. Screens involved:
+
+- on the consent screen: `SCR-CONSENT-IDENTIFY`, a minimal `SCR-CONSENT-ACCESS` / `SCR-CONSENT-PAYMENT`, and `SCR-CONSENT-AWAIT-APP`;
+- in the app: `SCR-APP-LAST-FACTOR`. Completion evidence: `EVID-WS-E2E`, `-TRACE`, `-CONTRACT`, `-DEPLOY`, `-DECISIONS`.
 
 ## MVP — MVP-01
 
@@ -138,12 +169,12 @@ It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-09`**. Screens involved: `
 
 - the in-house DSL parsers;
 - LikeC4 1.59.3 `validate` and `export`;
-- PlantUML 1.2025.4 `-checkonly` (12/12);
+- PlantUML 1.2025.4 `-checkonly` (13/13);
 - openapi-spec-validator 0.9.0 and Redocly 2.53.3 on both OpenAPI files (0 warnings);
 - @asyncapi/parser 3.6.3;
 - @cucumber/gherkin 42.0.1 (51/51 scenarios).
 
-26 warnings are documented in [`validation-report.md`](../traceability/validation-report.md). The most important:
+28 warnings are documented in [`validation-report.md`](../traceability/validation-report.md). The most important:
 
 - `W-DSL-01` — the DSL parsers are re-implementations: **open every notation file in doc-es / doc-sm / doc-em / ba-cm before merging**;
 - `W-SM-01` — funds confirmation is empty in every slice;
@@ -153,8 +184,8 @@ It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-09`**. Screens involved: `
 
 ## Assumptions and unresolved questions
 
-- 15 assumptions (`A-01`…`A-15`) and 42 open questions (`Q-01`…`Q-42`) are in [`questions-and-assumptions.md`](../traceability/questions-and-assumptions.md).
-- 28 hotspots on the storms and 38 red cards on the example maps stay red. None was answered by the AI.
+- 13 active assumptions and 46 open questions (`Q-01`…`Q-47`) are in [`questions-and-assumptions.md`](../traceability/questions-and-assumptions.md).
+- 34 hotspots on the storms and 41 red cards on the example maps stay red. None was answered by the AI.
 - Questions that block WS-01: `Q-01`, `Q-02`, `Q-03`, `Q-04`, `Q-05`, `Q-07`, `Q-22`.
 - `Q-23` (can a CC BY-ND-derived profile be published here?) needs legal before this repository is shared.
 
@@ -165,7 +196,7 @@ It is **blocked by `D-01`, `D-02`, `D-03`, `D-05`, `D-09`**. Screens involved: `
 | G1 | Product owner, UX | Problem analysis, journeys, **service blueprint, screen flows, wireframes**, objectives, slices (`D-07`, `D-08`), MVP hypothesis and targets |
 | G2 | Domain experts: payments, compliance | Event storms, hotspots, context map (power and ownership), domain models, invariants |
 | G3 | Product + QA + development | Run the 8 Example Mapping sessions, vote readiness, regenerate features |
-| G4 | Architecture board, IAM, security, Finologee contact | C4, UML, OpenAPI (incl. `API-PSU-CHANNEL`), AsyncAPI, decisions `D-01`…`D-06`, `D-09` |
+| G4 | Architecture board, IAM, security, Finologee contact | C4, UML, OpenAPI (incl. `API-PSU-CHANNEL`), AsyncAPI, decisions `D-01`…`D-06`, `D-10` |
 | G5 | Delivery, operations | WS-01 / MVP-01 packs, deployment path, observability, evidence |
 
 After approval, the merge records the accepted intent. Decisions taken in review go to
