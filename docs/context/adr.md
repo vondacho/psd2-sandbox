@@ -1,53 +1,50 @@
 # Architecture Decision Record (ADR)
 
-## Bank IDP
-[Ping Federate](https://www.pingidentity.com/en/products/ping-federate.html) is our commercial identity server that provides secure authentication and authorization services. 
-It supports various protocols such as SAML, OAuth, and OpenID Connect, making it suitable for enterprise-level applications.
-
-## Bank CIAM
-[Transmit](https://developer.transmitsecurity.com/guides/journeys_intro) is our chosen CIAM (Customer Identity and Access Management) solution. 
-It offers features like user registration, authentication, and profile management, ensuring a seamless user experience for our customers.
-It adds device management capabilities, allowing us to manage and secure access to our applications from different devices.
-
 ## Bank ASPSP
-We develop our own ASPSP (Account Servicing Payment Service Provider) gateway.
+We must develop our own ASPSP (Account Servicing Payment Service Provider) gateway.
 It provides secure access to banking services and APIs.
 It must comply with PSD2 (Payment Services Directive 2) regulatory requirements.
 
+## Bank Core Banking System
+The DCP Digital Client Platform is the in-house solution for the Bank Core Banking System.
+It must manage PSU's accounts, transactions, and payment services.
+
+## Bank IDP
+[Ping Federate](https://www.pingidentity.com/en/products/ping-federate.html) is the in-house IDP (Identity provider) solution.
+It must authenticate PSU and manage PSU's identity information.
+
+### Login screen
+The login screen allows PSU to authenticate agains the IDP. It is managed in-house by the IDP solution.
+It must be presented to PSU in the web browser.
+
+## Bank CIAM
+[Transmit](https://developer.transmitsecurity.com/guides/journeys_intro) is the in-house CIAM (Customer Identity and Access Management) solution. 
+It provide device management and device enrollement.
+
+### Device enrollment
+The device enrollment process allows PSU to register their device with the CIAM solution,
+to use it for SCA (Strong Customer Authentication) in the Bank Mobile App.
+
 ## Bank Mobile App
-We develop our own mobile banking application that allows customers to access their accounts, perform transactions, and manage their finances on the go.
-The app only serves as a channel for the last authentication factor in the SCA process.
-The app integrates with our ASPSP gateway and CIAM solution to provide a secure and user-friendly experience.
-The app must comply with PSD2 regulatory requirements and support strong customer authentication (SCA) methods.
-
-## SCA (Strong Customer Authentication)
-We implement SCA methods in our mobile banking application to ensure secure access to customer accounts and transactions.
+We have our own mobile banking application.
+It must integrate with our CIAM solutions to and implement SCA methods to ensure secure access to PSU's accounts and transactions.
 SCA methods include multi-factor authentication (MFA), biometric authentication, and one-time passwords (OTP).
-These methods help protect customer data and prevent unauthorized access to banking services.
 
-### In house solution
-We implement SCA methods in our mobile banking application using our own IDP and CIAM solutions.
+### SCA screen
+The SCA screen allows PSU to complete the Strong Customer Authentication process.
+It is managed by the Bank Mobile App, and must be presented to PSU on demand by the CIAM solution.
+PSU confirms his identity and his consent as a final step in the authentication process.
 
 ## PSD2 gateway
-[Finologee](https://finologee.com/psd-psd2-module/) is our PSD2 gateway provider.
-It acts as an intermediary between our ASPSP and third-party providers (TPPs), ensuring secure and compliant access to banking services.
-It implements OIDC (OpenID Connect) and OAuth 2.0 protocols for authentication and authorization, enabling TPPs to access customer accounts with proper consent.
+[Finologee](https://finologee.com/psd-psd2-module/) is the PSD2 gateway provider.
+It must act as an intermediary between our ASPSP and the third-party provider (TPP), ensuring secure and compliant access to banking services.
+It implements OIDC (OpenID Connect) and OAuth 2.0 protocols for authentication and authorization, enabling TPP to access customer accounts with PSU consent.
 
 ## PSU consent lifecycle management
-The consent lifecycle management includes features such as consent expiration, revocation, and auditing, ensuring compliance with PSD2 requirements and enhancing customer trust in our banking services.
+The consent lifecycle management includes features such as consent expiration, revocation, and auditing, 
+ensuring compliance with PSD2 requirements and enhancing customer trust in our banking services.
 
-### Consent screen
-The consent screen is a crucial component of the user consent lifecycle management process. It allows customers to grant or revoke access to their accounts for TPPs in a secure and user-friendly manner.
-It is presented in the TPP web application.
-It is not yet decided whether the frontend and backend parts of the consent screen will be implemented in our ASPSP gateway or in Finologee's PSD2 gateway.
-
-### In house solution
-The frontend and backend parts may be provided by our ASPSP gateway, which communicates with our IDP and CIAM solutions to manage customer consents.
-Our current IDP and CIAM solutions may provide a built-in user consent lifecycle management feature, which is essential for managing customer consents in compliance with PSD2 regulations.
-
-### Third-party solution
-The frontend and backend parts may be provided by Finologee's PSD2 gateway, which provides a built-in consent management feature.
-We may consider using Finologee's user consent lifecycle management feature to handle customer consents for TPPs.
-
-Finologee provides a user consent lifecycle management feature that allows customers to grant and revoke access to their accounts for TPPs.
-This feature ensures that customers have control over their data and can manage their consents in a secure manner.
+## Consent screen
+The consent screen allows PSU to grant or revoke access to their accounts for a given TPP in a secure and user-friendly manner.
+It must comply with PSD2 regulations regarding consent management.
+It must be presented to PSU in the web browser.

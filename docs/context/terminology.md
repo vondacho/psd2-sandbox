@@ -1,10 +1,10 @@
 # Terminology
 
 ## Actors
+- Bank ASPSP (Account Servicing Payment Service Provider)
 - Bank IDP (Identity Provider)
 - Bank CIAM (Customer Identity and Access Management)
-- Bank SCA Systems (Strong Customer Authentication)
-- Bank ASPSP (Account Servicing Payment Service Provider)
+- Bank SCA (Strong Customer Authentication)
 - Bank Core Banking System
 - Bank Mobile App
 - PSD2 Gateway
