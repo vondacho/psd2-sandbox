@@ -1,7 +1,7 @@
 @startsalt wf-approve-access
 ' Low-fi wireframe — SCR-CONSENT-ACCESS (web consent screen), fed by RM-CONSENT-APPROVAL.
 ' PROPOSAL, AI; iteration 4: reached after the IDP login screen; the approval is then confirmed on
-' the SCA screen in the bank app (SRC-ADR 7ed3eb1).
+' the SCA screen in the bank app (SRC-ADR).
 ' Every field maps to a read-model field; the copy is placeholder, not UX-approved (gate G1).
 ' Data: spec example consent (SRC-IG §6.3.1.1); "Sandbox AISP Ltd" is a placeholder (A-09).
 title SCR-CONSENT-ACCESS — consent screen, low-fi wireframe (proposal)

@@ -1,5 +1,5 @@
 @startuml consent-status
-' consentStatus — CTX-CONSENT, INV-CNS-01. PROPOSAL, AI, 2026-09-19. Source: SRC-IG §4.14.2, §14.15.
+' consentStatus — CTX-CONSENT, INV-CNS-01. PROPOSAL, AI. Source: SRC-IG §4.14.2, §14.15.
 ' The ASPSP may add further codes (§14.15); none are proposed.
 title consentStatus (AIS consent)
 

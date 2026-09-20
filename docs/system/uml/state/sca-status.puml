@@ -1,5 +1,5 @@
 @startuml sca-status
-' scaStatus — CTX-TXN-AUTHORISATION, INV-AUT-01. PROPOSAL, AI, 2026-09-19. Source: SRC-IG §14.16.
+' scaStatus — CTX-TXN-AUTHORISATION, INV-AUT-01. PROPOSAL, AI. Source: SRC-IG §14.16.
 ' The standard lists the codes and their meaning, not every allowed transition; the transitions
 ' below are the proposal's reading and need review (W-UML-01).
 title scaStatus (authorisation sub-resource)

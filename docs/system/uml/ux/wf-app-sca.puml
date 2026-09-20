@@ -1,8 +1,9 @@
 @startsalt wf-app-sca
-' Low-fi wireframes — SCR-APP-SCA, the bank app's SCA screen, fed by RM-SCA-PROMPT (and
-' RM-PAYMENT-APPROVAL for a payment). PROPOSAL, AI, iteration 4 (SRC-ADR 7ed3eb1: the CIAM presents
-' this screen on an enrolled device; the PSU confirms identity and consent). The payment variant is
-' where amount and payee are shown — there is no browser approval page for payments (Q-46).
+' Low-fi wireframes — SCR-APP-SCA, the bank app's SCA screen, fed by RM-SCA-PROMPT.
+' PROPOSAL, AI. SRC-ADR: the CIAM asks the app to present this screen on the enrolled device,
+' where the PSU confirms his identity with the final authentication method.
+' The payment variant is drawn with the amount and payee ONLY as one candidate answer to Q-46 —
+' SRC-ADR names no surface for them, and the bank has not chosen one.
 title SCR-APP-SCA — bank app SCA screen, low-fi wireframes (proposal)
 {
   {+
@@ -16,7 +17,7 @@ title SCR-APP-SCA — bank app SCA screen, low-fi wireframes (proposal)
     ..
     { [ Not me — reject ] | [ Confirm ] }
   } | . | {+
-    {* <b>Confirm it's you</b> }
+    {* <b>Confirm it's you</b> — payment variant, Q-46 }
     ..
     "Pay <b>123.50 EUR</b>"
     "to Merchant123"

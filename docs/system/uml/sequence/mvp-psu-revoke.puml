@@ -1,9 +1,9 @@
 @startuml mvp-psu-revoke
-' MVP-01: PSU withdraws a TPP's access on the consent screen. PROPOSAL, AI, 2026-09-19.
-' Iteration 4 (SRC-ADR 7ed3eb1): revocation happens on the consent screen in the web browser, after
-' the IDP login screen. Entry points are a proposal (Q-43); the provider is D-01 — shown in-house.
+' MVP-01: PSU withdraws a TPP's access on the consent screen, after the IDP login screen.
+' PROPOSAL, AI. Entry points are a proposal (Q-43); the screen is a Bank ASPSP surface (SRC-ADR)
+' and the consent state is drawn in house, which is the D-01 recommendation.
 ' Stories: STORY-PSU-REVOKE.
-title MVP-01 — PSU withdraws a TPP's access on the consent screen (assumes D-01 in-house)
+title MVP-01 — PSU withdraws a TPP's access on the consent screen (consent state in house, D-01)
 
 actor "Account holder" as PSU
 participant "AISP web application" as TPPW

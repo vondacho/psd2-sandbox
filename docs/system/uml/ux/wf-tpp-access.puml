@@ -1,6 +1,6 @@
 @startsalt wf-tpp-access
 ' Low-fi wireframes — SCR-CONSENT-MANAGE and SCR-CONSENT-REVOKE-CONFIRM (web consent screen), fed by
-' RM-PSU-TPP-ACCESS. PROPOSAL, AI, 2026-09-19. Iteration 3 (SRC-ADR 87c72b8): one TPP's access on
+' RM-PSU-TPP-ACCESS. PROPOSAL, AI. Iteration 3 (SRC-ADR): one TPP's access on
 ' the consent screen, replacing the in-app list/detail/confirm. Copy is placeholder.
 title Consent screen — manage one provider's access, low-fi wireframes (proposal)
 {

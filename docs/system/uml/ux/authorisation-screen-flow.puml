@@ -1,8 +1,8 @@
 @startuml authorisation-screen-flow
 ' Screen flow — authorise a TPP request (consent or payment). PROPOSAL, AI.
-' Iteration 4 (SRC-ADR 7ed3eb1): three surfaces — the IDP login screen (Ping), the consent screen
-' (provider D-01) and the SCA screen in the bank app, presented on demand by the CIAM on an enrolled
-' device. A payment has no browser approval page: it is approved on the SCA screen (Q-46, Q-48).
+' Three surfaces (SRC-ADR): the IDP login screen, the consent screen (managed by the Bank ASPSP)
+' and the SCA screen in the bank app, presented by the CIAM on the enrolled device, where the PSU
+' confirms his identity. Where a payment's amount and payee are shown is not defined (Q-46, Q-48).
 ' Screens (SCR-*) and read models (RM-*) are defined in docs/journeys/service-blueprint.md.
 title Authorise a TPP request — screens, managing component, read model
 
@@ -47,7 +47,8 @@ note left of Access
   Partial approval — Q-36. Account not held — Q-35.
 end note
 note bottom of SCA
-  For a payment the SCA screen shows amount and payee
-  (dynamic linking, INV-AUT-05, UX-01).
+  Open (Q-46): for a payment, no surface here is defined
+  as showing the amount and payee, which dynamic linking
+  requires (INV-AUT-05, UX-01, UX-09).
 end note
 @enduml

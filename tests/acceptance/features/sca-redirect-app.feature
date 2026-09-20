@@ -1,5 +1,5 @@
 # GENERATED from docs/stories/sca-redirect-app.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: ba4a151166d563445c12399b9b9232cd0c841e899afb23130db9f3527287eec9
+# source-sha256: a4322fec560e9fabe72a2fd8ee12e399814b2a41f213a5329df5b1817950e841
 # generator: tools/sdlc/examplemap_to_feature.py
 # 6 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.

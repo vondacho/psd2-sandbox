@@ -1,5 +1,5 @@
 # GENERATED from docs/stories/psu-revoke.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: 926ea5d61741547d36c19daf919cbf16722a59cbe00c287f849066101ceb0245
+# source-sha256: 8d5d38b6bf52d76a1d46dee01389d45d5b1cf685f4e8ac641bdbda039531c482
 # generator: tools/sdlc/examplemap_to_feature.py
 # 6 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.

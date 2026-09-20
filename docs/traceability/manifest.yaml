@@ -11,11 +11,13 @@ generated: 2026-09-19
 source_revision: 56c8482   # base commit the proposal was generated from
 input_revisions:
   # The decisions were made in 7ed3eb1. 44ea858 rephrased all four context documents and grew the
-  # terminology; no decision, option or open question changed, so artefact citations of "SRC-ADR
-  # 7ed3eb1" still name the revision that decided.
-  SRC-ADR: { decided: 7ed3eb1, wording: 44ea858 }
+  # terminology without changing a decision. ca518a7 rephrased the ADRs again and DID change two
+  # things: the Bank ASPSP manages the consent screen, and the SCA screen is where the PSU
+  # confirms his identity with the final authentication method (the earlier "and his consent" is
+  # gone). Artefacts therefore cite SRC-ADR as decided at ca518a7 for those two statements.
+  SRC-ADR: { decided: 7ed3eb1, wording: 44ea858, revised: ca518a7 }
   SRC-Q: { decided: 7ed3eb1, wording: 44ea858 }     # token compatibility — answered in d-02-token-compatibility.md
-  SRC-EVAL: { decided: 7ed3eb1, wording: 44ea858 }  # consent management make or buy — answered in d-01-consent-management.md
+  SRC-EVAL: { decided: 7ed3eb1, wording: 44ea858 }  # consent management make or buy — answered in d-01-consent-management.md; the screen half is settled by ca518a7 (A-19)
   SRC-TERM: { wording: 44ea858 }                    # eIDAS corrected; DCP and the three screens added
 
 conventions:
@@ -262,7 +264,7 @@ unscheduled:
   STORY-SCA-MULTILEVEL: [Q-17]
   STORY-SCA-NO-APP: [Q-21, Q-49]
   STORY-DEVICE-ENROLMENT: [Q-49]   # CIAM capability assumed to exist (A-16)
-  STORY-PSU-ACCESS-OVERVIEW: [Q-26, Q-43]   # unscheduled in iteration 3 (SRC-ADR 87c72b8): no channel
+  STORY-PSU-ACCESS-OVERVIEW: [Q-43]   # no channel shows every TPP at once
   STORY-READ-TRANSACTION-DETAILS: []
   STORY-READ-CARD-ACCOUNTS: []
   STORY-PIS-INITIATE-INSTANT: [Q-13]

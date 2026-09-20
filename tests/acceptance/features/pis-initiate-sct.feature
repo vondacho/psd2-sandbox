@@ -1,5 +1,5 @@
 # GENERATED from docs/stories/pis-initiate-sct.examplemap — do not edit; change the example map and regenerate.
-# source-sha256: c8f135f7c997566eb61d5394b725951855365d3ca4fcb57f34e4e8da5b4080d3
+# source-sha256: d079e4b6a8be5b2fb2b69666f1a7bf3fb4847b23d594323dac2c77793ee3dd95
 # generator: tools/sdlc/examplemap_to_feature.py
 # 6 open question(s) on the map have no Gherkin and are NOT represented here.
 # Status: PROPOSED examples, not yet accepted by a Three Amigos session.
@@ -49,7 +49,7 @@ Feature: Initiate a SEPA credit transfer
   # Rule R-PIS-05: The PSU approves exactly the amount and payee that were submitted
 
   @WS-01 @R-PIS-05
-  Scenario: The SCA screen shows amount and payee
+  Scenario: The amount and payee are shown before the PSU confirms
     Given payment 1234-wertiq-983 of 123.50 EUR to Merchant123, DE02100100109307118603
-    When the PSU opens the SCA screen in the bank app
-    Then the screen shows 123.50 EUR, Merchant123 and DE02100100109307118603
+    When the PSU reaches the surface on which the payment is confirmed
+    Then that surface shows 123.50 EUR, Merchant123 and DE02100100109307118603

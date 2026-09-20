@@ -1,10 +1,10 @@
 @startuml ws-01-pis-sct-redirect
-' WS-01 walking-skeleton path, PIS part; reused unchanged by MVP-01. PROPOSAL, AI, 2026-09-19.
+' WS-01 walking-skeleton path, PIS part; reused unchanged by MVP-01. PROPOSAL, AI.
 ' Stories: STORY-PIS-INITIATE-SCT, STORY-PIS-SCA-REDIRECT-APP, STORY-PIS-STATUS.
 ' Redirect, implicit start (SRC-IG §5.1.3). VoP not shown (Q-16).
-' Iteration 4 (SRC-ADR 7ed3eb1): the payment is approved on the SCA screen in the bank app, where
-' amount and payee are shown (dynamic linking). The browser carries the login screen and the
-' waiting / outcome pages only (Q-46, Q-48 — proposals awaiting confirmation).
+' SRC-ADR names no surface that shows the PSU the amount and payee before confirming, which
+' dynamic linking requires. This diagram draws them on the SCA screen as ONE candidate answer to
+' Q-46, marked as such; the browser leg is Q-48. Neither is settled.
 title WS-01 — single SEPA credit transfer with redirect SCA
 
 actor "Account holder\n(test PSU)" as PSU
@@ -30,10 +30,15 @@ PAY --> TPP : 201 transactionStatus=RCVD, paymentId,\n_links: scaRedirect, self,
 TPP -> PSU : redirect to scaRedirect
 PSU -> PING : SCR-IDP-LOGIN (login screen)
 PING --> CS : authenticated PSU — SCR-CONSENT-AWAIT-APP (Q-48)
-AUT -> CIAM : ask for SCA, amount and payee linked (INV-AUT-05)
+AUT -> CIAM : ask for SCA, subject digest of amount and payee linked (INV-AUT-05)
 CIAM -> APP : present the SCA screen
-APP -> AUT : read RM-SCA-PROMPT (amount, payee)
-PSU -> APP : confirm 123.50 EUR to Merchant123 (SCR-APP-SCA)
+note over APP
+  Q-46: which surface shows the PSU the amount
+  and payee is not defined. Drawn here on the
+  SCA screen as one candidate, not as a decision.
+end note
+APP -> AUT : read RM-SCA-PROMPT
+PSU -> APP : confirm identity (SCR-APP-SCA)
 APP -> CIAM : SCA result
 CIAM -> PING : SCA assertion
 PING -> AUT : SCA result bound to subject digest

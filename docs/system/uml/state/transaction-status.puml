@@ -1,6 +1,6 @@
 @startuml transaction-status
 ' transactionStatus for a single SEPA credit transfer — CTX-PAYMENT-INITIATION, INV-PAY-02/03.
-' PROPOSAL, AI, 2026-09-19. Source: SRC-IG §4.14.1, §5.4, §14.13. Which path the bank reports
+' PROPOSAL, AI. Source: SRC-IG §4.14.1, §5.4, §14.13. Which path the bank reports
 ' after ACTC depends on its booking type (Q-28); both candidate paths are drawn.
 title transactionStatus (single payment, proposal)
 
