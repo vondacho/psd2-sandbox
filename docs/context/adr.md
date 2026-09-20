@@ -1,58 +1,52 @@
-# Architecture Decision Record (ADR)
+# Architecture Decision Record (ADR):
 
 ## Bank ASPSP
 
-The bank builds its own ASPSP (Account Servicing Payment Service Provider) gateway.
+The bank is building its own ASPSP (Account Servicing Payment Service Provider) gateway.
 
-It gives secure access to the bank's services and APIs, and it must meet the regulatory
-requirements of PSD2 (Payment Services Directive 2).
+This provides secure access to the bank's services and APIs and must comply with the PSD2 (Payment Services Directive 2) regulatory requirements.
 
 ## Bank Core Banking System
 
-Core banking runs on **DCP (Digital Client Platform)**, the bank's in-house solution.
+The bank's in-house solution, DCP (Digital Client Platform), runs the core banking system.
 
-DCP must manage the PSU's accounts, transactions and payment services.
+The DCP must manage the PSU's accounts, transactions, and payment services.
 
 ## Bank IDP
 
-[Ping Federate](https://www.pingidentity.com/en/products/ping-federate.html) is the bank's
-in-house IDP (Identity Provider).
+PingFederate (https://www.pingidentity.com/en/products/ping-federate.html) is the bank's in-house IDP (Identity Provider).
 
-It must authenticate the PSU and manage the PSU's identity information.
+It must authenticate the PSU and manage their identity information.
 
 ### Login screen
 
 The login screen is where the PSU authenticates against the IDP.
 
-The IDP manages it in house, and it must be presented to the PSU in the web browser.
+The Bank IDP provides and manages it. It must be presented to the PSU in a web browser.
 
 ## Bank CIAM
 
-[Transmit](https://developer.transmitsecurity.com/guides/journeys_intro) is the bank's in-house
-CIAM (Customer Identity and Access Management) solution.
+Transmit is the bank's in-house CIAM (Customer Identity and Access Management) solution.
 
-It provides device management and device enrolment.
+It provides device management and enrolment.
 
-### Device enrolment
+## Device enrolment
 
-Device enrolment is how the PSU registers a device with the CIAM, so that the device can be used
-for SCA (Strong Customer Authentication) in the Bank Mobile App.
+Device enrolment is how the PSU registers a device with the Bank CIAM so that it can be used for SCA (Strong Customer Authentication) in the Bank Mobile App.
 
 ## Bank Mobile App
 
-The bank has its own mobile banking application.
+The bank has its own mobile banking app. PSU must install it on the enrolled mobile device.
 
-It must integrate with the CIAM solution and implement SCA methods, so that access to the PSU's
-accounts and transactions stays secure. These methods include multi-factor authentication (MFA),
-biometric authentication and one-time passwords (OTP).
+This must integrate with the Bank CIAM, and SCA methods must be implemented to secure access to PSU accounts and transactions. These methods include multi-factor authentication (MFA), biometric authentication and one-time passwords (OTPs).
 
 ### SCA screen
 
-The SCA screen is where the PSU completes Strong Customer Authentication.
+The SCA screen is where the PSU confirms his identity using the final authentication method, 
+completing Strong Customer Authentication.
 
-The Bank Mobile App manages it, and it must be presented to the PSU on demand from the CIAM
-solution. On that screen the PSU confirms identity and consent, as the final step of the
-authentication process.
+The Bank Mobile App manages it. It must be presented to the PSU on the enrolled mobile device
+at the request of the Bank CIAM.
 
 ## PSD2 gateway
 
@@ -65,14 +59,14 @@ consent.
 
 ## PSU consent lifecycle management
 
-Consent lifecycle management covers consent expiry, revocation and auditing.
+This covers consent expiry, revocation and auditing.
 
-It keeps the bank compliant with PSD2 and strengthens customer trust in the bank's services.
+This helps the bank to remain compliant with PSD2 and to strengthen customer trust in its services.
 
-## Consent screen
+### Consent screen
 
-The consent screen is where the PSU grants or revokes a given TPP's access to their accounts,
-securely and understandably.
+The consent screen is where the PSU securely and understandably grants or revokes a given TPP access to their accounts.
 
-It must comply with the PSD2 rules on consent management, and it must be presented to the PSU in
-the web browser.
+It must comply with PSD2 rules on consent management.
+
+The Bank ASPSP manages it. It must be presented to the PSU in a web browser.
