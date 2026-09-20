@@ -1,46 +1,72 @@
-# Architecture Decision Record (ADR)
-
-## Bank IDP
-[Ping Federate](https://www.pingidentity.com/en/products/ping-federate.html) is our commercial identity server that provides secure authentication and authorization services. 
-It supports various protocols such as SAML, OAuth, and OpenID Connect, making it suitable for enterprise-level applications.
-
-## Bank CIAM
-[Transmit](https://developer.transmitsecurity.com/guides/journeys_intro) is our chosen CIAM (Customer Identity and Access Management) solution. 
-It offers features like user registration, authentication, and profile management, ensuring a seamless user experience for our customers.
-It adds device management capabilities, allowing us to manage and secure access to our applications from different devices.
+# Architecture Decision Record (ADR):
 
 ## Bank ASPSP
-We develop our own ASPSP (Account Servicing Payment Service Provider) gateway.
-It provides secure access to banking services and APIs.
-It must comply with PSD2 (Payment Services Directive 2) regulatory requirements.
+
+The bank is building its own ASPSP (Account Servicing Payment Service Provider) gateway.
+
+This provides secure access to the bank's services and APIs and must comply with the PSD2 (Payment Services Directive 2) regulatory requirements.
+
+## Bank Core Banking System
+
+The bank's in-house solution, DCP (Digital Client Platform), runs the core banking system.
+
+The DCP must manage the PSU's accounts, transactions, and payment services.
+
+## Bank IDP
+
+PingFederate (https://www.pingidentity.com/en/products/ping-federate.html) is the bank's in-house IDP (Identity Provider).
+
+It must authenticate the PSU and manage their identity information.
+
+### Login screen
+
+The login screen is where the PSU authenticates against the IDP.
+
+The Bank IDP provides and manages it. It must be presented to the PSU in a web browser.
+
+## Bank CIAM
+
+Transmit is the bank's in-house CIAM (Customer Identity and Access Management) solution.
+
+It provides device management and enrolment.
+
+## Device enrolment
+
+Device enrolment is how the PSU registers a device with the Bank CIAM so that it can be used for SCA (Strong Customer Authentication) in the Bank Mobile App.
 
 ## Bank Mobile App
-We develop our own mobile banking application that allows customers to access their accounts, perform transactions, and manage their finances on the go. 
-The app integrates with our ASPSP gateway and CIAM solution to provide a secure and user-friendly experience.
-The app must comply with PSD2 regulatory requirements and support strong customer authentication (SCA) methods.
 
-## SCA (Strong Customer Authentication)
-We implement SCA methods in our mobile banking application to ensure secure access to customer accounts and transactions.
-SCA methods include multi-factor authentication (MFA), biometric authentication, and one-time passwords (OTP).
-These methods help protect customer data and prevent unauthorized access to banking services.
+The bank has its own mobile banking app. PSU must install it on the enrolled mobile device.
 
-### In house solution
-We implement SCA methods in our mobile banking application using our own IDP and CIAM solutions.
+This must integrate with the Bank CIAM, and SCA methods must be implemented to secure access to PSU accounts and transactions. These methods include multi-factor authentication (MFA), biometric authentication and one-time passwords (OTPs).
+
+### SCA screen
+
+The SCA screen is where the PSU confirms his identity using the final authentication method, 
+completing Strong Customer Authentication.
+
+The Bank Mobile App manages it. It must be presented to the PSU on the enrolled mobile device
+at the request of the Bank CIAM.
 
 ## PSD2 gateway
-[Finologee](https://finologee.com/psd-psd2-module/) is our PSD2 gateway provider.
-It acts as an intermediary between our ASPSP and third-party providers (TPPs), ensuring secure and compliant access to banking services.
-It implements OIDC (OpenID Connect) and OAuth 2.0 protocols for authentication and authorization, enabling TPPs to access customer accounts with proper consent.
+
+[Finologee](https://finologee.com/psd-psd2-module/) is the PSD2 gateway provider.
+
+It must sit between the bank's ASPSP and the third-party provider (TPP), keeping access to
+banking services secure and compliant. It implements OIDC (OpenID Connect) and OAuth 2.0 to
+authenticate and authorise the TPP, so that a TPP can reach customer accounts with the PSU's
+consent.
 
 ## PSU consent lifecycle management
-Not decided yet.
-The consent lifecycle management includes features such as consent expiration, revocation, and auditing, ensuring compliance with PSD2 requirements and enhancing customer trust in our banking services.
 
-### In house solution
-Our current IDP and CIAM solutions should provide a built-in user consent lifecycle management feature, which is essential for managing customer consents in compliance with PSD2 regulations.
+This covers consent expiry, revocation and auditing.
 
-### Third-party solution
-We are considering using Finologee's user consent lifecycle management feature to handle customer consents for TPPs.
+This helps the bank to remain compliant with PSD2 and to strengthen customer trust in its services.
 
-Finologee provides a user consent lifecycle management feature that allows customers to grant and revoke access to their accounts for TPPs.
-This feature ensures that customers have control over their data and can manage their consents in a secure manner.
+### Consent screen
+
+The consent screen is where the PSU securely and understandably grants or revokes a given TPP access to their accounts.
+
+It must comply with PSD2 rules on consent management.
+
+The Bank ASPSP manages it. It must be presented to the PSU in a web browser.
