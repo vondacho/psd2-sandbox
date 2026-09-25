@@ -10,47 +10,34 @@ This provides secure access to the bank's services and APIs and must comply with
 
 The bank's in-house solution, DCP (Digital Client Platform), runs the core banking system.
 
-The DCP must manage the PSU's accounts, transactions, and payment services.
-
-## Bank IDP
-
-PingFederate (https://www.pingidentity.com/en/products/ping-federate.html) is the bank's in-house IDP (Identity Provider).
-
-It must authenticate the PSU and manage their identity information.
-
-### Login screen
-
-The login screen is where the PSU authenticates against the IDP.
-
-The Bank IDP provides and manages it. It must be presented to the PSU in a web browser.
+The DCP must manage the PSU's accounts, balances, transactions, and payment services.
 
 ## Bank CIAM
 
-Transmit is the bank's in-house CIAM (Customer Identity and Access Management) solution.
+[Transmit](https://developer.transmitsecurity.com/guides/journeys_intro) is the bank's in-house CIAM (Customer Identity and Access Management) solution.
 
-It provides device management and enrolment.
+It provides device management and enrolment, Auth-N and Auth-Z.
 
-## Device enrolment
+### Device enrolment
 
-Device enrolment is how the PSU registers a device with the Bank CIAM so that it can be used for SCA (Strong Customer Authentication) in the Bank Mobile App.
+The PSU must register a device with the Bank CIAM so that it can be used for SCA (Strong Customer Authentication) in the Bank Mobile App.
 
 ## Bank Mobile App
 
-The bank has its own mobile banking app. PSU must install it on the enrolled mobile device.
+The Bank has its own mobile banking app.
 
-This must integrate with the Bank CIAM, and SCA methods must be implemented to secure access to PSU accounts and transactions. These methods include multi-factor authentication (MFA), biometric authentication and one-time passwords (OTPs).
+PSU must install it on the enrolled mobile device.
 
-### SCA screen
+This must integrate with the Bank CIAM, and implements SCA methods which include user facing, QR code scanning,
+biometric authentication, or one-time passwords.
 
-The SCA screen is where the PSU confirms his identity using the final authentication method, 
-completing Strong Customer Authentication.
+## TPP application
 
-The Bank Mobile App manages it. It must be presented to the PSU on the enrolled mobile device
-at the request of the Bank CIAM.
+The TPP application runs in a web browser.
 
 ## PSD2 gateway
 
-[Finologee](https://finologee.com/psd-psd2-module/) is the PSD2 gateway provider.
+[Finologee](https://finologee.com/psd-psd2-module/) is the PSD2/X2SA gateway provider and the OIDC/OAuth provider.
 
 It must sit between the bank's ASPSP and the third-party provider (TPP), keeping access to
 banking services secure and compliant. It implements OIDC (OpenID Connect) and OAuth 2.0 to
@@ -59,14 +46,28 @@ consent.
 
 ## PSU consent lifecycle management
 
-This covers consent expiry, revocation and auditing.
+This covers consent expiry, frequency, revocation, and auditing.
 
 This helps the bank to remain compliant with PSD2 and to strengthen customer trust in its services.
 
+### Login screen
+
+The login screen is where the PSU authenticates against the IDP.
+
+It must be presented to the PSU in a web browser.
+
 ### Consent screen
 
-The consent screen is where the PSU securely and understandably grants or revokes a given TPP access to their accounts.
+The consent screen is where the PSU grants or revokes a given TPP access to his accounts.
 
 It must comply with PSD2 rules on consent management.
 
-The Bank ASPSP manages it. It must be presented to the PSU in a web browser.
+It must be presented to the PSU in a web browser.
+
+### SCA screen
+
+The SCA screen is where the PSU confirms his identity using the final authentication method,
+completing Strong Customer Authentication.
+
+The Bank Mobile App manages it. It must be presented to the PSU on the enrolled mobile device
+at the request of the Bank CIAM.

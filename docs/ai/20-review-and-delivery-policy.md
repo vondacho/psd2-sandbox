@@ -52,7 +52,7 @@ The pack should include:
 - Components and interfaces
 - Compatibility considerations
 - Required tests
-- UX and accessibility evidence
+- UX and accessibility evidence, including the UX-sketch deck slides for every screen in the slice
 - Operational measures
 - Risks, dependencies, and unanswered questions
 
@@ -73,6 +73,15 @@ Also check:
 - Architecture relationships against agreed policies
 - Required production evidence
 
+For the mindmap and wiremd sources and their decks, also check:
+
+- Every use case map renders with Mermaid, has exactly one root, and uses the branch names that the artefact contract defines. Its `Scenarios` branch has the four kinds, `Normal`, `Related`, `Edge`, and `Error`, and exactly one `Normal` scenario. Every scenario identifier is unique across all use cases.
+- Every wireframe renders with `wiremd --style clean` and produces no warnings: no unsupported node, and no missing include.
+- Every identifier shown in a deck (use case, story, journey, screen) resolves to a source artefact.
+- Every deck names the source revision that it was generated from, and that revision matches its sources.
+- Every open question in the sources appears on the deck's closing slide.
+- Every deck opens from disk and can be navigated and printed without a server.
+
 Produce a validation report containing errors, warnings, assumptions, open questions, and decisions that require human authority.
 
 ## Human review gates
@@ -80,6 +89,8 @@ Produce a validation report containing errors, warnings, assumptions, open quest
 Route each decision to the appropriate reviewers:
 
 - Product and UX review the problem, journey, outcomes, slices, and research interpretation.
+- Product, domain experts, and compliance review the use cases through the use-case deck.
+- Product, UX, and accessibility review the screens through the UX-sketch deck, together with the owners of the systems that present them.
 - Domain experts review events, policies, language, boundaries, and invariants.
 - Product, QA, and development review rules and examples.
 - Architects and engineers review components, interfaces, compatibility, security, and operability.
@@ -96,6 +107,7 @@ The pull request should include:
 - Problem and outcome summary
 - Generated or changed artefacts
 - Instruction files and versions used
+- Links to the use-case deck and the UX-sketch deck, as the reviewers' entry points
 - Traceability and impact summary
 - Walking-skeleton and MVP proposals
 - Validation results
@@ -111,6 +123,7 @@ Automation may use the accepted revision to generate or reconcile:
 - Contextualised tickets
 - Executable scenarios and test data
 - Architecture views and documentation portals
+- The use-case deck and the UX-sketch deck, whenever their sources change
 - Interface mocks and compatibility tests
 - Delivery configuration and policy checks
 - Links to runtime signals and production evidence

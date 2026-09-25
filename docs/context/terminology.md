@@ -2,21 +2,24 @@
 
 ## Actors
 
-- Bank ASPSP — Account Servicing Payment Service Provider
-- Bank IDP — Identity Provider
+- PSU - Payment Service User
+- TPP - Third-Party Provider
+- Bank X2SA — XS2A API that makes the Bank an ASPSP — Account Servicing Payment Service Provider
 - Bank CIAM — Customer Identity and Access Management
 - Bank SCA — Strong Customer Authentication
+- Bank IDP — Identity Provider
 - Bank Core Banking System — DCP
 - Bank Mobile App
-- PSD2 Gateway
+- OIDC/OAuth provider
+- PSD2 X2SA Gateway
 - PSD2 Authenticator — TPP authentication
 - PSD2 Consent Manager — PSU consent lifecycle management
 
 ## Screens
 
-- Login screen — where the PSU authenticates against the IDP, in the web browser
-- Consent screen — where the PSU grants or revokes a given TPP's access to their accounts, in the web browser
-- SCA screen — where the PSU completes Strong Customer Authentication in the Bank Mobile App, presented on demand from the CIAM
+- Login screen — where the PSU authenticates against the CIAM, in the web browser
+- Consent screen — where the PSU grants or revokes a given TPP's access to his accounts, in the web browser
+- SCA screen — displayed on demand by the CIAM, where the PSU completes Strong Customer Authentication on the Bank Mobile App.
 
 ## Protocols
 
@@ -37,8 +40,8 @@
 - **PSU** — Payment Service User
 - **TPP** — Third-Party Provider
 - **ASPSP** — Account Servicing Payment Service Provider
-- **AISP** — Account Information Service Provider
-- **PISP** — Payment Initiation Service Provider
-- **PIISP** — Payment Instrument Issuer Service Provider
-- **XS2A** — Access to Account
+- **AISP** — One TPP may be an Account Information Service Provider
+- **PISP** — One TPP may be a Payment Initiation Service Provider
+- **PIISP** — One TPP may be a Payment Instrument Issuer Service Provider
+- **XS2A** — PSD2 compliant API contract for accessing and operating bank accounts
 - **DCP** — Digital Client Platform, the bank's in-house core banking solution
